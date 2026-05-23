@@ -1,0 +1,22 @@
+# System & environment
+.env
+.venv
+venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+.vscode-server/
+.cache/
+.local/
+.bun/
+.npm/
+.config/
+.bash_history
+.bashrc
+.bash_logout
+.profile
+.python_history
+graphify-out/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/

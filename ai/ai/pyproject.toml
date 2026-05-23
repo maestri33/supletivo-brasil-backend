@@ -1,0 +1,17 @@
+[project]
+name = "ai"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "elevenlabs>=2.46.0",
+    "fastapi>=0.136.1",
+    "google-cloud-vision>=3.7.0",
+    "google-genai>=2.0.1",
+    "httpx>=0.28.1",
+    "pydantic-settings>=2.14.1",
+    "python-multipart>=0.0.28",
+    "structlog>=25.5.0",
+    "uvicorn>=0.46.0",
+]

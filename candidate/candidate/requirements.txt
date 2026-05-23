@@ -1,0 +1,11 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.32,<1
+tortoise-orm>=0.22,<1
+pydantic>=2,<3
+pydantic-settings>=2,<3
+httpx>=0.28,<1
+pyjwt>=2,<3
+cryptography>=44,<45
+structlog>=25,<26
+fastapi-structured-logging>=0.5,<1
+python-dotenv>=1,<2

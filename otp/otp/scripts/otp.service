@@ -1,0 +1,25 @@
+[Unit]
+Description=OTP Microservice — geração e validação de códigos descartáveis
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=root
+WorkingDirectory=/root/otp
+EnvironmentFile=/root/otp/.env
+ExecStart=/root/.local/bin/uv run uvicorn app.main:app --host 0.0.0.0 --port 80 --workers 2
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=otp
+
+# Hardening mínimo (DMZ — sem reforço por enquanto)
+NoNewPrivileges=no
+PrivateTmp=no
+ProtectSystem=no
+ProtectHome=no
+
+[Install]
+WantedBy=multi-user.target

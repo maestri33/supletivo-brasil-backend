@@ -1,0 +1,31 @@
+# Ambiente virtual
+.venv/
+
+# SQLite — banco local, cada dev tem o seu
+sqlite/
+
+# PyCache
+__pycache__/
+*.pyc
+*.pyo
+
+# Build
+*.egg-info/
+dist/
+build/
+
+# Env — contem secrets, so' .env.example vai pro git
+.env
+
+# Chaves RSA — geradas no boot, nao vao pro git
+*.pem
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

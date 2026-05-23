@@ -1,0 +1,42 @@
+[project]
+name = "asaas-app"
+version = "0.1.0"
+description = "Middleware de pagamentos PIX sobre a API Asaas v3"
+requires-python = ">=3.12"
+
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy>=2.0",
+    "psycopg2-binary>=2.9",
+    "alembic>=1.14",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.5",
+    "httpx>=0.27",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "ASYNC"]
+ignore = [
+    "B008",    # Depends(get_session) é o padrao FastAPI
+    "N818",    # DomainError, ValidationError etc. seguem convencao nossa
+]
+
+[tool.ruff.lint.per-file-ignores]
+"app/api/config.py" = ["E501"]
+"app/api/webhook.py" = ["ASYNC212"]
+"app/main.py" = ["E501"]

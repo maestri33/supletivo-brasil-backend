@@ -1,0 +1,141 @@
+"""Entrypoint FastAPI — lifespan, CORS, middleware, exception handler."""
+
+import time
+from contextlib import asynccontextmanager
+
+import fastapi_structured_logging
+import redis.asyncio as aioredis
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.api.router import api_router
+from app.config import Environment, get_settings
+from app.exceptions import DomainError
+from app.utils import logging as logs_tool
+
+settings = get_settings()
+
+fastapi_structured_logging.setup_logging(
+    json_logs=(settings.ENVIRONMENT != Environment.DEVELOPMENT),
+    log_level="DEBUG" if settings.ENVIRONMENT == Environment.DEVELOPMENT else "INFO",
+)
+
+logger = fastapi_structured_logging.get_logger()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if settings.REDIS_URL:
+        try:
+            app.state.redis = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+        except Exception:
+            app.state.redis = None
+    else:
+        app.state.redis = None
+    yield
+    if app.state.redis:
+        await app.state.redis.aclose()
+
+
+app_configs: dict = {
+    "title": "Auth Service",
+    "version": settings.APP_VERSION,
+    "lifespan": lifespan,
+}
+
+if settings.ENVIRONMENT not in (Environment.DEVELOPMENT, Environment.STAGING):
+    app_configs["openapi_url"] = None
+
+app = FastAPI(**app_configs)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=bool(settings.CORS_ORIGINS),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(api_router)
+
+# ── Structured access logging ───────────────────────────────
+
+access_config = fastapi_structured_logging.AccessLogConfig(
+    log_level="info",
+    exclude_paths={"/health", "/ready", "/api/v1/log"},
+    custom_fields={"app_version": settings.APP_VERSION},
+)
+
+app.add_middleware(
+    fastapi_structured_logging.AccessLogMiddleware,
+    config=access_config,
+)
+
+# ── Global exception handler ───────────────────────────────────
+
+@app.exception_handler(DomainError)
+async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail, "code": exc.code},
+    )
+
+
+# ── Redis log storage middleware ───────────────────────────────
+
+SENSITIVE_FIELDS = {
+    "otp_code", "refresh_token", "access_token", "password",
+    "secret", "token", "code", "key",
+}
+
+
+def _sanitize_body(body: dict | None) -> dict | None:
+    if not isinstance(body, dict):
+        return body
+    return {k: ("***" if k in SENSITIVE_FIELDS else v) for k, v in body.items()}
+
+
+@app.middleware("http")
+async def store_log_in_redis(request: Request, call_next):
+    start = time.monotonic()
+    body = None
+    if request.method in ("POST", "PUT", "PATCH"):
+        try:
+            body = await request.json()
+        except Exception:
+            pass
+
+    response = await call_next(request)
+    duration_ms = int((time.monotonic() - start) * 1000)
+
+    try:
+        if request.url.path != "/api/v1/log":
+            redis = getattr(request.app.state, "redis", None)
+            await logs_tool.store_log(
+                redis,
+                direction="in",
+                service="auth",
+                method=request.method,
+                path=request.url.path,
+                status=response.status_code,
+                request_body=_sanitize_body(body),
+                response_body=None,
+                duration_ms=duration_ms,
+            )
+    except Exception:
+        pass
+
+    return response
+
+
+# ── Health / Ready ─────────────────────────────────────────
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "version": settings.APP_VERSION}
+
+
+@app.get("/ready")
+async def ready():
+    return {"status": "ready"}

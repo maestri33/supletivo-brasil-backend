@@ -1,0 +1,36 @@
+[project]
+name = "jwt"
+version = "1.0.0"
+description = "Microsservico de emissao e gerenciamento de tokens JWT"
+requires-python = ">=3.10"
+readme = "README.md"
+
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pyjwt[crypto]>=2.8",
+    "cryptography>=41",
+    "pydantic>=2.8",
+    "pydantic-settings>=2.5",
+    "structlog>=24.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "ASYNC"]

@@ -1,0 +1,19 @@
+"""Agrega todos os routers da API v1 e expoe o webhook na raiz."""
+
+from fastapi import APIRouter
+
+from .charge import router as charge_router
+from .config import router as config_router
+from .payment import router as payment_router
+from .pixkey import router as pixkey_router
+from .webhook import router as webhook_router
+
+api_router = APIRouter(prefix="/api/v1")
+api_router.include_router(config_router)
+api_router.include_router(payment_router)
+api_router.include_router(pixkey_router)
+api_router.include_router(charge_router)
+
+# Webhook e security-validator ficam na raiz (Asaas chama URLs fixas)
+root_router = APIRouter()
+root_router.include_router(webhook_router)

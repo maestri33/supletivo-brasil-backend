@@ -1,0 +1,106 @@
+"""Entrypoint FastAPI — notify (SQLAlchemy 2)."""
+
+import os
+import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+
+from app.api.router import api_router
+from app.config import get_settings
+from app.db import async_session_maker, close_db
+from app.exceptions import DomainError
+from app.services import metrics_service, template_service
+from app.utils.logging import configure_logging, get_logger
+
+settings = get_settings()
+configure_logging(settings.log_level, json_mode=settings.env != "dev")
+log = get_logger(__name__)
+
+_started_at = time.time()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    log.info("service.startup", service=settings.service_name, env=settings.env)
+    try:
+        await template_service.bootstrap_from_disk_if_needed()
+    except Exception as exc:  # noqa: BLE001 — bootstrap nao pode bloquear startup
+        log.warning("template.bootstrap_failed", error=str(exc))
+    try:
+        yield
+    finally:
+        await close_db()
+        log.info("service.shutdown")
+
+
+app = FastAPI(
+    title=settings.service_name,
+    version="0.5.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.exception_handler(DomainError)
+async def _handle_domain_error(request: Request, exc: DomainError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"code": exc.code, "message": exc.message},
+    )
+
+
+# ── Convenção v7m: /health, /ready, /status no root ───────────────────────
+
+
+@app.get("/health")
+async def health() -> dict:
+    return {"status": "ok", "service": settings.service_name}
+
+
+@app.get("/ready")
+async def ready() -> dict:
+    try:
+        async with async_session_maker() as session:
+            await session.execute(text("SELECT 1"))
+        return {"status": "ok", "service": settings.service_name, "db": "ok"}
+    except Exception:
+        return {"status": "not_ready", "db": "unreachable"}
+
+
+@app.get("/status")
+async def status() -> dict:
+    """Status + uptime + metricas agregadas (24h por padrao).
+
+    Use `window_hours` query param para outra janela:
+      GET /status?window_hours=1
+    """
+    return {
+        "status": "ok",
+        "service": settings.service_name,
+        "version": app.version,
+        "environment": settings.env,
+        "uptime_seconds": int(time.time() - _started_at),
+        "metrics": await metrics_service.status_snapshot(window_hours=24),
+    }
+
+
+# ── Routers e media ───────────────────────────────────────────────────────
+
+
+app.include_router(api_router, prefix="/api/v1")
+
+os.makedirs("media", exist_ok=True)
+app.mount("/media", StaticFiles(directory="media"), name="media")

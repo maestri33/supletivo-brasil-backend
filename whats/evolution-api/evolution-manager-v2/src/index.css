@@ -1,0 +1,88 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --gradient: #093028;
+    --background: 178 98.4% 98.22%;
+    --foreground: 178 6.800000000000001% 0.44%;
+
+    --muted: 178 6.800000000000001% 91.1%;
+    --muted-foreground: 178 3.4000000000000004% 41.1%;
+
+    --popover: 178 35.599999999999994% 91.1%;
+    --popover-foreground: 178 6.800000000000001% 0.55%;
+
+    --card: 178 35.599999999999994% 91.1%;
+    --card-foreground: 178 6.800000000000001% 0.55%;
+
+    --border: 178 11.8% 89.44%;
+    --input: 178 11.8% 89.44%;
+
+    --primary: 178 68% 11%;
+    --primary-foreground: 178 1.36% 91.1%;
+
+    --secondary: 178 3.4000000000000004% 95.55%;
+    --secondary-foreground: 178 5.08% 11.1%;
+
+    --accent: 178 3.4000000000000004% 95.55%;
+    --accent-foreground: 178 5.08% 11.1%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --ring: 178 68% 11%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --gradient: #189d68;
+
+    --background: 166 47.449999999999996% 2.88%;
+    --foreground: 166 7.3% 96.8%;
+
+    --muted: 166 36.5% 10.799999999999999%;
+    --muted-foreground: 166 7.3% 53.6%;
+
+    --popover: 166 50.4% 4.68%;
+    --popover-foreground: 166 7.3% 96.8%;
+
+    --card: 166 50.4% 4.68%;
+    --card-foreground: 166 7.3% 96.8%;
+
+    --border: 166 36.5% 10.799999999999999%;
+    --input: 166 36.5% 10.799999999999999%;
+
+    --primary: 166 73% 36%;
+    --primary-foreground: 166 7.3% 96.8%;
+
+    --secondary: 166 36.5% 10.799999999999999%;
+    --secondary-foreground: 166 7.3% 96.8%;
+
+    --accent: 166 36.5% 10.799999999999999%;
+    --accent-foreground: 166 7.3% 96.8%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 166 7.3% 96.8%;
+
+    --ring: 166 73% 36%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Inter", sans-serif;
+
+    /* scrollbar invisible */
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+}

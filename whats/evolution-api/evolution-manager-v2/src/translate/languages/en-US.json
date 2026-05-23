@@ -1,0 +1,1439 @@
+{
+  "dashboard": {
+    "title": "Instances",
+    "search": "Search",
+    "status": "Status",
+    "settings": "Settings",
+    "instancesNotFound": "No instances found"
+  },
+  "button": {
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "cancel": "Cancel",
+    "markAll": "Mark All",
+    "unMarkAll": "Unmark All"
+  },
+  "modal": {
+    "delete": {
+      "title": "Delete Record",
+      "message": "You are about to delete the instance {{instanceName}}, Are you sure you want to continue?",
+      "messageSingle": "This action cannot be undone"
+    }
+  },
+  "status": {
+    "all": "All",
+    "open": "Connected",
+    "connecting": "Connecting",
+    "closed": "Disconnected"
+  },
+  "footer": {
+    "clientName": "Client name",
+    "version": "Version"
+  },
+  "header": {
+    "theme": {
+      "label": "Toggle theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "language": {
+      "label": "Language",
+      "english": "English",
+      "portuguese": "Portuguese",
+      "spanish": "Spanish",
+      "french": "French"
+    }
+  },
+  "chat": {
+    "media": {
+      "attach": "Attach file",
+      "document": "Document",
+      "photosAndVideos": "Photos and Videos",
+      "errors": {
+        "audioSize": "Audio file size must be less than 16 MB",
+        "imageSize": "Image file size must be less than 5 MB",
+        "videoSize": "Video file size must be less than 16 MB",
+        "documentSize": "Document file size must be less than 100 MB",
+        "unsupportedType": "Unsupported file type"
+      },
+      "selectedMedia": {
+        "imageAlt": "Selected image",
+        "file": "File",
+        "selectedFile": "Selected file"
+      }
+    }
+  },
+  "sidebar": {
+    "dashboard": "Dashboard",
+    "chat": "Chat",
+    "configurations": "Configurations",
+    "settings": "Settings",
+    "proxy": "Proxy",
+    "events": "Events",
+    "webhook": "Webhook",
+    "websocket": "WebSocket",
+    "rabbitmq": "RabbitMQ",
+    "sqs": "SQS",
+    "integrations": "Integrations",
+    "chatwoot": "Chatwoot",
+    "typebot": "Typebot",
+    "openai": "OpenAI",
+    "dify": "Dify",
+    "n8n": "n8n",
+    "evoai": "EvoAI",
+    "evolutionBot": "Evolution Bot",
+    "flowise": "Flowise",
+    "documentation": "Documentation",
+    "postman": "Postman",
+    "discord": "Discord",
+    "supportPremium": "Support Premium"
+  },
+  "toast": {
+    "instance": {
+      "created": "Instance created successfully",
+      "deleted": "Instance deleted successfully",
+      "error": "An error occurred while creating the instance"
+    }
+  },
+  "login": {
+    "title": "Evolution Manager",
+    "description": "Please enter your credentials to continue",
+    "form": {
+      "serverUrl": "Server URL",
+      "apiKey": "API Key Global"
+    },
+    "message": {
+      "invalidServer": "Invalid server",
+      "invalidCredentials": "Invalid credentials"
+    },
+    "button": {
+      "login": "Login"
+    }
+  },
+  "instance": {
+    "modal": {
+      "title": "New instance"
+    },
+    "form": {
+      "name": "Name",
+      "integration": {
+        "label": "Channel",
+        "baileys": "Baileys",
+        "whatsapp": "WhatsApp Cloud API",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "evolution": "Evolution"
+      },
+      "token": "Token",
+      "number": "Number",
+      "businessId": "Business ID"
+    },
+    "button": {
+      "save": "Save",
+      "saving": "Saving...",
+      "create": "Instance",
+      "connecting": "Connecting...",
+      "facebook": "Connect with Facebook",
+      "instagram": "Connect with Instagram",
+      "whatsapp": "Connect with WhatsApp"
+    },
+    "dashboard": {
+      "button": {
+        "qrcode": {
+          "label": "Get QR Code",
+          "title": "Scan the QR code with your WhatsApp Web"
+        },
+        "pairingCode": {
+          "label": "Get Pairing Code",
+          "title": "Get the pairing code to connect with WhatsApp"
+        },
+        "restart": "Restart",
+        "disconnect": "Disconnect"
+      },
+      "alert": "To connect, scan the QR code with your WhatsApp Web",
+      "contacts": "Contacts",
+      "chats": "Chats",
+      "messages": "Messages"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "toast": {
+      "success": "Settings applied successfully",
+      "error": "An error occurred while applying the settings"
+    },
+    "form": {
+      "rejectCall": {
+        "label": "Reject Calls",
+        "description": "Reject all incoming calls"
+      },
+      "msgCall": {
+        "label": "Message Reject Call",
+        "description": "Send a message when rejecting a call"
+      },
+      "groupsIgnore": {
+        "label": "Ignore Groups",
+        "description": "Ignore all messages from groups"
+      },
+      "alwaysOnline": {
+        "label": "Always Online",
+        "description": "Keep the whatsapp always online"
+      },
+      "readMessages": {
+        "label": "Read Messages",
+        "description": "Mark all messages as read"
+      },
+      "syncFullHistory": {
+        "label": "Sync Full History",
+        "description": "Sync all complete chat history on scan QR code"
+      },
+      "readStatus": {
+        "label": "Read Status",
+        "description": "Mark all statuses as read"
+      }
+    },
+    "button": {
+      "save": "Save",
+      "saving": "Saving..."
+    }
+  },
+  "proxy": {
+    "title": "Proxy",
+    "toast": {
+      "success": "Proxy applied successfully",
+      "error": "An error occurred while applying the proxy"
+    },
+    "form": {
+      "enabled": {
+        "label": "Enabled",
+        "description": "Enable or disable the proxy"
+      },
+      "protocol": {
+        "label": "Protocol"
+      },
+      "host": {
+        "label": "Host"
+      },
+      "port": {
+        "label": "Port"
+      },
+      "username": {
+        "label": "Username"
+      },
+      "password": {
+        "label": "Password"
+      }
+    },
+    "button": {
+      "save": "Save",
+      "saving": "Saving..."
+    }
+  },
+  "webhook": {
+    "title": "Webhook",
+    "toast": {
+      "success": "Webhook applied successfully",
+      "error": "An error occurred while applying the webhook"
+    },
+    "form": {
+      "enabled": {
+        "label": "Enabled",
+        "description": "Enable or disable the webhook"
+      },
+      "url": {
+        "label": "URL"
+      },
+      "byEvents": {
+        "label": "Webhook by Events",
+        "description": "Create a route for each event by adding the event name to the end of the URL"
+      },
+      "base64": {
+        "label": "Webhook Base64",
+        "description": "Send media base64 data in webhook"
+      },
+      "events": {
+        "label": "Events"
+      }
+    },
+    "button": {
+      "save": "Save",
+      "saving": "Saving..."
+    }
+  },
+  "websocket": {
+    "title": "Websocket",
+    "toast": {
+      "success": "Websocket applied successfully",
+      "error": "An error occurred while applying the websocket"
+    },
+    "form": {
+      "enabled": {
+        "label": "Enabled",
+        "description": "Enable or disable the websocket"
+      },
+      "events": {
+        "label": "Events"
+      }
+    },
+    "button": {
+      "save": "Save",
+      "saving": "Saving..."
+    }
+  },
+  "rabbitmq": {
+    "title": "RabbitMQ",
+    "toast": {
+      "success": "RabbitMQ applied successfully",
+      "error": "An error occurred while applying the rabbitmq"
+    },
+    "form": {
+      "enabled": {
+        "label": "Enabled",
+        "description": "Enable or disable the rabbitmq"
+      },
+      "events": {
+        "label": "Events"
+      }
+    },
+    "button": {
+      "save": "Save",
+      "saving": "Saving..."
+    }
+  },
+  "sqs": {
+    "title": "SQS",
+    "toast": {
+      "success": "SQS applied successfully",
+      "error": "An error occurred while applying the sqs"
+    },
+    "form": {
+      "enabled": {
+        "label": "Enabled",
+        "description": "Enable or disable the sqs"
+      },
+      "events": {
+        "label": "Events"
+      }
+    },
+    "button": {
+      "save": "Save",
+      "saving": "Saving..."
+    }
+  },
+  "chatwoot": {
+    "title": "Chatwoot",
+    "toast": {
+      "success": "Chatwoot applied successfully",
+      "error": "An error occurred while applying the Chatwoot"
+    },
+    "form": {
+      "enabled": {
+        "label": "Enabled",
+        "description": "Enable or disable the sqs"
+      },
+      "url": {
+        "label": "Chatwoot URL"
+      },
+      "accountId": {
+        "label": "Account ID"
+      },
+      "token": {
+        "label": "Token"
+      },
+      "signMsg": {
+        "label": "Sign Messages",
+        "description": "Sign message with chatwoot username"
+      },
+      "signDelimiter": {
+        "label": "Sign Delimiter"
+      },
+      "nameInbox": {
+        "label": "Name Inbox"
+      },
+      "organization": {
+        "label": "Organization"
+      },
+      "logo": {
+        "label": "Logo"
+      },
+      "conversationPending": {
+        "label": "Conversation Pending",
+        "description": "Conversations start as pending"
+      },
+      "reopenConversation": {
+        "label": "Reopen Conversation",
+        "description": "Reopen conversation when receiving message"
+      },
+      "importContacts": {
+        "label": "Import Contacts",
+        "description": "Import contacts from WhatsApp address book by connecting QR Code"
+      },
+      "importMessages": {
+        "label": "Import Messages",
+        "description": "Import messages from WhatsApp by connecting QR Code"
+      },
+      "daysLimitImportMessages": {
+        "label": "Days Limit Import Messages"
+      },
+      "ignoreJids": {
+        "label": "Ignore Jids",
+        "placeholder": "Add JIDs ex: 1234567890@s.whatsapp.net and press enter"
+      },
+      "autoCreate": {
+        "label": "Auto Create",
+        "description": "Automatically create chatwoot integration on save"
+      }
+    },
+    "button": {
+      "save": "Save",
+      "saving": "Saving..."
+    }
+  },
+  "typebot": {
+    "title": "Typebots",
+    "sessions": {
+      "label": "Sessions",
+      "search": "Search for remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Push Name",
+        "sessionId": "Session ID",
+        "status": "Status",
+        "actions": {
+          "title": "Actions",
+          "open": "Open",
+          "pause": "Pause",
+          "close": "Close",
+          "delete": "Delete"
+        },
+        "none": "Nothing to show"
+      }
+    },
+    "defaultSettings": "Default Settings",
+    "toast": {
+      "defaultSettings": {
+        "success": "Default settings applied successfully",
+        "error": "An error occurred while applying the default settings"
+      },
+      "success": {
+        "update": "Typebot updated successfully",
+        "create": "Typebot created successfully",
+        "delete": "Typebot deleted successfully",
+        "status": "Typebot status updated successfully"
+      },
+      "error": "An error occurred while creating the Typebot"
+    },
+    "table": {
+      "none": "Nothing to show"
+    },
+    "form": {
+      "title": "New Typebot",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "I'm sorry, I didn't understand. Can you try again?"
+      },
+      "enabled": {
+        "label": "Enabled"
+      },
+      "description": {
+        "label": "Description"
+      },
+      "typebotSettings": {
+        "label": "Typebot Settings"
+      },
+      "url": {
+        "label": "Typebot API URL"
+      },
+      "typebot": {
+        "label": "Typebot Public Name"
+      },
+      "triggerSettings": {
+        "label": "Trigger Settings"
+      },
+      "triggerType": {
+        "label": "Trigger Type",
+        "keyword": "Keyword",
+        "all": "All",
+        "advanced": "Advanced",
+        "none": "None"
+      },
+      "triggerOperator": {
+        "label": "Trigger Operator",
+        "contains": "Contains",
+        "equals": "Equals",
+        "startsWith": "Starts With",
+        "endsWith": "Ends With",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Trigger"
+      },
+      "triggerConditions": {
+        "label": "Conditions"
+      },
+      "typebotIdFallback": {
+        "label": "Typebot Fallback"
+      },
+      "generalSettings": {
+        "label": "General Settings"
+      },
+      "expire": {
+        "label": "Expire in minutes"
+      },
+      "keywordFinish": {
+        "label": "Keyword Finish"
+      },
+      "delayMessage": {
+        "label": "Default Delay Message"
+      },
+      "unknownMessage": {
+        "label": "Unknown Message"
+      },
+      "listeningFromMe": {
+        "label": "Listening from me",
+        "description": "Listen to messages sent by me on the bot"
+      },
+      "stopBotFromMe": {
+        "label": "Stop bot from me",
+        "description": "Pause the bot when I send a message"
+      },
+      "keepOpen": {
+        "label": "Keep open",
+        "description": "Keep the bot open after the conversation ends"
+      },
+      "debounceTime": {
+        "label": "Debounce Time"
+      },
+      "splitMessages": {
+        "label": "Split Messages",
+        "description": "Split messages into multiple messages"
+      },
+      "timePerChar": {
+        "label": "Time per character"
+      },
+      "ignoreJids": {
+        "label": "Ignore Jids",
+        "placeholder": "Add JIDs ex: 1234567890@s.whatsapp.net and press enter"
+      }
+    },
+    "button": {
+      "create": "Typebot",
+      "save": "Save",
+      "saving": "Saving...",
+      "update": "Update",
+      "defaultSettings": "Default Settings",
+      "delete": "Delete"
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Default Settings"
+      }
+    }
+  },
+  "openai": {
+    "title": "OpenAI",
+    "sessions": {
+      "label": "Sessions",
+      "search": "Search for remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Push Name",
+        "sessionId": "Session ID",
+        "status": "Status",
+        "actions": {
+          "title": "Actions",
+          "open": "Open",
+          "pause": "Pause",
+          "close": "Close",
+          "delete": "Delete"
+        },
+        "none": "Nothing to show"
+      }
+    },
+    "credentials": {
+      "title": "Credentials",
+      "table": {
+        "name": "Name",
+        "apiKey": "API Key",
+        "actions": {
+          "title": "Actions",
+          "delete": "Delete"
+        },
+        "none": "Nothing to show"
+      }
+    },
+    "defaultSettings": "Default Settings",
+    "toast": {
+      "defaultSettings": {
+        "success": "Default settings applied successfully",
+        "error": "An error occurred while applying the default settings"
+      },
+      "success": {
+        "update": "OpenAI updated successfully",
+        "create": "OpenAI created successfully",
+        "delete": "OpenAI deleted successfully",
+        "status": "OpenAI status updated successfully",
+        "credentialsCreate": "OpenAI credentials created successfully",
+        "credentialsDelete": "OpenAI credentials deleted successfully"
+      },
+      "error": "An error occurred while creating the OpenAI"
+    },
+    "table": {
+      "none": "Nothing to show"
+    },
+    "form": {
+      "title": "New OpenAI",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "I'm sorry, I didn't understand. Can you try again?"
+      },
+      "openaiCredsId": {
+        "label": "OpenAI Credentials"
+      },
+      "enabled": {
+        "label": "Enabled"
+      },
+      "description": {
+        "label": "Description"
+      },
+      "openaiSettings": {
+        "label": "OpenAI Settings"
+      },
+      "botType": {
+        "label": "Bot Type",
+        "assistant": "Assistant",
+        "chatCompletion": "Chat Completion"
+      },
+      "assistantId": {
+        "label": "Assistant ID"
+      },
+      "functionUrl": {
+        "label": "Function URL"
+      },
+      "model": {
+        "label": "Language Model"
+      },
+      "systemMessages": {
+        "label": "System Messages",
+        "description": "Send system messages to OpenAI"
+      },
+      "assistantMessages": {
+        "label": "Assistant Messages",
+        "description": "Send assistant messages to OpenAI"
+      },
+      "userMessages": {
+        "label": "User Messages",
+        "description": "Send user messages to OpenAI"
+      },
+      "maxTokens": {
+        "label": "Max Tokens"
+      },
+      "triggerSettings": {
+        "label": "Trigger Settings"
+      },
+      "triggerType": {
+        "label": "Trigger Type",
+        "keyword": "Keyword",
+        "all": "All",
+        "advanced": "Advanced",
+        "none": "None"
+      },
+      "triggerOperator": {
+        "label": "Trigger Operator",
+        "contains": "Contains",
+        "equals": "Equals",
+        "startsWith": "Starts With",
+        "endsWith": "Ends With",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Trigger"
+      },
+      "triggerConditions": {
+        "label": "Conditions"
+      },
+      "openaiIdFallback": {
+        "label": "OpenAI Fallback"
+      },
+      "generalSettings": {
+        "label": "General Settings"
+      },
+      "expire": {
+        "label": "Expire in minutes"
+      },
+      "keywordFinish": {
+        "label": "Keyword Finish"
+      },
+      "delayMessage": {
+        "label": "Default Delay Message"
+      },
+      "unknownMessage": {
+        "label": "Unknown Message"
+      },
+      "listeningFromMe": {
+        "label": "Listening from me",
+        "description": "Listen to messages sent by me on the bot"
+      },
+      "stopBotFromMe": {
+        "label": "Stop bot from me",
+        "description": "Pause the bot when I send a message"
+      },
+      "keepOpen": {
+        "label": "Keep open",
+        "description": "Keep the bot open after the conversation ends"
+      },
+      "speechToText": {
+        "label": "Speech to Text",
+        "description": "Convert voice messages to text"
+      },
+      "debounceTime": {
+        "label": "Debounce Time"
+      },
+      "splitMessages": {
+        "label": "Split Messages",
+        "description": "Split messages into multiple messages"
+      },
+      "timePerChar": {
+        "label": "Time per character"
+      },
+      "ignoreJids": {
+        "label": "Ignore Jids",
+        "placeholder": "Add JIDs ex: 1234567890@s.whatsapp.net and press enter"
+      }
+    },
+    "button": {
+      "create": "OpenAI",
+      "save": "Save",
+      "saving": "Saving...",
+      "update": "Update",
+      "defaultSettings": "Default Settings",
+      "delete": "Delete",
+      "loadModels": "Load Models",
+      "loading": "Loading..."
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Default Settings"
+      }
+    }
+  },
+  "dify": {
+    "title": "Dify",
+    "sessions": {
+      "label": "Sessions",
+      "search": "Search for remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Push Name",
+        "sessionId": "Session ID",
+        "status": "Status",
+        "actions": {
+          "title": "Actions",
+          "open": "Open",
+          "pause": "Pause",
+          "close": "Close",
+          "delete": "Delete"
+        },
+        "none": "Nothing to show"
+      }
+    },
+    "defaultSettings": "Default Settings",
+    "toast": {
+      "defaultSettings": {
+        "success": "Default settings applied successfully",
+        "error": "An error occurred while applying the default settings"
+      },
+      "success": {
+        "update": "Dify updated successfully",
+        "create": "Dify created successfully",
+        "delete": "Dify deleted successfully",
+        "status": "Dify status updated successfully"
+      },
+      "error": "An error occurred while creating the Dify"
+    },
+    "table": {
+      "none": "Nothing to show"
+    },
+    "form": {
+      "title": "New Dify",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "I'm sorry, I didn't understand. Can you try again?"
+      },
+      "enabled": {
+        "label": "Enabled"
+      },
+      "description": {
+        "label": "Description"
+      },
+      "difySettings": {
+        "label": "Dify Settings"
+      },
+      "botType": {
+        "label": "Bot Type",
+        "chatBot": "Chat Bot",
+        "textGenerator": "Text Generator",
+        "agent": "Agent",
+        "workflow": "Workflow"
+      },
+      "apiUrl": {
+        "label": "API URL"
+      },
+      "apiKey": {
+        "label": "API Key"
+      },
+      "triggerSettings": {
+        "label": "Trigger Settings"
+      },
+      "triggerType": {
+        "label": "Trigger Type",
+        "keyword": "Keyword",
+        "all": "All",
+        "advanced": "Advanced",
+        "none": "None"
+      },
+      "triggerOperator": {
+        "label": "Trigger Operator",
+        "contains": "Contains",
+        "equals": "Equals",
+        "startsWith": "Starts With",
+        "endsWith": "Ends With",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Trigger"
+      },
+      "triggerConditions": {
+        "label": "Conditions"
+      },
+      "difyIdFallback": {
+        "label": "Dify Fallback"
+      },
+      "generalSettings": {
+        "label": "General Settings"
+      },
+      "expire": {
+        "label": "Expire in minutes"
+      },
+      "keywordFinish": {
+        "label": "Keyword Finish"
+      },
+      "delayMessage": {
+        "label": "Default Delay Message"
+      },
+      "unknownMessage": {
+        "label": "Unknown Message"
+      },
+      "listeningFromMe": {
+        "label": "Listening from me",
+        "description": "Listen to messages sent by me on the bot"
+      },
+      "stopBotFromMe": {
+        "label": "Stop bot from me",
+        "description": "Pause the bot when I send a message"
+      },
+      "keepOpen": {
+        "label": "Keep open",
+        "description": "Keep the bot open after the conversation ends"
+      },
+      "debounceTime": {
+        "label": "Debounce Time"
+      },
+      "splitMessages": {
+        "label": "Split Messages",
+        "description": "Split messages into multiple messages"
+      },
+      "timePerChar": {
+        "label": "Time per character"
+      },
+      "ignoreJids": {
+        "label": "Ignore Jids",
+        "placeholder": "Add JIDs ex: 1234567890@s.whatsapp.net and press enter"
+      }
+    },
+    "button": {
+      "create": "Dify",
+      "save": "Save",
+      "saving": "Saving...",
+      "update": "Update",
+      "defaultSettings": "Default Settings",
+      "delete": "Delete"
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Default Settings"
+      }
+    }
+  },
+  "n8n": {
+    "title": "n8n",
+    "sessions": {
+      "label": "Sessions",
+      "search": "Search for remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Push Name",
+        "sessionId": "Session ID",
+        "status": "Status",
+        "actions": {
+          "title": "Actions",
+          "open": "Open",
+          "pause": "Pause",
+          "close": "Close",
+          "delete": "Delete"
+        },
+        "none": "Nothing to show"
+      }
+    },
+    "defaultSettings": "Default Settings",
+    "toast": {
+      "defaultSettings": {
+        "success": "Default settings applied successfully",
+        "error": "An error occurred while applying the default settings"
+      },
+      "success": {
+        "update": "n8n updated successfully",
+        "create": "n8n created successfully",
+        "delete": "n8n deleted successfully",
+        "status": "n8n status updated successfully"
+      },
+      "error": "An error occurred while creating the n8n chatbot"
+    },
+    "table": {
+      "none": "Nothing to show"
+    },
+    "form": {
+      "title": "New n8n chatbot",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "I'm sorry, I didn't understand. Can you try again?"
+      },
+      "enabled": {
+        "label": "Enabled"
+      },
+      "description": {
+        "label": "Description"
+      },
+      "n8nSettings": {
+        "label": "n8n Settings"
+      },
+      "webhookUrl": {
+        "label": "Webhook URL"
+      },
+      "basicAuth": {
+        "label": "Basic Auth (Optional)"
+      },
+      "basicAuthUser": {
+        "label": "Basic Auth User"
+      },
+      "basicAuthPass": {
+        "label": "Basic Auth Password"
+      },
+      "triggerSettings": {
+        "label": "Trigger Settings"
+      },
+      "triggerType": {
+        "label": "Trigger Type",
+        "keyword": "Keyword",
+        "all": "All",
+        "advanced": "Advanced",
+        "none": "None"
+      },
+      "triggerOperator": {
+        "label": "Trigger Operator",
+        "contains": "Contains",
+        "equals": "Equals",
+        "startsWith": "Starts With",
+        "endsWith": "Ends With",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Trigger"
+      },
+      "triggerConditions": {
+        "label": "Conditions"
+      },
+      "n8nIdFallback": {
+        "label": "n8n Fallback"
+      },
+      "generalSettings": {
+        "label": "General Settings"
+      },
+      "expire": {
+        "label": "Expire in minutes"
+      },
+      "keywordFinish": {
+        "label": "Keyword Finish"
+      },
+      "delayMessage": {
+        "label": "Default Delay Message"
+      },
+      "unknownMessage": {
+        "label": "Unknown Message"
+      },
+      "listeningFromMe": {
+        "label": "Listening from me",
+        "description": "Listen to messages sent by me on the bot"
+      },
+      "stopBotFromMe": {
+        "label": "Stop bot from me",
+        "description": "Pause the bot when I send a message"
+      },
+      "keepOpen": {
+        "label": "Keep open",
+        "description": "Keep the bot open after the conversation ends"
+      },
+      "debounceTime": {
+        "label": "Debounce Time"
+      },
+      "splitMessages": {
+        "label": "Split Messages",
+        "description": "Split messages into multiple messages"
+      },
+      "timePerChar": {
+        "label": "Time per character"
+      },
+      "ignoreJids": {
+        "label": "Ignore Jids",
+        "placeholder": "Add JIDs ex: 1234567890@s.whatsapp.net and press enter"
+      }
+    },
+    "button": {
+      "create": "n8n",
+      "save": "Save",
+      "saving": "Saving...",
+      "update": "Update",
+      "defaultSettings": "Default Settings",
+      "delete": "Delete"
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Default Settings"
+      }
+    }
+  },
+  "evoai": {
+    "title": "EvoAI",
+    "sessions": {
+      "label": "Sessions",
+      "search": "Search for remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Push Name",
+        "sessionId": "Session ID",
+        "status": "Status",
+        "actions": {
+          "title": "Actions",
+          "open": "Open",
+          "pause": "Pause",
+          "close": "Close",
+          "delete": "Delete"
+        },
+        "none": "Nothing to show"
+      }
+    },
+    "defaultSettings": "Default Settings",
+    "toast": {
+      "defaultSettings": {
+        "success": "Default settings applied successfully",
+        "error": "An error occurred while applying the default settings"
+      },
+      "success": {
+        "update": "EvoAI updated successfully",
+        "create": "EvoAI created successfully",
+        "delete": "EvoAI deleted successfully",
+        "status": "EvoAI status updated successfully"
+      },
+      "error": "An error occurred while creating the EvoAI chatbot"
+    },
+    "table": {
+      "none": "Nothing to show"
+    },
+    "form": {
+      "title": "New EvoAI chatbot",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "I'm sorry, I didn't understand. Can you try again?"
+      },
+      "enabled": {
+        "label": "Enabled"
+      },
+      "description": {
+        "label": "Description"
+      },
+      "evoaiSettings": {
+        "label": "EvoAI Settings"
+      },
+      "agentUrl": {
+        "label": "Agent URL"
+      },
+      "apiKey": {
+        "label": "API Key (Optional)"
+      },
+      "triggerSettings": {
+        "label": "Trigger Settings"
+      },
+      "triggerType": {
+        "label": "Trigger Type",
+        "keyword": "Keyword",
+        "all": "All",
+        "advanced": "Advanced",
+        "none": "None"
+      },
+      "triggerOperator": {
+        "label": "Trigger Operator",
+        "contains": "Contains",
+        "equals": "Equals",
+        "startsWith": "Starts With",
+        "endsWith": "Ends With",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Trigger"
+      },
+      "triggerConditions": {
+        "label": "Conditions"
+      },
+      "evoaiIdFallback": {
+        "label": "EvoAI Fallback"
+      },
+      "generalSettings": {
+        "label": "General Settings"
+      },
+      "expire": {
+        "label": "Expire in minutes"
+      },
+      "keywordFinish": {
+        "label": "Keyword Finish"
+      },
+      "delayMessage": {
+        "label": "Default Delay Message"
+      },
+      "unknownMessage": {
+        "label": "Unknown Message"
+      },
+      "listeningFromMe": {
+        "label": "Listening from me",
+        "description": "Listen to messages sent by me on the bot"
+      },
+      "stopBotFromMe": {
+        "label": "Stop bot from me",
+        "description": "Pause the bot when I send a message"
+      },
+      "keepOpen": {
+        "label": "Keep open",
+        "description": "Keep the bot open after the conversation ends"
+      },
+      "debounceTime": {
+        "label": "Debounce Time"
+      },
+      "splitMessages": {
+        "label": "Split Messages",
+        "description": "Split messages into multiple messages"
+      },
+      "timePerChar": {
+        "label": "Time per character"
+      },
+      "ignoreJids": {
+        "label": "Ignore Jids",
+        "placeholder": "Add JIDs ex: 1234567890@s.whatsapp.net and press enter"
+      }
+    },
+    "button": {
+      "create": "EvoAI",
+      "save": "Save",
+      "saving": "Saving...",
+      "update": "Update",
+      "defaultSettings": "Default Settings",
+      "delete": "Delete"
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Default Settings"
+      }
+    }
+  },
+  "evolutionBot": {
+    "title": "Evolution Bot",
+    "sessions": {
+      "label": "Sessions",
+      "search": "Search for remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Push Name",
+        "sessionId": "Session ID",
+        "status": "Status",
+        "actions": {
+          "title": "Actions",
+          "open": "Open",
+          "pause": "Pause",
+          "close": "Close",
+          "delete": "Delete"
+        },
+        "none": "Nothing to show"
+      }
+    },
+    "defaultSettings": "Default Settings",
+    "toast": {
+      "defaultSettings": {
+        "success": "Default settings applied successfully",
+        "error": "An error occurred while applying the default settings"
+      },
+      "success": {
+        "update": "Evolution Bot updated successfully",
+        "create": "Evolution Bot created successfully",
+        "delete": "Evolution Bot deleted successfully",
+        "status": "Evolution Bot status updated successfully"
+      },
+      "error": "An error occurred while creating the Evolution Bot"
+    },
+    "table": {
+      "none": "Nothing to show"
+    },
+    "form": {
+      "title": "New Evolution Bot",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "I'm sorry, I didn't understand. Can you try again?"
+      },
+      "enabled": {
+        "label": "Enabled"
+      },
+      "description": {
+        "label": "Description"
+      },
+      "evolutionBotSettings": {
+        "label": "Evolution Bot Settings"
+      },
+      "apiUrl": {
+        "label": "API URL"
+      },
+      "apiKey": {
+        "label": "API Key"
+      },
+      "triggerSettings": {
+        "label": "Trigger Settings"
+      },
+      "triggerType": {
+        "label": "Trigger Type",
+        "keyword": "Keyword",
+        "all": "All",
+        "advanced": "Advanced",
+        "none": "None"
+      },
+      "triggerOperator": {
+        "label": "Trigger Operator",
+        "contains": "Contains",
+        "equals": "Equals",
+        "startsWith": "Starts With",
+        "endsWith": "Ends With",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Trigger"
+      },
+      "triggerConditions": {
+        "label": "Conditions"
+      },
+      "botIdFallback": {
+        "label": "Evolution Bot Fallback"
+      },
+      "generalSettings": {
+        "label": "General Settings"
+      },
+      "expire": {
+        "label": "Expire in minutes"
+      },
+      "keywordFinish": {
+        "label": "Keyword Finish"
+      },
+      "delayMessage": {
+        "label": "Default Delay Message"
+      },
+      "unknownMessage": {
+        "label": "Unknown Message"
+      },
+      "listeningFromMe": {
+        "label": "Listening from me",
+        "description": "Listen to messages sent by me on the bot"
+      },
+      "stopBotFromMe": {
+        "label": "Stop bot from me",
+        "description": "Pause the bot when I send a message"
+      },
+      "keepOpen": {
+        "label": "Keep open",
+        "description": "Keep the bot open after the conversation ends"
+      },
+      "debounceTime": {
+        "label": "Debounce Time"
+      },
+      "splitMessages": {
+        "label": "Split Messages",
+        "description": "Split messages into multiple messages"
+      },
+      "timePerChar": {
+        "label": "Time per character"
+      },
+      "ignoreJids": {
+        "label": "Ignore Jids",
+        "placeholder": "Add JIDs ex: 1234567890@s.whatsapp.net and press enter"
+      }
+    },
+    "button": {
+      "create": "Evolution Bot",
+      "save": "Save",
+      "saving": "Saving...",
+      "update": "Update",
+      "defaultSettings": "Default Settings",
+      "delete": "Delete"
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Default Settings"
+      }
+    }
+  },
+  "flowise": {
+    "title": "Flowise",
+    "sessions": {
+      "label": "Sessions",
+      "search": "Search for remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Push Name",
+        "sessionId": "Session ID",
+        "status": "Status",
+        "actions": {
+          "title": "Actions",
+          "open": "Open",
+          "pause": "Pause",
+          "close": "Close",
+          "delete": "Delete"
+        },
+        "none": "Nothing to show"
+      }
+    },
+    "defaultSettings": "Default Settings",
+    "toast": {
+      "defaultSettings": {
+        "success": "Default settings applied successfully",
+        "error": "An error occurred while applying the default settings"
+      },
+      "success": {
+        "update": "Flowise updated successfully",
+        "create": "Flowise created successfully",
+        "delete": "Flowise deleted successfully",
+        "status": "Flowise status updated successfully"
+      },
+      "error": "An error occurred while creating the Flowise"
+    },
+    "table": {
+      "none": "Nothing to show"
+    },
+    "form": {
+      "title": "New Flowise",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "I'm sorry, I didn't understand. Can you try again?"
+      },
+      "enabled": {
+        "label": "Enabled"
+      },
+      "description": {
+        "label": "Description"
+      },
+      "flowiseSettings": {
+        "label": "Flowise Settings"
+      },
+      "apiUrl": {
+        "label": "API URL"
+      },
+      "apiKey": {
+        "label": "API Key"
+      },
+      "triggerSettings": {
+        "label": "Trigger Settings"
+      },
+      "triggerType": {
+        "label": "Trigger Type",
+        "keyword": "Keyword",
+        "all": "All",
+        "advanced": "Advanced",
+        "none": "None"
+      },
+      "triggerOperator": {
+        "label": "Trigger Operator",
+        "contains": "Contains",
+        "equals": "Equals",
+        "startsWith": "Starts With",
+        "endsWith": "Ends With",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Trigger"
+      },
+      "triggerConditions": {
+        "label": "Conditions"
+      },
+      "flowiseIdFallback": {
+        "label": "Flowise Fallback"
+      },
+      "generalSettings": {
+        "label": "General Settings"
+      },
+      "expire": {
+        "label": "Expire in minutes"
+      },
+      "keywordFinish": {
+        "label": "Keyword Finish"
+      },
+      "delayMessage": {
+        "label": "Default Delay Message"
+      },
+      "unknownMessage": {
+        "label": "Unknown Message"
+      },
+      "listeningFromMe": {
+        "label": "Listening from me",
+        "description": "Listen to messages sent by me on the bot"
+      },
+      "stopBotFromMe": {
+        "label": "Stop bot from me",
+        "description": "Pause the bot when I send a message"
+      },
+      "keepOpen": {
+        "label": "Keep open",
+        "description": "Keep the bot open after the conversation ends"
+      },
+      "debounceTime": {
+        "label": "Debounce Time"
+      },
+      "splitMessages": {
+        "label": "Split Messages",
+        "description": "Split messages into multiple messages"
+      },
+      "timePerChar": {
+        "label": "Time per character"
+      },
+      "ignoreJids": {
+        "label": "Ignore Jids",
+        "placeholder": "Add JIDs ex: 1234567890@s.whatsapp.net and press enter"
+      }
+    },
+    "button": {
+      "create": "Flowise",
+      "save": "Save",
+      "saving": "Saving...",
+      "update": "Update",
+      "defaultSettings": "Default Settings",
+      "delete": "Delete"
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Default Settings"
+      }
+    }
+  }
+}

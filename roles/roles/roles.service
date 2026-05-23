@@ -1,0 +1,16 @@
+[Unit]
+Description=Roles Service — Motor de regras de transicao
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/roles
+ExecStart=/root/.local/bin/uv run python -m app.main
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

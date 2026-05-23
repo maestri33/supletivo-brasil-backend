@@ -1,0 +1,1419 @@
+{
+  "dashboard": {
+    "title": "Instancias",
+    "search": "Buscar",
+    "status": "Estado",
+    "settings": "Configuraciones",
+    "instancesNotFound": "No se encontraron instancias"
+  },
+  "button": {
+    "delete": "Eliminar",
+    "deleting": "Eliminando...",
+    "cancel": "Cancelar",
+    "markAll": "Marcar Todos",
+    "unMarkAll": "Desmarcar Todos"
+  },
+  "modal": {
+    "delete": {
+      "title": "Eliminar Registro",
+      "message": "Estás eliminando la instancia {{instanceName}}. ¿Estás seguro de que deseas continuar?",
+      "messageSingle": "Esta acción no se puede deshacer."
+    }
+  },
+  "status": {
+    "all": "Todos",
+    "open": "Conectado",
+    "connecting": "Conectando",
+    "closed": "Desconectado"
+  },
+  "footer": {
+    "clientName": "Nombre del Cliente",
+    "version": "Versión"
+  },
+  "header": {
+    "theme": {
+      "label": "Cambiar Tema",
+      "light": "Claro",
+      "dark": "Oscuro",
+      "system": "Sistema"
+    },
+    "language": {
+      "label": "Idioma",
+      "english": "Inglés",
+      "portuguese": "Portugués",
+      "spanish": "Español",
+      "french": "Francés"
+    }
+  },
+  "sidebar": {
+    "dashboard": "Visión General",
+    "configurations": "Configuraciones",
+    "settings": "Comportamiento",
+    "proxy": "Proxy",
+    "events": "Eventos",
+    "webhook": "Webhook",
+    "websocket": "WebSocket",
+    "rabbitmq": "RabbitMQ",
+    "sqs": "SQS",
+    "integrations": "Integraciones",
+    "chatwoot": "Chatwoot",
+    "typebot": "Typebot",
+    "openai": "OpenAI",
+    "dify": "Dify",
+    "evoai": "EvoAI",
+    "n8n": "n8n",
+    "evolutionBot": "Bot Evolution",
+    "flowise": "Flowise",
+    "documentation": "Documentación",
+    "postman": "Postman",
+    "discord": "Discord",
+    "supportPremium": "Soporte Premium"
+  },
+  "toast": {
+    "instance": {
+      "created": "Instancia creada con éxito",
+      "deleted": "Instancia eliminada con éxito",
+      "error": "Ocurrió un error al crear la instancia"
+    }
+  },
+  "login": {
+    "title": "Evolution Manager",
+    "description": "Por favor, inicia sesión para continuar",
+    "form": {
+      "serverUrl": "URL del Servidor",
+      "apiKey": "Clave API Global"
+    },
+    "message": {
+      "invalidServer": "Servidor inválido",
+      "invalidCredentials": "Credenciales inválidas"
+    },
+    "button": {
+      "login": "Conectar"
+    }
+  },
+  "instance": {
+    "modal": {
+      "title": "Nueva Instancia"
+    },
+    "form": {
+      "name": "Nombre",
+      "integration": {
+        "label": "Canal",
+        "baileys": "Baileys",
+        "whatsapp": "WhatsApp Cloud API",
+        "facebook": "Facebook",
+        "instagram": "Instagram",
+        "evolution": "Evolution"
+      },
+      "token": "Token",
+      "number": "Número",
+      "businessId": "Business ID"
+    },
+    "button": {
+      "save": "Guardar",
+      "saving": "Guardando...",
+      "create": "Instancia",
+      "connecting": "Conectando...",
+      "facebook": "Conectar con Facebook",
+      "instagram": "Conectar con Instagram",
+      "whatsapp": "Conectar con WhatsApp"
+    },
+    "dashboard": {
+      "button": {
+        "qrcode": {
+          "label": "Generar Código QR",
+          "title": "Escanea el Código QR con WhatsApp"
+        },
+        "pairingCode": {
+          "label": "Generar Código de Emparejamiento",
+          "title": "Emparejar con WhatsApp"
+        },
+        "restart": "Reiniciar",
+        "disconnect": "Desconectar"
+      },
+      "alert": "Para conectar, escanea el Código QR con WhatsApp",
+      "contacts": "Contactos",
+      "chats": "Chats",
+      "messages": "Mensajes"
+    }
+  },
+  "settings": {
+    "title": "Comportamiento",
+    "toast": {
+      "success": "Comportamiento aplicado con éxito",
+      "error": "Ocurrió un error al aplicar el comportamiento"
+    },
+    "form": {
+      "rejectCall": {
+        "label": "Rechazar Llamadas",
+        "description": "Rechazar todas las llamadas"
+      },
+      "msgCall": {
+        "label": "Mensaje de Rechazo de Llamada",
+        "description": "Enviar mensaje de rechazo de llamada"
+      },
+      "groupsIgnore": {
+        "label": "Ignorar Grupos",
+        "description": "Ignorar todos los mensajes de grupos"
+      },
+      "alwaysOnline": {
+        "label": "Siempre Online",
+        "description": "Permanecer siempre en línea"
+      },
+      "readMessages": {
+        "label": "Ver Mensajes",
+        "description": "Marcar todos los mensajes como leídos"
+      },
+      "syncFullHistory": {
+        "label": "Sincronizar Historial Completo",
+        "description": "Sincronizar todo el historial al leer el Código QR"
+      },
+      "readStatus": {
+        "label": "Ver Estado",
+        "description": "Marcar todos los estados como vistos"
+      }
+    },
+    "button": {
+      "save": "Guardar",
+      "saving": "Guardando..."
+    }
+  },
+  "proxy": {
+    "title": "Proxy",
+    "toast": {
+      "success": "Proxy aplicado con éxito",
+      "error": "Ocurrió un error al aplicar el proxy"
+    },
+    "form": {
+      "enabled": {
+        "label": "Activo",
+        "description": "Activar o desactivar el proxy"
+      },
+      "protocol": {
+        "label": "Protocolo"
+      },
+      "host": {
+        "label": "Host"
+      },
+      "port": {
+        "label": "Puerto"
+      },
+      "username": {
+        "label": "Usuario"
+      },
+      "password": {
+        "label": "Contraseña"
+      }
+    },
+    "button": {
+      "save": "Guardar",
+      "saving": "Guardando..."
+    }
+  },
+  "webhook": {
+    "title": "Webhook",
+    "toast": {
+      "success": "Webhook aplicado con éxito",
+      "error": "Ocurrió un error al aplicar el webhook"
+    },
+    "form": {
+      "enabled": {
+        "label": "Activo",
+        "description": "Activar o desactivar el webhook"
+      },
+      "url": {
+        "label": "URL"
+      },
+      "byEvents": {
+        "label": "Webhook por Eventos",
+        "description": "Crear una ruta para cada evento agregando el nombre del evento al final de la URL"
+      },
+      "base64": {
+        "label": "Webhook Base64",
+        "description": "Enviar datos de medios en base64 en el webhook"
+      },
+      "events": {
+        "label": "Eventos"
+      }
+    },
+    "button": {
+      "save": "Guardar",
+      "saving": "Guardando..."
+    }
+  },
+  "websocket": {
+    "title": "WebSocket",
+    "toast": {
+      "success": "WebSocket aplicado con éxito",
+      "error": "Ocurrió un error al aplicar el WebSocket"
+    },
+    "form": {
+      "enabled": {
+        "label": "Activo",
+        "description": "Activar o desactivar el WebSocket"
+      },
+      "events": {
+        "label": "Eventos"
+      }
+    },
+    "button": {
+      "save": "Guardar",
+      "saving": "Guardando..."
+    }
+  },
+  "rabbitmq": {
+    "title": "RabbitMQ",
+    "toast": {
+      "success": "RabbitMQ aplicado con éxito",
+      "error": "Ocurrió un error al aplicar el RabbitMQ"
+    },
+    "form": {
+      "enabled": {
+        "label": "Activo",
+        "description": "Activar o desactivar el RabbitMQ"
+      },
+      "events": {
+        "label": "Eventos"
+      }
+    },
+    "button": {
+      "save": "Guardar",
+      "saving": "Guardando..."
+    }
+  },
+  "sqs": {
+    "title": "SQS",
+    "toast": {
+      "success": "SQS aplicado con éxito",
+      "error": "Ocurrió un error al aplicar el SQS"
+    },
+    "form": {
+      "enabled": {
+        "label": "Activo",
+        "description": "Activar o desactivar el SQS"
+      },
+      "events": {
+        "label": "Eventos"
+      }
+    },
+    "button": {
+      "save": "Guardar",
+      "saving": "Guardando..."
+    }
+  },
+  "chatwoot": {
+    "title": "Chatwoot",
+    "toast": {
+      "success": "Chatwoot aplicado con éxito",
+      "error": "Ocurrió un error al aplicar el Chatwoot"
+    },
+    "form": {
+      "enabled": {
+        "label": "Activo",
+        "description": "Activar o desactivar el Chatwoot"
+      },
+      "url": {
+        "label": "URL de Chatwoot"
+      },
+      "accountId": {
+        "label": "ID de la Cuenta"
+      },
+      "token": {
+        "label": "Token"
+      },
+      "signMsg": {
+        "label": "Firmar Mensajes",
+        "description": "Firmar mensajes con el nombre de usuario de Chatwoot"
+      },
+      "signDelimiter": {
+        "label": "Delimitador de Firma"
+      },
+      "nameInbox": {
+        "label": "Nombre de la Bandeja de Entrada"
+      },
+      "organization": {
+        "label": "Organización"
+      },
+      "logo": {
+        "label": "Logo"
+      },
+      "conversationPending": {
+        "label": "Conversación Pendiente",
+        "description": "Las conversaciones comienzan como pendientes"
+      },
+      "reopenConversation": {
+        "label": "Reabrir Conversación",
+        "description": "Reabrir la conversación al recibir un mensaje"
+      },
+      "importContacts": {
+        "label": "Importar Contactos",
+        "description": "Importar contactos del libro de direcciones de WhatsApp al conectar el Código QR"
+      },
+      "importMessages": {
+        "label": "Importar Mensajes",
+        "description": "Importar mensajes de WhatsApp al conectar el Código QR"
+      },
+      "daysLimitImportMessages": {
+        "label": "Límite de Días para Importación de Mensajes"
+      },
+      "ignoreJids": {
+        "label": "Ignorar JIDs",
+        "placeholder": "Agregar JIDs ej: 1234567890@s.whatsapp.net y presiona enter"
+      },
+      "autoCreate": {
+        "label": "Creación Automática",
+        "description": "Crear automáticamente la integración con Chatwoot al guardar"
+      }
+    },
+    "button": {
+      "save": "Guardar",
+      "saving": "Guardando..."
+    }
+  },
+  "typebot": {
+    "title": "Typebots",
+    "sessions": {
+      "label": "Sesiones",
+      "search": "Buscar por remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Nombre Visible",
+        "sessionId": "ID de Sesión",
+        "status": "Estado",
+        "actions": {
+          "title": "Acciones",
+          "open": "Abrir",
+          "pause": "Pausar",
+          "close": "Cerrar",
+          "delete": "Eliminar"
+        },
+        "none": "Nada que mostrar"
+      }
+    },
+    "defaultSettings": "Configuraciones Predeterminadas",
+    "toast": {
+      "defaultSettings": {
+        "success": "Configuraciones predeterminadas aplicadas con éxito",
+        "error": "Ocurrió un error al aplicar las configuraciones predeterminadas"
+      },
+      "success": {
+        "update": "Typebot actualizado con éxito",
+        "create": "Typebot creado con éxito",
+        "delete": "Typebot eliminado con éxito",
+        "status": "Estado de Typebot actualizado con éxito"
+      },
+      "error": "Ocurrió un error al crear el Typebot"
+    },
+    "table": {
+      "none": "Nada que mostrar"
+    },
+    "form": {
+      "title": "Nuevo Typebot",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "Lo siento, no entendí. ¿Puedes intentar de nuevo?"
+      },
+      "enabled": {
+        "label": "Activo"
+      },
+      "description": {
+        "label": "Descripción"
+      },
+      "typebotSettings": {
+        "label": "Configuraciones de Typebot"
+      },
+      "url": {
+        "label": "URL de la API de Typebot"
+      },
+      "typebot": {
+        "label": "Nombre Público de Typebot"
+      },
+      "triggerSettings": {
+        "label": "Configuraciones de Disparador"
+      },
+      "triggerType": {
+        "label": "Tipo de Disparador",
+        "keyword": "Palabra clave",
+        "all": "Todos",
+        "advanced": "Avanzado",
+        "none": "Ninguno"
+      },
+      "triggerOperator": {
+        "label": "Operador de Disparador",
+        "contains": "Contiene",
+        "equals": "Igual",
+        "startsWith": "Comienza Con",
+        "endsWith": "Termina Con",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Disparador"
+      },
+      "triggerConditions": {
+        "label": "Condiciones"
+      },
+      "typebotIdFallback": {
+        "label": "Fallback de Typebot"
+      },
+      "generalSettings": {
+        "label": "Configuraciones Generales"
+      },
+      "expire": {
+        "label": "Expirar en minutos"
+      },
+      "keywordFinish": {
+        "label": "Palabra clave de Finalización"
+      },
+      "delayMessage": {
+        "label": "Mensaje de Retraso Predeterminado"
+      },
+      "unknownMessage": {
+        "label": "Mensaje Desconocido"
+      },
+      "listeningFromMe": {
+        "label": "Escuchando de mí",
+        "description": "Escuchar los mensajes enviados por mí en el bot"
+      },
+      "stopBotFromMe": {
+        "label": "Detener bot por mí",
+        "description": "Pausar el bot cuando yo envíe un mensaje"
+      },
+      "keepOpen": {
+        "label": "Mantener abierto",
+        "description": "Mantener el bot abierto después de que termine la conversación"
+      },
+      "debounceTime": {
+        "label": "Tiempo de Debounce"
+      },
+      "splitMessages": {
+        "label": "Dividir Mensajes",
+        "description": "Dividir mensajes largos en múltiples mensajes"
+      },
+      "timePerChar": {
+        "label": "Tiempo por Carácter"
+      },
+      "ignoreJids": {
+        "label": "Ignorar JIDs",
+        "placeholder": "Agregar JIDs ej: 1234567890@s.whatsapp.net y presiona enter"
+      }
+    },
+    "button": {
+      "create": "Typebot",
+      "save": "Guardar",
+      "saving": "Guardando...",
+      "update": "Actualizar",
+      "defaultSettings": "Configuraciones Predeterminadas",
+      "delete": "Eliminar"
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Configuraciones Predeterminadas"
+      }
+    }
+  },
+  "openai": {
+    "title": "OpenAI",
+    "sessions": {
+      "label": "Sesiones",
+      "search": "Buscar por remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Nombre Visible",
+        "sessionId": "ID de Sesión",
+        "status": "Estado",
+        "actions": {
+          "title": "Acciones",
+          "open": "Abrir",
+          "pause": "Pausar",
+          "close": "Cerrar",
+          "delete": "Eliminar"
+        },
+        "none": "Nada que mostrar"
+      }
+    },
+    "credentials": {
+      "title": "Credenciales",
+      "table": {
+        "name": "Nombre",
+        "apiKey": "Clave API",
+        "actions": {
+          "title": "Acciones",
+          "delete": "Eliminar"
+        },
+        "none": "Nada que mostrar"
+      }
+    },
+    "defaultSettings": "Configuraciones Predeterminadas",
+    "toast": {
+      "defaultSettings": {
+        "success": "Configuraciones predeterminadas aplicadas con éxito",
+        "error": "Ocurrió un error al aplicar las configuraciones predeterminadas"
+      },
+      "success": {
+        "update": "OpenAI actualizado con éxito",
+        "create": "OpenAI creado con éxito",
+        "delete": "OpenAI eliminado con éxito",
+        "status": "Estado de OpenAI actualizado con éxito",
+        "credentialsCreate": "Credenciales de OpenAI creadas con éxito",
+        "credentialsDelete": "Credenciales de OpenAI eliminadas con éxito"
+      },
+      "error": "Ocurrió un error al crear el OpenAI"
+    },
+    "table": {
+      "none": "Nada que mostrar"
+    },
+    "form": {
+      "title": "Nuevo OpenAI",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "Lo siento, no entendí. ¿Puedes intentar de nuevo?"
+      },
+      "openaiCredsId": {
+        "label": "Credenciales de OpenAI"
+      },
+      "enabled": {
+        "label": "Activo"
+      },
+      "description": {
+        "label": "Descripción"
+      },
+      "openaiSettings": {
+        "label": "Configuraciones de OpenAI"
+      },
+      "botType": {
+        "label": "Tipo de Bot",
+        "assistant": "Asistente",
+        "chatCompletion": "Chat Completion"
+      },
+      "assistantId": {
+        "label": "ID del Asistente"
+      },
+      "functionUrl": {
+        "label": "URL de la Función"
+      },
+      "model": {
+        "label": "Modelo de Lenguaje"
+      },
+      "systemMessages": {
+        "label": "Mensajes del Sistema",
+        "description": "Enviar mensajes del sistema a OpenAI"
+      },
+      "assistantMessages": {
+        "label": "Mensajes del Asistente",
+        "description": "Enviar mensajes del asistente a OpenAI"
+      },
+      "userMessages": {
+        "label": "Mensajes del Usuario",
+        "description": "Enviar mensajes del usuario a OpenAI"
+      },
+      "maxTokens": {
+        "label": "Máximo de Tokens"
+      },
+      "triggerSettings": {
+        "label": "Configuraciones de Disparador"
+      },
+      "triggerType": {
+        "label": "Tipo de Disparador",
+        "keyword": "Palabra clave",
+        "all": "Todos",
+        "advanced": "Avanzado",
+        "none": "Ninguno"
+      },
+      "triggerOperator": {
+        "label": "Operador de Disparador",
+        "contains": "Contiene",
+        "equals": "Igual",
+        "startsWith": "Comienza Con",
+        "endsWith": "Termina Con",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Disparador"
+      },
+      "triggerConditions": {
+        "label": "Condiciones"
+      },
+      "openaiIdFallback": {
+        "label": "Fallback de OpenAI"
+      },
+      "generalSettings": {
+        "label": "Configuraciones Generales"
+      },
+      "expire": {
+        "label": "Expirar en minutos"
+      },
+      "keywordFinish": {
+        "label": "Palabra clave de Finalización"
+      },
+      "delayMessage": {
+        "label": "Mensaje de Retraso Predeterminado"
+      },
+      "unknownMessage": {
+        "label": "Mensaje Desconocido"
+      },
+      "listeningFromMe": {
+        "label": "Escuchando de mí",
+        "description": "Escuchar los mensajes enviados por mí en el bot"
+      },
+      "stopBotFromMe": {
+        "label": "Detener bot por mí",
+        "description": "Pausar el bot cuando yo envíe un mensaje"
+      },
+      "keepOpen": {
+        "label": "Mantener abierto",
+        "description": "Mantener el bot abierto después de que termine la conversación"
+      },
+      "speechToText": {
+        "label": "Voz a Texto",
+        "description": "Convertir mensajes de voz en texto"
+      },
+      "debounceTime": {
+        "label": "Tiempo de Debounce"
+      },
+      "splitMessages": {
+        "label": "Dividir Mensajes",
+        "description": "Dividir mensajes largos en múltiples mensajes"
+      },
+      "timePerChar": {
+        "label": "Tiempo por Carácter"
+      },
+      "ignoreJids": {
+        "label": "Ignorar JIDs",
+        "placeholder": "Agregar JIDs ej: 1234567890@s.whatsapp.net y presiona enter"
+      }
+    },
+    "button": {
+      "create": "OpenAI",
+      "save": "Guardar",
+      "saving": "Guardando...",
+      "update": "Actualizar",
+      "defaultSettings": "Configuraciones Predeterminadas",
+      "delete": "Eliminar",
+      "loadModels": "Cargar Modelos",
+      "loading": "Cargando..."
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Configuraciones Predeterminadas"
+      }
+    }
+  },
+  "dify": {
+    "title": "Dify",
+    "sessions": {
+      "label": "Sesiones",
+      "search": "Buscar por remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Nombre Visible",
+        "sessionId": "ID de Sesión",
+        "status": "Estado",
+        "actions": {
+          "title": "Acciones",
+          "open": "Abrir",
+          "pause": "Pausar",
+          "close": "Cerrar",
+          "delete": "Eliminar"
+        },
+        "none": "Nada que mostrar"
+      }
+    },
+    "defaultSettings": "Configuraciones Predeterminadas",
+    "toast": {
+      "defaultSettings": {
+        "success": "Configuraciones predeterminadas aplicadas con éxito",
+        "error": "Ocurrió un error al aplicar las configuraciones predeterminadas"
+      },
+      "success": {
+        "update": "Dify actualizado con éxito",
+        "create": "Dify creado con éxito",
+        "delete": "Dify eliminado con éxito",
+        "status": "Estado de Dify actualizado con éxito"
+      },
+      "error": "Ocurrió un error al crear el Dify"
+    },
+    "table": {
+      "none": "Nada que mostrar"
+    },
+    "form": {
+      "title": "Nuevo Dify",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "Lo siento, no entendí. ¿Puedes intentar de nuevo?"
+      },
+      "enabled": {
+        "label": "Activo"
+      },
+      "description": {
+        "label": "Descripción"
+      },
+      "difySettings": {
+        "label": "Configuraciones de Dify"
+      },
+      "botType": {
+        "label": "Tipo de Bot",
+        "chatBot": "Chat Bot",
+        "textGenerator": "Generador de Texto",
+        "agent": "Agente",
+        "workflow": "Flujo de Trabajo"
+      },
+      "apiUrl": {
+        "label": "URL de la API"
+      },
+      "apiKey": {
+        "label": "Clave API"
+      },
+      "triggerSettings": {
+        "label": "Configuraciones de Disparador"
+      },
+      "triggerType": {
+        "label": "Tipo de Disparador",
+        "keyword": "Palabra clave",
+        "all": "Todos",
+        "advanced": "Avanzado",
+        "none": "Ninguno"
+      },
+      "triggerOperator": {
+        "label": "Operador de Disparador",
+        "contains": "Contiene",
+        "equals": "Igual",
+        "startsWith": "Comienza Con",
+        "endsWith": "Termina Con",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Disparador"
+      },
+      "triggerConditions": {
+        "label": "Condiciones"
+      },
+      "difyIdFallback": {
+        "label": "Fallback de Dify"
+      },
+      "generalSettings": {
+        "label": "Configuraciones Generales"
+      },
+      "expire": {
+        "label": "Expirar en minutos"
+      },
+      "keywordFinish": {
+        "label": "Palabra clave de Finalización"
+      },
+      "delayMessage": {
+        "label": "Mensaje de Retraso Predeterminado"
+      },
+      "unknownMessage": {
+        "label": "Mensaje Desconocido"
+      },
+      "listeningFromMe": {
+        "label": "Escuchando de mí",
+        "description": "Escuchar los mensajes enviados por mí en el bot"
+      },
+      "stopBotFromMe": {
+        "label": "Detener bot por mí",
+        "description": "Pausar el bot cuando yo envíe un mensaje"
+      },
+      "keepOpen": {
+        "label": "Mantener abierto",
+        "description": "Mantener el bot abierto después de que termine la conversación"
+      },
+      "debounceTime": {
+        "label": "Tiempo de Debounce"
+      },
+      "splitMessages": {
+        "label": "Dividir Mensajes",
+        "description": "Dividir mensajes largos en múltiples mensajes"
+      },
+      "timePerChar": {
+        "label": "Tiempo por Carácter"
+      },
+      "ignoreJids": {
+        "label": "Ignorar JIDs",
+        "placeholder": "Agregar JIDs ej: 1234567890@s.whatsapp.net y presiona enter"
+      }
+    },
+    "button": {
+      "create": "Dify",
+      "save": "Guardar",
+      "saving": "Guardando...",
+      "update": "Actualizar",
+      "defaultSettings": "Configuraciones Predeterminadas",
+      "delete": "Eliminar"
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Configuraciones Predeterminadas"
+      }
+    }
+  },
+  "n8n": {
+    "title": "n8n",
+    "sessions": {
+      "label": "Sesiones",
+      "search": "Buscar por remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Push Name",
+        "sessionId": "Session ID",
+        "status": "Estado",
+        "actions": {
+          "title": "Acciones",
+          "open": "Abrir",
+          "pause": "Pausar",
+          "close": "Cerrar",
+          "delete": "Eliminar"
+        },
+        "none": "Nada que mostrar"
+      }
+    },
+    "defaultSettings": "Configuraciones Predeterminadas",
+    "toast": {
+      "defaultSettings": {
+        "success": "Configuraciones predeterminadas aplicadas con éxito",
+        "error": "Ocurrió un error al aplicar las configuraciones predeterminadas"
+      },
+      "success": {
+        "update": "n8n actualizado con éxito",
+        "create": "n8n creado con éxito",
+        "delete": "n8n eliminado con éxito",
+        "status": "Estado de n8n actualizado con éxito"
+      },
+      "error": "Ocurrió un error al crear el chatbot n8n"
+    },
+    "table": {
+      "none": "Nada que mostrar"
+    },
+    "form": {
+      "title": "Nuevo chatbot n8n",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "Lo siento, no entendí. ¿Puedes intentar de nuevo?"
+      },
+      "enabled": {
+        "label": "Activo"
+      },
+      "description": {
+        "label": "Descripción"
+      },
+      "n8nSettings": {
+        "label": "Configuraciones de n8n"
+      },
+      "webhookUrl": {
+        "label": "URL del Webhook"
+      },
+      "basicAuth": {
+        "label": "Basic Auth (Opcional)"
+      },
+      "basicAuthUser": {
+        "label": "Basic Auth User"
+      },
+      "basicAuthPass": {
+        "label": "Basic Auth Password"
+      },
+      "triggerSettings": {
+        "label": "Configuraciones de Disparador"
+      },
+      "triggerType": {
+        "label": "Tipo de Disparador",
+        "keyword": "Palabra clave",
+        "all": "Todos",
+        "advanced": "Avanzado",
+        "none": "Ninguno"
+      },
+      "triggerOperator": {
+        "label": "Operador de Disparador",
+        "contains": "Contiene",
+        "equals": "Igual",
+        "startsWith": "Comienza Con",
+        "endsWith": "Termina Con",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Disparador"
+      },
+      "triggerConditions": {
+        "label": "Condiciones"
+      },
+      "n8nIdFallback": {
+        "label": "Fallback de n8n"
+      },
+      "generalSettings": {
+        "label": "Configuraciones Generales"
+      },
+      "expire": {
+        "label": "Expirar en minutos"
+      },
+      "keywordFinish": {
+        "label": "Palabra clave de Finalización"
+      },
+      "delayMessage": {
+        "label": "Mensaje de Retraso Predeterminado"
+      },
+      "unknownMessage": {
+        "label": "Mensaje Desconocido"
+      },
+      "listeningFromMe": {
+        "label": "Escuchando de mí",
+        "description": "Escuchar los mensajes enviados por mí en el bot"
+      },
+      "stopBotFromMe": {
+        "label": "Detener bot por mí",
+        "description": "Pausar el bot cuando yo envíe un mensaje"
+      },
+      "keepOpen": {
+        "label": "Mantener abierto",
+        "description": "Mantener el bot abierto después de que termine la conversación"
+      },
+      "debounceTime": {
+        "label": "Tiempo de Debounce"
+      },
+      "splitMessages": {
+        "label": "Dividir Mensajes",
+        "description": "Dividir mensajes en múltiples mensajes"
+      },
+      "timePerChar": {
+        "label": "Tiempo por carácter"
+      },
+      "ignoreJids": {
+        "label": "Ignorar JIDs",
+        "placeholder": "Agregar JIDs ej: 1234567890@s.whatsapp.net y presiona enter"
+      }
+    },
+    "button": {
+      "create": "n8n",
+      "save": "Guardar",
+      "saving": "Guardando...",
+      "update": "Actualizar",
+      "defaultSettings": "Configuraciones Predeterminadas",
+      "delete": "Eliminar"
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Configuraciones Predeterminadas"
+      }
+    }
+  },
+  "evoai": {
+    "title": "EvoAI",
+    "sessions": {
+      "label": "Sesiones",
+      "search": "Buscar por remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Push Name",
+        "sessionId": "Session ID",
+        "status": "Estado",
+        "actions": {
+          "title": "Acciones",
+          "open": "Abrir",
+          "pause": "Pausar",
+          "close": "Cerrar",
+          "delete": "Eliminar"
+        },
+        "none": "Nada que mostrar"
+      }
+    },
+    "defaultSettings": "Configuraciones Predeterminadas",
+    "toast": {
+      "defaultSettings": {
+        "success": "Configuraciones predeterminadas aplicadas con éxito",
+        "error": "Ocurrió un error al aplicar las configuraciones predeterminadas"
+      },
+      "success": {
+        "update": "EvoAI actualizado con éxito",
+        "create": "EvoAI creado con éxito",
+        "delete": "EvoAI eliminado con éxito",
+        "status": "Estado de EvoAI actualizado con éxito"
+      },
+      "error": "Ocurrió un error al crear el chatbot EvoAI"
+    },
+    "table": {
+      "none": "Nada que mostrar"
+    },
+    "form": {
+      "title": "Nuevo chatbot EvoAI",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "Lo siento, no entendí. ¿Puedes intentar de nuevo?"
+      },
+      "enabled": {
+        "label": "Activo"
+      },
+      "description": {
+        "label": "Descripción"
+      },
+      "evoaiSettings": {
+        "label": "Configuraciones de EvoAI"
+      },
+      "agentUrl": {
+        "label": "URL del Agente"
+      },
+      "apiKey": {
+        "label": "API Key (Opcional)"
+      },
+      "triggerSettings": {
+        "label": "Configuraciones de Disparador"
+      },
+      "triggerType": {
+        "label": "Tipo de Disparador",
+        "keyword": "Palabra clave",
+        "all": "Todos",
+        "advanced": "Avanzado",
+        "none": "Ninguno"
+      },
+      "triggerOperator": {
+        "label": "Operador de Disparador",
+        "contains": "Contiene",
+        "equals": "Igual",
+        "startsWith": "Comienza Con",
+        "endsWith": "Termina Con",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Disparador"
+      },
+      "triggerConditions": {
+        "label": "Condiciones"
+      },
+      "evoaiIdFallback": {
+        "label": "Fallback de EvoAI"
+      },
+      "generalSettings": {
+        "label": "Configuraciones Generales"
+      },
+      "expire": {
+        "label": "Expirar en minutos"
+      },
+      "keywordFinish": {
+        "label": "Palabra clave de Finalización"
+      },
+      "delayMessage": {
+        "label": "Mensaje de Retraso Predeterminado"
+      },
+      "unknownMessage": {
+        "label": "Mensaje Desconocido"
+      },
+      "listeningFromMe": {
+        "label": "Escuchando de mí",
+        "description": "Escuchar los mensajes enviados por mí en el bot"
+      },
+      "stopBotFromMe": {
+        "label": "Detener bot por mí",
+        "description": "Pausar el bot cuando yo envíe un mensaje"
+      },
+      "keepOpen": {
+        "label": "Mantener abierto",
+        "description": "Mantener el bot abierto después de que termine la conversación"
+      },
+      "debounceTime": {
+        "label": "Tiempo de Debounce"
+      },
+      "splitMessages": {
+        "label": "Dividir Mensajes",
+        "description": "Dividir mensajes en múltiples mensajes"
+      },
+      "timePerChar": {
+        "label": "Tiempo por carácter"
+      },
+      "ignoreJids": {
+        "label": "Ignorar JIDs",
+        "placeholder": "Agregar JIDs ej: 1234567890@s.whatsapp.net y presiona enter"
+      }
+    },
+    "button": {
+      "create": "EvoAI",
+      "save": "Guardar",
+      "saving": "Guardando...",
+      "update": "Actualizar",
+      "defaultSettings": "Configuraciones Predeterminadas",
+      "delete": "Eliminar"
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Configuraciones Predeterminadas"
+      }
+    }
+  },
+  "evolutionBot": {
+    "title": "Bot Evolution",
+    "sessions": {
+      "label": "Sesiones",
+      "search": "Buscar por remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Nombre Visible",
+        "sessionId": "ID de Sesión",
+        "status": "Estado",
+        "actions": {
+          "title": "Acciones",
+          "open": "Abrir",
+          "pause": "Pausar",
+          "close": "Cerrar",
+          "delete": "Eliminar"
+        },
+        "none": "Nada que mostrar"
+      }
+    },
+    "defaultSettings": "Configuraciones Predeterminadas",
+    "toast": {
+      "defaultSettings": {
+        "success": "Configuraciones predeterminadas aplicadas con éxito",
+        "error": "Ocurrió un error al aplicar las configuraciones predeterminadas"
+      },
+      "success": {
+        "update": "Bot Evolution actualizado con éxito",
+        "create": "Bot Evolution creado con éxito",
+        "delete": "Bot Evolution eliminado con éxito",
+        "status": "Estado de Bot Evolution actualizado con éxito"
+      },
+      "error": "Ocurrió un error al crear el Bot Evolution"
+    },
+    "table": {
+      "none": "Nada que mostrar"
+    },
+    "form": {
+      "title": "Nuevo Bot Evolution",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "Lo siento, no entendí. ¿Puedes intentar de nuevo?"
+      },
+      "enabled": {
+        "label": "Activo"
+      },
+      "description": {
+        "label": "Descripción"
+      },
+      "evolutionBotSettings": {
+        "label": "Configuraciones de Bot Evolution"
+      },
+      "apiUrl": {
+        "label": "URL de la API"
+      },
+      "apiKey": {
+        "label": "Clave API"
+      },
+      "triggerSettings": {
+        "label": "Configuraciones de Disparador"
+      },
+      "triggerType": {
+        "label": "Tipo de Disparador",
+        "keyword": "Palabra clave",
+        "all": "Todos",
+        "advanced": "Avanzado",
+        "none": "Ninguno"
+      },
+      "triggerOperator": {
+        "label": "Operador de Disparador",
+        "contains": "Contiene",
+        "equals": "Igual",
+        "startsWith": "Comienza Con",
+        "endsWith": "Termina Con",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Disparador"
+      },
+      "triggerConditions": {
+        "label": "Condiciones"
+      },
+      "botIdFallback": {
+        "label": "Fallback de Bot Evolution"
+      },
+      "generalSettings": {
+        "label": "Configuraciones Generales"
+      },
+      "expire": {
+        "label": "Expirar en minutos"
+      },
+      "keywordFinish": {
+        "label": "Palabra clave de Finalización"
+      },
+      "delayMessage": {
+        "label": "Mensaje de Retraso Predeterminado"
+      },
+      "unknownMessage": {
+        "label": "Mensaje Desconocido"
+      },
+      "listeningFromMe": {
+        "label": "Escuchando de mí",
+        "description": "Escuchar los mensajes enviados por mí en el bot"
+      },
+      "stopBotFromMe": {
+        "label": "Detener bot por mí",
+        "description": "Pausar el bot cuando yo envíe un mensaje"
+      },
+      "keepOpen": {
+        "label": "Mantener abierto",
+        "description": "Mantener el bot abierto después de que termine la conversación"
+      },
+      "debounceTime": {
+        "label": "Tiempo de Debounce"
+      },
+      "splitMessages": {
+        "label": "Dividir Mensajes",
+        "description": "Dividir mensajes largos en múltiples mensajes"
+      },
+      "timePerChar": {
+        "label": "Tiempo por Carácter"
+      },
+      "ignoreJids": {
+        "label": "Ignorar JIDs",
+        "placeholder": "Agregar JIDs ej: 1234567890@s.whatsapp.net y presiona enter"
+      }
+    },
+    "button": {
+      "create": "Bot Evolution",
+      "save": "Guardar",
+      "saving": "Guardando...",
+      "update": "Actualizar",
+      "defaultSettings": "Configuraciones Predeterminadas",
+      "delete": "Eliminar"
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Configuraciones Predeterminadas"
+      }
+    }
+  },
+  "flowise": {
+    "title": "Flowise",
+    "sessions": {
+      "label": "Sesiones",
+      "search": "Buscar por remoteJid...",
+      "table": {
+        "remoteJid": "RemoteJid",
+        "pushName": "Nombre Visible",
+        "sessionId": "ID de Sesión",
+        "status": "Estado",
+        "actions": {
+          "title": "Acciones",
+          "open": "Abrir",
+          "pause": "Pausar",
+          "close": "Cerrar",
+          "delete": "Eliminar"
+        },
+        "none": "Nada que mostrar"
+      }
+    },
+    "defaultSettings": "Configuraciones Predeterminadas",
+    "toast": {
+      "defaultSettings": {
+        "success": "Configuraciones predeterminadas aplicadas con éxito",
+        "error": "Ocurrió un error al aplicar las configuraciones predeterminadas"
+      },
+      "success": {
+        "update": "Flowise actualizado con éxito",
+        "create": "Flowise creado con éxito",
+        "delete": "Flowise eliminado con éxito",
+        "status": "Estado de Flowise actualizado con éxito"
+      },
+      "error": "Ocurrió un error al crear el Flowise"
+    },
+    "table": {
+      "none": "Nada que mostrar"
+    },
+    "form": {
+      "title": "Nuevo Flowise",
+      "examples": {
+        "keywordFinish": "#FINISH",
+        "unknownMessage": "Lo siento, no entendí. ¿Puedes intentar de nuevo?"
+      },
+      "enabled": {
+        "label": "Activo"
+      },
+      "description": {
+        "label": "Descripción"
+      },
+      "flowiseSettings": {
+        "label": "Configuraciones de Flowise"
+      },
+      "apiUrl": {
+        "label": "URL de la API"
+      },
+      "apiKey": {
+        "label": "Clave API"
+      },
+      "triggerSettings": {
+        "label": "Configuraciones de Disparador"
+      },
+      "triggerType": {
+        "label": "Tipo de Disparador",
+        "keyword": "Palabra clave",
+        "all": "Todos",
+        "advanced": "Avanzado",
+        "none": "Ninguno"
+      },
+      "triggerOperator": {
+        "label": "Operador de Disparador",
+        "contains": "Contiene",
+        "equals": "Igual",
+        "startsWith": "Comienza Con",
+        "endsWith": "Termina Con",
+        "regex": "Regex"
+      },
+      "triggerValue": {
+        "label": "Disparador"
+      },
+      "triggerConditions": {
+        "label": "Condiciones"
+      },
+      "flowiseIdFallback": {
+        "label": "Fallback de Flowise"
+      },
+      "generalSettings": {
+        "label": "Configuraciones Generales"
+      },
+      "expire": {
+        "label": "Expirar en minutos"
+      },
+      "keywordFinish": {
+        "label": "Palabra clave de Finalización"
+      },
+      "delayMessage": {
+        "label": "Mensaje de Retraso Predeterminado"
+      },
+      "unknownMessage": {
+        "label": "Mensaje Desconocido"
+      },
+      "listeningFromMe": {
+        "label": "Escuchando de mí",
+        "description": "Escuchar los mensajes enviados por mí en el bot"
+      },
+      "stopBotFromMe": {
+        "label": "Detener bot por mí",
+        "description": "Pausar el bot cuando yo envíe un mensaje"
+      },
+      "keepOpen": {
+        "label": "Mantener abierto",
+        "description": "Mantener el bot abierto después de que termine la conversación"
+      },
+      "debounceTime": {
+        "label": "Tiempo de Debounce"
+      },
+      "splitMessages": {
+        "label": "Dividir Mensajes",
+        "description": "Dividir mensajes largos en múltiples mensajes"
+      },
+      "timePerChar": {
+        "label": "Tiempo por Carácter"
+      },
+      "ignoreJids": {
+        "label": "Ignorar JIDs",
+        "placeholder": "Agregar JIDs ej: 1234567890@s.whatsapp.net y presiona enter"
+      }
+    },
+    "button": {
+      "create": "Flowise",
+      "save": "Guardar",
+      "saving": "Guardando...",
+      "update": "Actualizar",
+      "defaultSettings": "Configuraciones Predeterminadas",
+      "delete": "Eliminar"
+    },
+    "modal": {
+      "defaultSettings": {
+        "title": "Configuraciones Predeterminadas"
+      }
+    }
+  }
+}
