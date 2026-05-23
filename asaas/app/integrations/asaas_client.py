@@ -53,9 +53,20 @@ class AsaasClient:
 
     # ---------- low-level ----------
     async def _request(
-        self, method: str, path: str, *, json: Any = None, params: Any = None
+        self,
+        method: str,
+        path: str,
+        *,
+        json: Any = None,
+        params: Any = None,
+        idempotency_key: str | None = None,
     ) -> Any:
-        r = await self._client.request(method, path, json=json, params=params)
+        # Idempotency-Key: a Asaas guarda a chave so em respostas de sucesso (confirmado
+        # em sandbox). Um POST repetido com a mesma chave de um recurso ja criado recebe
+        # HTTP 409 — nunca duplica; ja respostas de erro (4xx) nao gravam a chave, entao
+        # um pagamento que falhou (saldo, chave invalida) pode ser re-tentado normalmente.
+        headers = {"Idempotency-Key": idempotency_key} if idempotency_key else None
+        r = await self._client.request(method, path, json=json, params=params, headers=headers)
         if r.status_code == 204 or not r.content:
             data: Any = None
         else:
@@ -86,8 +97,10 @@ class AsaasClient:
         return await self._request("DELETE", f"/v3/webhooks/{webhook_id}")
 
     # ---------- transfers (PIX out) ----------
-    async def create_transfer(self, payload: dict) -> dict:
-        return await self._request("POST", "/v3/transfers", json=payload)
+    async def create_transfer(self, payload: dict, *, idempotency_key: str | None = None) -> dict:
+        return await self._request(
+            "POST", "/v3/transfers", json=payload, idempotency_key=idempotency_key
+        )
 
     async def cancel_transfer(self, transfer_id: str) -> Any:
         return await self._request("POST", f"/v3/transfers/{transfer_id}/cancel")
@@ -99,14 +112,23 @@ class AsaasClient:
         return await self._request("GET", "/v3/transfers", params=params)
 
     # ---------- PIX QR Code outbound (copia-e-cola, paying) ----------
-    async def pay_qr_code(self, payload: str, value: float, description: str | None = None) -> dict:
+    async def pay_qr_code(
+        self,
+        payload: str,
+        value: float,
+        description: str | None = None,
+        *,
+        idempotency_key: str | None = None,
+    ) -> dict:
         body: dict = {
             "qrCode": {"payload": payload},
             "value": round(float(value), 2),
         }
         if description:
             body["description"] = description
-        return await self._request("POST", "/v3/pix/qrCodes/pay", json=body)
+        return await self._request(
+            "POST", "/v3/pix/qrCodes/pay", json=body, idempotency_key=idempotency_key
+        )
 
     # ---------- PIX transactions (outbound) ----------
     async def get_pix_transaction(self, transaction_id: str) -> dict:

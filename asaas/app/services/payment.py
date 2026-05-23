@@ -9,6 +9,13 @@ Status machine:
   PAID            TRANSFER_DONE recebido
   FAILED          erro permanente (chave invalida, etc) ou TRANSFER_FAILED
   CANCELLED       usuario cancelou
+  NEEDS_RECONCILE qrcode cujo re-submit bateu 409 de idempotencia (ja pago numa
+                  tentativa anterior) mas sem como recuperar o asaas_id automaticamente
+                  (pix transaction nao guarda externalReference) — exige conferencia manual
+
+Idempotencia (caminho do dinheiro): create_transfer/pay_qr_code vao com
+Idempotency-Key=payment_id. A Asaas guarda a chave so em sucesso, entao um re-submit de
+um pagamento ja aceito recebe 409 (nunca duplica), e um que falhou pode ser re-tentado.
 
 Worker roda como asyncio task dentro do uvicorn:
   - a cada N segundos, puxa SCHEDULED cujo scheduled_for <= now -> QUEUED
@@ -50,6 +57,7 @@ _VALID_STATUSES = {
     "PAID",
     "FAILED",
     "CANCELLED",
+    "NEEDS_RECONCILE",
 }
 
 DELETABLE_STATUSES = {"SCHEDULED", "AWAITING_BALANCE"}
@@ -316,8 +324,123 @@ async def _mark_payment(
     await db.flush()
 
 
+async def _find_transfer_by_external_reference(
+    client: AsaasClient, external_reference: str, since_date: str
+) -> dict | None:
+    """Pagina /v3/transfers (criadas a partir de since_date) e casa externalReference.
+
+    A Asaas ignora o filtro server-side de externalReference em transfers (confirmado em
+    sandbox); o param vai junto caso isso mude, mas a garantia e o match no cliente.
+    Cap defensivo de paginas pra nao varrer a conta inteira.
+    """
+    offset = 0
+    for _ in range(50):
+        res = await client.list_transfers(
+            {
+                "externalReference": external_reference,
+                "dateCreated[ge]": since_date,
+                "limit": 100,
+                "offset": offset,
+            }
+        )
+        for transfer in res.get("data") or []:
+            if transfer.get("externalReference") == external_reference:
+                return transfer
+        if not res.get("hasMore"):
+            return None
+        offset += 100
+    return None
+
+
+async def _adopt_existing_transfer(
+    db: AsyncSession, client: AsaasClient, payment: Payment, now: datetime
+) -> bool | None:
+    """Adota uma transfer (pixkey) ja criada no Asaas pra este payment, se existir.
+
+    Cobre o caso em que a 1a tentativa criou a transfer mas perdeu a resposta (timeout).
+    Retorna:
+      True  -> adotada (asaas_id preenchido, status SUBMITTED)
+      False -> confirmado ausente (seguro reenfileirar pra re-submeter)
+      None  -> inconclusivo (erro de consulta; NAO reenfileirar — risco de duplicar)
+    """
+    since = (payment.created_at or now).date().isoformat()
+    try:
+        transfer = await _find_transfer_by_external_reference(client, payment.payment_id, since)
+    except Exception as e:
+        log_event(
+            "payment_reconcile_lookup_error", payment_id=payment.payment_id, error=type(e).__name__
+        )
+        return None
+    if transfer is None:
+        return False
+    await _mark_payment(
+        db,
+        payment,
+        "SUBMITTED",
+        asaas_id=transfer.get("id"),
+        last_error="adopted_existing_transfer",
+    )
+    await db.commit()
+    await _notify_internal(db, payment)
+    log_event(
+        "payment_adopted_existing_transfer",
+        payment_id=payment.payment_id,
+        asaas_id=payment.asaas_id,
+    )
+    return True
+
+
+async def _on_submit_asaas_error(
+    db: AsyncSession, client: AsaasClient, payment: Payment, e: AsaasError, old_status: str
+) -> None:
+    """Decide o estado do payment a partir do erro do Asaas no submit."""
+    # 409 = conflito de idempotencia: este payment ja foi aceito numa tentativa anterior
+    # (a Asaas bloqueou a duplicata). Recupera em vez de marcar erro.
+    if e.status_code == 409:
+        now = datetime.now(UTC)
+        if payment.kind != "qrcode":
+            if await _adopt_existing_transfer(db, client, payment, now):
+                return
+            # Existe (409) mas ainda nao listada (consistencia eventual): marca SUBMITTED;
+            # o webhook casa por externalReference=payment_id e preenche o asaas_id depois.
+            await _mark_payment(
+                db, payment, "SUBMITTED", last_error="idempotent_conflict_pending_reconcile"
+            )
+        else:
+            # qrcode: a pix transaction nao guarda externalReference (confirmado), entao
+            # nao da pra achar o asaas_id sozinho. A duplicata ja foi evitada; manual.
+            await _mark_payment(
+                db, payment, "NEEDS_RECONCILE", last_error="qrcode_idempotent_conflict_manual"
+            )
+        await db.commit()
+        await _notify_internal(db, payment)
+        log_event("payment_idempotent_conflict", payment_id=payment.payment_id, kind=payment.kind)
+        return
+    if _is_insufficient_balance(e.body):
+        was_already = old_status == "AWAITING_BALANCE"
+        await _mark_payment(
+            db, payment, "AWAITING_BALANCE", last_error=json.dumps(e.body, ensure_ascii=False)[:500]
+        )
+        await db.commit()
+        if not was_already:
+            await _notify_internal(db, payment)
+        log_event("payment_awaiting_balance", payment_id=payment.payment_id)
+        return
+    await _mark_payment(
+        db, payment, "FAILED", last_error=json.dumps(e.body, ensure_ascii=False)[:500]
+    )
+    await db.commit()
+    await _notify_internal(db, payment)
+    log_event("payment_failed", payment_id=payment.payment_id, error=payment.last_error)
+
+
 async def submit_one(db: AsyncSession, payment: Payment) -> None:
-    """Tenta submeter uma Payment ao Asaas. Atualiza status in-place."""
+    """Tenta submeter uma Payment ao Asaas. Atualiza status in-place.
+
+    Manda Idempotency-Key=payment_id: um re-submit de algo ja aceito recebe 409 e e
+    tratado como ja-submetido (nunca duplica). Erros de rede deixam o payment SUBMITTING
+    pro requeue de stale resolver — sem reenfileirar as cegas.
+    """
     api_key = await cfg.get(db, cfg.K_ASAAS_API_KEY)
     if not api_key:
         payment.last_error = "waiting_asaas_api_key"
@@ -327,55 +450,56 @@ async def submit_one(db: AsyncSession, payment: Payment) -> None:
     if not await _claim_for_submit(db, payment):
         return
     async with AsaasClient(api_key) as client:
-        try:
-            if payment.kind == "qrcode":
-                res = await client.pay_qr_code(
-                    payment.qrcode_payload,
-                    payment.amount,
-                    payment.description,
-                )
-            else:
-                try:
-                    pix = await _resolve_pixkey(db, payment.pixkey_external_id)
-                except PaymentError as e:
-                    await _mark_payment(db, payment, "FAILED", last_error=str(e))
-                    return
-                res = await client.create_transfer(
-                    {
-                        "value": round(float(payment.amount), 2),
-                        "pixAddressKey": pix.key,
-                        "externalReference": payment.payment_id,
-                        "description": payment.description or f"payment {payment.payment_id}",
-                    }
-                )
-
-            await _mark_payment(db, payment, "SUBMITTED", asaas_id=res.get("id"))
-            # Commit imediato do asaas_id: o /security-validator do Asaas chega ~5s
-            # depois numa transação separada e casa o pagamento por asaas_id. Sem este
-            # commit, o asaas_id só seria persistido no fim do tick e o validator
-            # recusaria uma transferência legítima (operation_not_found_locally).
-            await db.commit()
-            await _notify_internal(db, payment)
-            log_event("payment_submitted", payment_id=payment.payment_id, asaas_id=payment.asaas_id)
-
-        except AsaasError as e:
-            if _is_insufficient_balance(e.body):
-                was_already = old_status == "AWAITING_BALANCE"
-                await _mark_payment(
-                    db,
-                    payment,
-                    "AWAITING_BALANCE",
-                    last_error=json.dumps(e.body, ensure_ascii=False)[:500],
-                )
-                if not was_already:
-                    await _notify_internal(db, payment)
-                log_event("payment_awaiting_balance", payment_id=payment.payment_id)
-            else:
-                await _mark_payment(
-                    db, payment, "FAILED", last_error=json.dumps(e.body, ensure_ascii=False)[:500]
-                )
+        if payment.kind == "qrcode":
+            call = client.pay_qr_code(
+                payment.qrcode_payload,
+                payment.amount,
+                payment.description,
+                idempotency_key=payment.payment_id,
+            )
+        else:
+            try:
+                pix = await _resolve_pixkey(db, payment.pixkey_external_id)
+            except PaymentError as e:
+                await _mark_payment(db, payment, "FAILED", last_error=str(e))
+                await db.commit()
                 await _notify_internal(db, payment)
-                log_event("payment_failed", payment_id=payment.payment_id, error=payment.last_error)
+                return
+            call = client.create_transfer(
+                {
+                    "value": round(float(payment.amount), 2),
+                    "pixAddressKey": pix.key,
+                    "externalReference": payment.payment_id,
+                    "description": payment.description or f"payment {payment.payment_id}",
+                },
+                idempotency_key=payment.payment_id,
+            )
+
+        try:
+            res = await call
+        except AsaasError as e:
+            await _on_submit_asaas_error(db, client, payment, e, old_status)
+            return
+        except Exception as e:
+            # Falha de rede/transporte (httpx timeout/conexao) ou erro inesperado: NAO
+            # sabemos se a transfer chegou a ser criada. Deixa SUBMITTING (sem reenfileirar
+            # as cegas) e nao propaga, pra nao abortar o resto do tick. O requeue de stale
+            # + Idempotency-Key resolvem no proximo tick (re-submit do que ja existe -> 409).
+            payment.last_error = f"submit_uncertain:{type(e).__name__}"
+            await db.commit()
+            log_event(
+                "payment_submit_uncertain", payment_id=payment.payment_id, error=type(e).__name__
+            )
+            return
+
+        await _mark_payment(db, payment, "SUBMITTED", asaas_id=res.get("id"))
+        # Commit imediato do asaas_id: o /security-validator do Asaas chega ~5s depois numa
+        # transação separada e casa o pagamento por asaas_id. Sem este commit, o asaas_id só
+        # seria persistido no fim do tick e o validator recusaria uma transferência legítima
+        # (operation_not_found_locally).
+        await db.commit()
+        await _notify_internal(db, payment)
+        log_event("payment_submitted", payment_id=payment.payment_id, asaas_id=payment.asaas_id)
 
 
 # ---------------- reconciliation ----------------
@@ -446,6 +570,43 @@ async def reconcile_submitted(db: AsyncSession) -> int:
 # ---------------- worker tick ----------------
 
 
+def _requeue(payment: Payment, now: datetime) -> None:
+    payment.status = "QUEUED"
+    payment.last_error = "requeued_stale_submitting"
+    payment.updated_at = now
+    log_event("payment_requeued_stale_submitting", payment_id=payment.payment_id)
+
+
+async def _requeue_stale_submitting(db: AsyncSession, stuck: list[Payment], now: datetime) -> None:
+    """SUBMITTING travado (> SUBMITTING_STALE_AFTER, asaas_id NULL): resolve com seguranca.
+
+    pixkey: antes de re-submeter, procura no Asaas por externalReference=payment_id (cobre
+    o timeout que perdeu so a resposta). Adota se existe; reenfileira so se confirmar
+    ausencia; mantem SUBMITTING se a consulta falhar.
+    qrcode: reenfileira. O Idempotency-Key garante que re-submeter algo ja pago recebe 409
+    (vira NEEDS_RECONCILE em submit_one) — nunca duplica; e se nao foi pago, o re-submit
+    completa normalmente.
+    """
+    pix_stuck = [p for p in stuck if p.kind != "qrcode"]
+    for p in stuck:
+        if p.kind == "qrcode":
+            _requeue(p, now)
+    if not pix_stuck:
+        return
+    api_key = await cfg.get(db, cfg.K_ASAAS_API_KEY)
+    if not api_key:
+        # sem chave nao da pra checar o Asaas; deixa SUBMITTING (nao reenfileira as cegas)
+        for p in pix_stuck:
+            log_event("payment_stale_no_apikey_skip", payment_id=p.payment_id)
+        return
+    async with AsaasClient(api_key) as client:
+        for p in pix_stuck:
+            adopted = await _adopt_existing_transfer(db, client, p, now)
+            if adopted is False:
+                _requeue(p, now)
+            # True: adotada; None: inconclusivo -> mantem SUBMITTING pro proximo tick
+
+
 async def tick(db: AsyncSession) -> dict:
     """Uma iteracao do worker. Retorna contadores."""
     now = datetime.now(UTC)
@@ -466,11 +627,8 @@ async def tick(db: AsyncSession) -> dict:
         .scalars()
         .all()
     )
-    for p in stuck:
-        p.status = "QUEUED"
-        p.last_error = "requeued_stale_submitting"
-        p.updated_at = now
-        log_event("payment_requeued_stale_submitting", payment_id=p.payment_id)
+    if stuck:
+        await _requeue_stale_submitting(db, stuck, now)
 
     # SCHEDULED -> QUEUED se chegou a hora
     due = list(

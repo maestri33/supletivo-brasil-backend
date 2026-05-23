@@ -119,7 +119,7 @@ class Payment(Base):
     scheduled_for = Column(DateTime(timezone=True), nullable=True)
     status = Column(String, index=True)
     # outbound: SCHEDULED | QUEUED | SUBMITTING | SUBMITTED | AWAITING_BALANCE
-    #           | PAID | FAILED | CANCELLED
+    #           | PAID | FAILED | CANCELLED | NEEDS_RECONCILE
     # charge:   PENDING | PAID | EXPIRED | CANCELLED | REFUNDED
     asaas_id = Column(String, nullable=True, index=True)
     last_error = Column(Text, nullable=True)
