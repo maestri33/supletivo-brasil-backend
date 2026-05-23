@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import func, select
 
 from app.exceptions import ValidationError
 from app.integrations.asaas_client import AsaasError
@@ -40,7 +41,7 @@ def test_validate_cpf_cnpj_rejeita_outros():
         svc._validate_cpf_cnpj("")
 
 
-def test_find_or_create_existing_local(db, seeded_apikey):
+async def test_find_or_create_existing_local(db, seeded_apikey):
     """Customer ja persistido localmente — retorna sem chamar Asaas."""
     db.add(
         Customer(
@@ -50,44 +51,51 @@ def test_find_or_create_existing_local(db, seeded_apikey):
             cpf_cnpj="07426367980",
         )
     )
-    db.commit()
-    cust = svc.find_or_create(db, "aluno_42", payer=None)
+    await db.commit()
+    cust = await svc.find_or_create(db, "aluno_42", payer=None)
     assert cust.asaas_id == "cus_existing"
 
 
-def test_find_or_create_sem_payer_nem_local_falha(db, seeded_apikey):
+async def test_find_or_create_sem_payer_nem_local_falha(db, seeded_apikey):
     with pytest.raises(ValidationError, match="customer_required"):
-        svc.find_or_create(db, "aluno_42", payer=None)
+        await svc.find_or_create(db, "aluno_42", payer=None)
 
 
-def test_find_or_create_external_id_vazio_falha(db, seeded_apikey):
+async def test_find_or_create_external_id_vazio_falha(db, seeded_apikey):
     with pytest.raises(ValidationError, match="external_id_required"):
-        svc.find_or_create(db, "  ", payer=_payer())
+        await svc.find_or_create(db, "  ", payer=_payer())
 
 
-def test_find_or_create_sem_api_key_falha(db):
+async def test_find_or_create_sem_api_key_falha(db):
     with pytest.raises(ValidationError, match="asaas_api_key_not_set"):
-        svc.find_or_create(db, "aluno_42", payer=_payer())
+        await svc.find_or_create(db, "aluno_42", payer=_payer())
 
 
-def test_find_or_create_recupera_do_asaas_por_external_reference(db, seeded_apikey, fake_asaas):
+async def test_find_or_create_recupera_do_asaas_por_external_reference(
+    db, seeded_apikey, fake_asaas
+):
     """Customer existe no Asaas mas nao localmente — recupera e persiste."""
     fake_asaas.find_customer_by_external_reference.return_value = _mock_asaas_customer(
         cust_id="cus_recovered"
     )
-    cust = svc.find_or_create(db, "aluno_42", payer=_payer())
+    cust = await svc.find_or_create(db, "aluno_42", payer=_payer())
     assert cust.asaas_id == "cus_recovered"
     # nao deve criar no Asaas porque ja existe
     fake_asaas.create_customer.assert_not_called()
     # confirma persistencia
-    db.commit()
-    assert db.query(Customer).filter_by(external_id="aluno_42").count() == 1
+    await db.commit()
+    count = (
+        await db.execute(
+            select(func.count()).select_from(Customer).where(Customer.external_id == "aluno_42")
+        )
+    ).scalar_one()
+    assert count == 1
 
 
-def test_find_or_create_cria_no_asaas(db, seeded_apikey, fake_asaas):
+async def test_find_or_create_cria_no_asaas(db, seeded_apikey, fake_asaas):
     fake_asaas.find_customer_by_external_reference.return_value = None
     fake_asaas.create_customer.return_value = _mock_asaas_customer(cust_id="cus_new")
-    cust = svc.find_or_create(db, "aluno_42", payer=_payer())
+    cust = await svc.find_or_create(db, "aluno_42", payer=_payer())
     assert cust.asaas_id == "cus_new"
     fake_asaas.create_customer.assert_called_once()
     # confere que cpf foi normalizado pra so digitos
@@ -97,16 +105,16 @@ def test_find_or_create_cria_no_asaas(db, seeded_apikey, fake_asaas):
     assert call_payload["notificationDisabled"] is True
 
 
-def test_find_or_create_propaga_falha_asaas(db, seeded_apikey, fake_asaas):
+async def test_find_or_create_propaga_falha_asaas(db, seeded_apikey, fake_asaas):
     fake_asaas.find_customer_by_external_reference.return_value = None
     fake_asaas.create_customer.side_effect = AsaasError(
         400, {"errors": [{"code": "invalid_cpf", "description": "CPF invalido"}]}
     )
     with pytest.raises(ValidationError, match="asaas_customer_create_failed"):
-        svc.find_or_create(db, "aluno_42", payer=_payer())
+        await svc.find_or_create(db, "aluno_42", payer=_payer())
 
 
-def test_get_by_asaas_id(db):
+async def test_get_by_asaas_id(db):
     db.add(
         Customer(
             external_id="x",
@@ -115,6 +123,6 @@ def test_get_by_asaas_id(db):
             cpf_cnpj="11111111111",
         )
     )
-    db.commit()
-    assert svc.get_by_asaas_id(db, "cus_xyz").external_id == "x"
-    assert svc.get_by_asaas_id(db, "nao_existe") is None
+    await db.commit()
+    assert (await svc.get_by_asaas_id(db, "cus_xyz")).external_id == "x"
+    assert await svc.get_by_asaas_id(db, "nao_existe") is None

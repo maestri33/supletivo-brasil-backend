@@ -13,7 +13,7 @@ Se nenhum estiver configurado, no-op silencioso (eventos ficam apenas no log).
 from __future__ import annotations
 
 import httpx
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import config_store as cfg
 from ..models import Payment
@@ -22,14 +22,14 @@ from ..utils.logging import log_event
 _SCHEDULING_STATUSES = {"SCHEDULED", "QUEUED"}
 
 
-def internal_url_for(db: Session, *, kind: str, status: str | None) -> str | None:
+async def internal_url_for(db: AsyncSession, *, kind: str, status: str | None) -> str | None:
     """Resolve a internal URL apropriada para um evento, com fallback ao legado."""
-    fallback = cfg.get(db, cfg.K_INTERNAL_URL)
+    fallback = await cfg.get(db, cfg.K_INTERNAL_URL)
     if kind == "charge":
-        return cfg.get(db, cfg.K_INTERNAL_URL_CHARGE) or fallback
+        return await cfg.get(db, cfg.K_INTERNAL_URL_CHARGE) or fallback
     if status in _SCHEDULING_STATUSES:
-        return cfg.get(db, cfg.K_INTERNAL_URL_SCHEDULING) or fallback
-    return cfg.get(db, cfg.K_INTERNAL_URL_PAYOUT) or fallback
+        return await cfg.get(db, cfg.K_INTERNAL_URL_SCHEDULING) or fallback
+    return await cfg.get(db, cfg.K_INTERNAL_URL_PAYOUT) or fallback
 
 
 def _external_id_field(payment: Payment) -> str | None:
@@ -42,9 +42,9 @@ def _external_id_field(payment: Payment) -> str | None:
     return None
 
 
-def notify_internal(db: Session, payment: Payment) -> None:
+async def notify_internal(db: AsyncSession, payment: Payment) -> None:
     """Dispara POST a internal URL apropriada. Falhas sao logadas mas nao propagadas."""
-    url = internal_url_for(db, kind=payment.kind, status=payment.status)
+    url = await internal_url_for(db, kind=payment.kind, status=payment.status)
     if not url:
         return
     payload = {
@@ -54,8 +54,8 @@ def notify_internal(db: Session, payment: Payment) -> None:
         "status": payment.status,
     }
     try:
-        with httpx.Client(timeout=5.0) as cli:
-            r = cli.post(url, json=payload)
+        async with httpx.AsyncClient(timeout=5.0) as cli:
+            r = await cli.post(url, json=payload)
             log_event(
                 "internal_notify",
                 payment_id=payment.payment_id,

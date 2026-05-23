@@ -21,7 +21,8 @@ Refuse precoce, log sempre, nao explode em payload malformado.
 
 from __future__ import annotations
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import Payment
 from ..utils.logging import log_event
@@ -39,7 +40,7 @@ _UNSUPPORTED_TYPES = {"BILL", "MOBILE_PHONE_RECHARGE", "PIX_REFUND"}
 _VALIDATABLE_STATUSES = ("SUBMITTING", "SUBMITTED")
 
 
-def validate(db: Session, payload: dict) -> tuple[bool, str | None]:
+async def validate(db: AsyncSession, payload: dict) -> tuple[bool, str | None]:
     """Retorna (approved, refuse_reason). approved=True implica refuse_reason=None."""
     if not isinstance(payload, dict):
         return False, "invalid_payload"
@@ -66,14 +67,14 @@ def validate(db: Session, payload: dict) -> tuple[bool, str | None]:
         return False, "missing_id_in_payload"
 
     row = (
-        db.query(Payment)
-        .filter(
-            Payment.asaas_id == asaas_id,
-            Payment.kind == kind,
-            Payment.status.in_(_VALIDATABLE_STATUSES),
+        await db.execute(
+            select(Payment).where(
+                Payment.asaas_id == asaas_id,
+                Payment.kind == kind,
+                Payment.status.in_(_VALIDATABLE_STATUSES),
+            )
         )
-        .one_or_none()
-    )
+    ).scalar_one_or_none()
     if row is None:
         return False, f"operation_not_found_locally: id={asaas_id}"
 
@@ -87,9 +88,9 @@ def validate(db: Session, payload: dict) -> tuple[bool, str | None]:
     return True, None
 
 
-def decide(db: Session, payload: dict) -> dict:
+async def decide(db: AsyncSession, payload: dict) -> dict:
     """Retorna o body de resposta pro Asaas + loga a decisao."""
-    approved, refuse_reason = validate(db, payload)
+    approved, refuse_reason = await validate(db, payload)
     op_type = payload.get("type") if isinstance(payload, dict) else None
     op_id = None
     if isinstance(payload, dict):

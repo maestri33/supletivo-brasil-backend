@@ -15,7 +15,8 @@ from __future__ import annotations
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy.orm import Session
+from sqlalchemy import delete as sa_delete
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import config_store as cfg
 from ..config import get_settings
@@ -29,25 +30,23 @@ def _now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-def issue_nonce(db: Session, url: str) -> tuple[str, str]:
+async def issue_nonce(db: AsyncSession, url: str) -> tuple[str, str]:
     """Create a nonce bound to url. Returns (nonce, verify_url)."""
     # Invalidate previous pending nonces (hygiene, not required)
-    db.query(UrlVerifyNonce).filter(
-        UrlVerifyNonce.consumed_at.is_(None),
-    ).delete(synchronize_session=False)
+    await db.execute(sa_delete(UrlVerifyNonce).where(UrlVerifyNonce.consumed_at.is_(None)))
 
     nonce = secrets.token_urlsafe(24)
     row = UrlVerifyNonce(nonce=nonce, target_url=str(url), purpose="external")
     db.add(row)
-    db.flush()
+    await db.flush()
 
     verify_url = f"{str(url).rstrip('/')}{VERIFY_PATH}/{nonce}"
     return nonce, verify_url
 
 
-def consume_nonce(db: Session, nonce: str) -> UrlVerifyNonce:
+async def consume_nonce(db: AsyncSession, nonce: str) -> UrlVerifyNonce:
     """Validate + single-use mark the nonce. Raises ValidationError on problems."""
-    row = db.get(UrlVerifyNonce, nonce)
+    row = await db.get(UrlVerifyNonce, nonce)
     if row is None:
         raise ValidationError("nonce_not_found")
     if row.consumed_at is not None:
@@ -56,7 +55,7 @@ def consume_nonce(db: Session, nonce: str) -> UrlVerifyNonce:
     if age > timedelta(seconds=get_settings().url_verify_nonce_ttl):
         raise ValidationError("nonce_expired")
     row.consumed_at = _now()
-    db.flush()
+    await db.flush()
 
-    cfg.set_(db, cfg.K_EXTERNAL_URL, row.target_url)
+    await cfg.set_(db, cfg.K_EXTERNAL_URL, row.target_url)
     return row

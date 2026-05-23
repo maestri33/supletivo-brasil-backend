@@ -68,13 +68,13 @@ def doc_for_target(target: str) -> str:
     return _DOC_BY_TARGET.get(target, _DOC_BY_TARGET["default"])
 
 
-def send_onboarding(url: str, *, target: str = "default") -> dict:
+async def send_onboarding(url: str, *, target: str = "default") -> dict:
     """Envia POST com o doc. Retorna {ok, status_code}. Lanca em falha de rede."""
     payload = {
         "event": "ASAAS_APP_ONBOARDING",
         "target": target,
         "doc": doc_for_target(target),
     }
-    with httpx.Client(timeout=10.0) as cli:
-        r = cli.post(url, json=payload)
+    async with httpx.AsyncClient(timeout=10.0) as cli:
+        r = await cli.post(url, json=payload)
     return {"ok": 200 <= r.status_code < 300, "status_code": r.status_code}

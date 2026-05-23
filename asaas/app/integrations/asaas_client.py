@@ -5,6 +5,8 @@ Rules:
    https://api-sandbox.asaas.com (sandbox). O cliente prefixa /v3/ em cada path.
  - No business logic here. Every function maps 1:1 to an Asaas endpoint.
  - Raises AsaasError on any non-2xx (caller decides how to handle).
+ - I/O async (httpx.AsyncClient): nao bloqueia o event loop do uvicorn — critico
+   para o /security-validator (prazo ~5s do Asaas) e para o worker.
 """
 
 from __future__ import annotations
@@ -30,7 +32,7 @@ class AsaasClient:
     def __init__(self, api_key: str, *, timeout: float = 30.0):
         if not api_key:
             raise ValueError("api_key is required")
-        self._client = httpx.Client(
+        self._client = httpx.AsyncClient(
             base_url=ASAAS_BASE_URL,
             headers={
                 "access_token": api_key,
@@ -40,18 +42,20 @@ class AsaasClient:
             timeout=timeout,
         )
 
-    def close(self) -> None:
-        self._client.close()
+    async def aclose(self) -> None:
+        await self._client.aclose()
 
-    def __enter__(self):
+    async def __aenter__(self):
         return self
 
-    def __exit__(self, *a):
-        self.close()
+    async def __aexit__(self, *a):
+        await self.aclose()
 
     # ---------- low-level ----------
-    def _request(self, method: str, path: str, *, json: Any = None, params: Any = None) -> Any:
-        r = self._client.request(method, path, json=json, params=params)
+    async def _request(
+        self, method: str, path: str, *, json: Any = None, params: Any = None
+    ) -> Any:
+        r = await self._client.request(method, path, json=json, params=params)
         if r.status_code == 204 or not r.content:
             data: Any = None
         else:
@@ -64,87 +68,87 @@ class AsaasClient:
         return data
 
     # ---------- account ----------
-    def get_my_account(self) -> dict:
+    async def get_my_account(self) -> dict:
         # /v3/myAccount returns the authenticated wallet's profile
-        return self._request("GET", "/v3/myAccount")
+        return await self._request("GET", "/v3/myAccount")
 
-    def get_balance(self) -> dict:
-        return self._request("GET", "/v3/finance/balance")
+    async def get_balance(self) -> dict:
+        return await self._request("GET", "/v3/finance/balance")
 
     # ---------- webhooks ----------
-    def list_webhooks(self) -> dict:
-        return self._request("GET", "/v3/webhooks")
+    async def list_webhooks(self) -> dict:
+        return await self._request("GET", "/v3/webhooks")
 
-    def create_webhook(self, payload: dict) -> dict:
-        return self._request("POST", "/v3/webhooks", json=payload)
+    async def create_webhook(self, payload: dict) -> dict:
+        return await self._request("POST", "/v3/webhooks", json=payload)
 
-    def delete_webhook(self, webhook_id: str) -> Any:
-        return self._request("DELETE", f"/v3/webhooks/{webhook_id}")
+    async def delete_webhook(self, webhook_id: str) -> Any:
+        return await self._request("DELETE", f"/v3/webhooks/{webhook_id}")
 
     # ---------- transfers (PIX out) ----------
-    def create_transfer(self, payload: dict) -> dict:
-        return self._request("POST", "/v3/transfers", json=payload)
+    async def create_transfer(self, payload: dict) -> dict:
+        return await self._request("POST", "/v3/transfers", json=payload)
 
-    def cancel_transfer(self, transfer_id: str) -> Any:
-        return self._request("POST", f"/v3/transfers/{transfer_id}/cancel")
+    async def cancel_transfer(self, transfer_id: str) -> Any:
+        return await self._request("POST", f"/v3/transfers/{transfer_id}/cancel")
 
-    def get_transfer(self, transfer_id: str) -> dict:
-        return self._request("GET", f"/v3/transfers/{transfer_id}")
+    async def get_transfer(self, transfer_id: str) -> dict:
+        return await self._request("GET", f"/v3/transfers/{transfer_id}")
 
-    def list_transfers(self, params: dict | None = None) -> dict:
-        return self._request("GET", "/v3/transfers", params=params)
+    async def list_transfers(self, params: dict | None = None) -> dict:
+        return await self._request("GET", "/v3/transfers", params=params)
 
     # ---------- PIX QR Code outbound (copia-e-cola, paying) ----------
-    def pay_qr_code(self, payload: str, value: float, description: str | None = None) -> dict:
+    async def pay_qr_code(self, payload: str, value: float, description: str | None = None) -> dict:
         body: dict = {
             "qrCode": {"payload": payload},
             "value": round(float(value), 2),
         }
         if description:
             body["description"] = description
-        return self._request("POST", "/v3/pix/qrCodes/pay", json=body)
+        return await self._request("POST", "/v3/pix/qrCodes/pay", json=body)
 
     # ---------- PIX transactions (outbound) ----------
-    def get_pix_transaction(self, transaction_id: str) -> dict:
-        return self._request("GET", f"/v3/pix/transactions/{transaction_id}")
+    async def get_pix_transaction(self, transaction_id: str) -> dict:
+        return await self._request("GET", f"/v3/pix/transactions/{transaction_id}")
 
-    def cancel_pix_transaction(self, transaction_id: str) -> Any:
-        return self._request("POST", f"/v3/pix/transactions/{transaction_id}/cancel")
+    async def cancel_pix_transaction(self, transaction_id: str) -> Any:
+        return await self._request("POST", f"/v3/pix/transactions/{transaction_id}/cancel")
 
     # ---------- customers ----------
-    def create_customer(self, payload: dict) -> dict:
-        return self._request("POST", "/v3/customers", json=payload)
+    async def create_customer(self, payload: dict) -> dict:
+        return await self._request("POST", "/v3/customers", json=payload)
 
-    def get_customer(self, customer_id: str) -> dict:
-        return self._request("GET", f"/v3/customers/{customer_id}")
+    async def get_customer(self, customer_id: str) -> dict:
+        return await self._request("GET", f"/v3/customers/{customer_id}")
 
-    def list_customers(self, params: dict | None = None) -> dict:
-        return self._request("GET", "/v3/customers", params=params)
+    async def list_customers(self, params: dict | None = None) -> dict:
+        return await self._request("GET", "/v3/customers", params=params)
 
-    def find_customer_by_external_reference(self, external_reference: str) -> dict | None:
-        res = self.list_customers({"externalReference": external_reference, "limit": 1})
+    async def find_customer_by_external_reference(self, external_reference: str) -> dict | None:
+        res = await self.list_customers({"externalReference": external_reference, "limit": 1})
         data = res.get("data") or []
         return data[0] if data else None
 
-    def update_customer(self, customer_id: str, payload: dict) -> dict:
-        return self._request("POST", f"/v3/customers/{customer_id}", json=payload)
+    async def update_customer(self, customer_id: str, payload: dict) -> dict:
+        return await self._request("POST", f"/v3/customers/{customer_id}", json=payload)
 
     # ---------- payments (inbound charges) ----------
-    def create_payment(self, payload: dict) -> dict:
-        return self._request("POST", "/v3/payments", json=payload)
+    async def create_payment(self, payload: dict) -> dict:
+        return await self._request("POST", "/v3/payments", json=payload)
 
-    def get_payment(self, payment_id: str) -> dict:
-        return self._request("GET", f"/v3/payments/{payment_id}")
+    async def get_payment(self, payment_id: str) -> dict:
+        return await self._request("GET", f"/v3/payments/{payment_id}")
 
-    def list_payments(self, params: dict | None = None) -> dict:
-        return self._request("GET", "/v3/payments", params=params)
+    async def list_payments(self, params: dict | None = None) -> dict:
+        return await self._request("GET", "/v3/payments", params=params)
 
-    def delete_payment(self, payment_id: str) -> Any:
-        return self._request("DELETE", f"/v3/payments/{payment_id}")
+    async def delete_payment(self, payment_id: str) -> Any:
+        return await self._request("DELETE", f"/v3/payments/{payment_id}")
 
-    def refund_payment(self, payment_id: str, payload: dict | None = None) -> dict:
-        return self._request("POST", f"/v3/payments/{payment_id}/refund", json=payload or {})
+    async def refund_payment(self, payment_id: str, payload: dict | None = None) -> dict:
+        return await self._request("POST", f"/v3/payments/{payment_id}/refund", json=payload or {})
 
-    def get_payment_pix_qr_code(self, payment_id: str) -> dict:
+    async def get_payment_pix_qr_code(self, payment_id: str) -> dict:
         """BR Code (copia-e-cola) + base64 PNG da cobranca PIX."""
-        return self._request("GET", f"/v3/payments/{payment_id}/pixQrCode")
+        return await self._request("GET", f"/v3/payments/{payment_id}/pixQrCode")

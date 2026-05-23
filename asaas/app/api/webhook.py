@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import config_store as cfg
 from ..db import get_session
@@ -19,8 +19,8 @@ from ..utils.logging import log_event
 router = APIRouter(tags=["asaas-inbound"])
 
 
-def _check_token(db: Session, asaas_access_token: str | None):
-    expected = cfg.get(db, cfg.K_ASAAS_SECURITY_TOKEN)
+async def _check_token(db: AsyncSession, asaas_access_token: str | None):
+    expected = await cfg.get(db, cfg.K_ASAAS_SECURITY_TOKEN)
     if not expected or asaas_access_token != expected:
         raise HTTPException(status_code=401, detail="invalid_token")
 
@@ -36,7 +36,7 @@ def _check_token(db: Session, asaas_access_token: str | None):
 async def security_validator(
     request: Request,
     asaas_access_token: str | None = Header(default=None, alias="asaas-access-token"),
-    db: Session = Depends(get_session),
+    db: AsyncSession = Depends(get_session),
 ):
     """Valida saidas (TRANSFER, PIX_QR_CODE) contra nosso DB.
 
@@ -46,9 +46,9 @@ async def security_validator(
     Auditoria: cada decisao gera evento `security_validator_decision` no log
     com {approved, refuse_reason, op_type, op_id}.
     """
-    _check_token(db, asaas_access_token)
+    await _check_token(db, asaas_access_token)
     body = await request.json()
-    return security_validator_svc.decide(db, body if isinstance(body, dict) else {})
+    return await security_validator_svc.decide(db, body if isinstance(body, dict) else {})
 
 
 @router.post(
@@ -59,7 +59,7 @@ async def security_validator(
 async def receive_webhook(
     request: Request,
     asaas_access_token: str | None = Header(default=None, alias="asaas-access-token"),
-    db: Session = Depends(get_session),
+    db: AsyncSession = Depends(get_session),
 ):
     """Recebe eventos Asaas, persiste e roteia para o bridge correto.
 
@@ -68,22 +68,24 @@ async def receive_webhook(
 
     Sempre 200 mesmo se o evento nao mapear para nada nosso (Asaas re-envia em retry).
     """
-    _check_token(db, asaas_access_token)
+    await _check_token(db, asaas_access_token)
     body = await request.json()
     event = body.get("event") if isinstance(body, dict) else None
 
     row = WebhookEvent(event=event, payload=json.dumps(body, ensure_ascii=False))
     db.add(row)
-    db.flush()
+    await db.flush()
 
     payment = None
     try:
         if isinstance(event, str) and event.startswith("PAYMENT_"):
-            payment = charge_service.apply_webhook(db, body if isinstance(body, dict) else {})
+            payment = await charge_service.apply_webhook(db, body if isinstance(body, dict) else {})
         else:
-            payment = payment_service.apply_webhook(db, body if isinstance(body, dict) else {})
+            payment = await payment_service.apply_webhook(
+                db, body if isinstance(body, dict) else {}
+            )
         if payment is not None:
-            notifications.notify_internal(db, payment)
+            await notifications.notify_internal(db, payment)
             log_event(
                 "webhook_applied",
                 payment_id=payment.payment_id,
@@ -94,5 +96,5 @@ async def receive_webhook(
     except Exception:
         log_event("webhook_apply_failed", asaas_event=event)
 
-    db.commit()
+    await db.commit()
     return {"ok": True}

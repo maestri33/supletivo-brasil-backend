@@ -19,9 +19,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..db import SessionLocal, get_session
+from ..db import async_session_maker, get_session
 from ..schemas import PaymentResponse, QRCodeAnalyzeResponse, responses_for
 from ..services import payment as svc
 from ..utils.brcode import analyze as analyze_brcode
@@ -131,21 +131,21 @@ class QRCodeAnalyzeRequest(BaseModel):
 # ---------- helpers ----------
 
 
-def _submit_bg(payment_id: str):
-    with SessionLocal() as s:
-        row = svc.get_by_payment_id(s, payment_id)
+async def _submit_bg(payment_id: str):
+    async with async_session_maker() as s:
+        row = await svc.get_by_payment_id(s, payment_id)
         if row and row.status == "QUEUED":
-            svc.submit_one(s, row)
-            s.commit()
+            await svc.submit_one(s, row)
+            await s.commit()
 
 
-def _create_and_respond(
+async def _create_and_respond(
     row,
-    db: Session,
+    db: AsyncSession,
     bg: BackgroundTasks,
 ):
-    db.commit()
-    svc._notify_internal(db, row)
+    await db.commit()
+    await svc._notify_internal(db, row)
     if row.status == "QUEUED":
         bg.add_task(_submit_bg, row.payment_id)
     return svc.to_dict(row)
@@ -161,14 +161,14 @@ def _create_and_respond(
     summary="Criar pagamento imediato por pixkey",
     response_description="Payment criado, notificado como QUEUED e submetido em background.",
 )
-def create_pixkey_imediate(
+async def create_pixkey_imediate(
     body: PixkeyImediateRequest,
     bg: BackgroundTasks,
-    db: Session = Depends(get_session),
+    db: AsyncSession = Depends(get_session),
 ):
     """Cria uma transferencia Pix imediata para uma pixkey previamente cadastrada."""
     try:
-        row = svc.create_pixkey(
+        row = await svc.create_pixkey(
             db,
             body.external_id,
             body.amount,
@@ -176,9 +176,9 @@ def create_pixkey_imediate(
             description=body.description,
         )
     except svc.PaymentError as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(400, str(e)) from e
-    return _create_and_respond(row, db, bg)
+    return await _create_and_respond(row, db, bg)
 
 
 @router.post(
@@ -190,14 +190,14 @@ def create_pixkey_imediate(
     summary="Agendar pagamento por pixkey",
     response_description="Payment agendado, sera submetido automaticamente no horario informado.",
 )
-def create_pixkey_scheduled(
+async def create_pixkey_scheduled(
     body: PixkeyScheduledRequest,
     bg: BackgroundTasks,
-    db: Session = Depends(get_session),
+    db: AsyncSession = Depends(get_session),
 ):
     """Agenda transferencia Pix para a data/hora local America/Sao_Paulo."""
     try:
-        row = svc.create_pixkey(
+        row = await svc.create_pixkey(
             db,
             body.external_id,
             body.amount,
@@ -208,9 +208,9 @@ def create_pixkey_scheduled(
             minute=body.minute,
         )
     except svc.PaymentError as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(400, str(e)) from e
-    return _create_and_respond(row, db, bg)
+    return await _create_and_respond(row, db, bg)
 
 
 @router.post(
@@ -226,14 +226,14 @@ def create_pixkey_scheduled(
     summary="Criar pagamento imediato por QR Code",
     response_description="Payment criado, validado pelas regras de QR e submetido em background.",
 )
-def create_qrcode_imediate(
+async def create_qrcode_imediate(
     body: QRCodeImediateRequest,
     bg: BackgroundTasks,
-    db: Session = Depends(get_session),
+    db: AsyncSession = Depends(get_session),
 ):
     """Paga um BR Code copia-e-cola. Use `/payment/qrcode/analyze` quando houver duvida."""
     try:
-        row = svc.create_qrcode(
+        row = await svc.create_qrcode(
             db,
             body.qrcode_payload,
             body.amount,
@@ -241,9 +241,9 @@ def create_qrcode_imediate(
             description=body.description,
         )
     except svc.PaymentError as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(400, str(e)) from e
-    return _create_and_respond(row, db, bg)
+    return await _create_and_respond(row, db, bg)
 
 
 @router.post(
@@ -272,14 +272,14 @@ def analyze_qrcode(body: QRCodeAnalyzeRequest):
     summary="Agendar pagamento por QR Code",
     response_description="Payment agendado para QR estatico; QR dinamico e recusado.",
 )
-def create_qrcode_scheduled(
+async def create_qrcode_scheduled(
     body: QRCodeScheduledRequest,
     bg: BackgroundTasks,
-    db: Session = Depends(get_session),
+    db: AsyncSession = Depends(get_session),
 ):
     """Agenda pagamento de QR Code estatico. QR dinamico e bloqueado por seguranca."""
     try:
-        row = svc.create_qrcode(
+        row = await svc.create_qrcode(
             db,
             body.qrcode_payload,
             body.amount,
@@ -290,9 +290,9 @@ def create_qrcode_scheduled(
             minute=body.minute,
         )
     except svc.PaymentError as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(400, str(e)) from e
-    return _create_and_respond(row, db, bg)
+    return await _create_and_respond(row, db, bg)
 
 
 @router.get(
@@ -301,17 +301,17 @@ def create_qrcode_scheduled(
     summary="Listar pagamentos",
     response_description="Lista paginada de payments, ordenada do mais recente para o mais antigo.",
 )
-def list_payments(
+async def list_payments(
     limit: int = Query(default=200, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     kind: str | None = Query(default=None, description="Filtra por tipo: pixkey ou qrcode"),
     status: str | None = Query(
         default=None, description="Filtra por status: SCHEDULED, PAID, etc."
     ),
-    db: Session = Depends(get_session),
+    db: AsyncSession = Depends(get_session),
 ):
     try:
-        rows = svc.list_all(db, limit=limit, offset=offset, kind=kind, status=status)
+        rows = await svc.list_all(db, limit=limit, offset=offset, kind=kind, status=status)
     except svc.PaymentError as e:
         raise HTTPException(400, str(e)) from e
     return [svc.to_dict(r) for r in rows]
@@ -351,8 +351,8 @@ def list_payments(
         }
     },
 )
-def list_awaiting_balance(db: Session = Depends(get_session)):
-    return [svc.to_dict(r) for r in svc.list_awaiting_balance(db)]
+async def list_awaiting_balance(db: AsyncSession = Depends(get_session)):
+    return [svc.to_dict(r) for r in await svc.list_awaiting_balance(db)]
 
 
 @router.get(
@@ -360,8 +360,8 @@ def list_awaiting_balance(db: Session = Depends(get_session)):
     summary="Soma dos pagamentos aguardando saldo",
     response_description="Total em BRL e contagem de payments em AWAITING_BALANCE.",
 )
-def sum_awaiting_balance(db: Session = Depends(get_session)):
-    return svc.sum_awaiting_balance(db)
+async def sum_awaiting_balance(db: AsyncSession = Depends(get_session)):
+    return await svc.sum_awaiting_balance(db)
 
 
 @router.post(
@@ -376,13 +376,13 @@ def sum_awaiting_balance(db: Session = Depends(get_session)):
     summary="Cancelar pagamento",
     response_description="Payment cancelado localmente ou no Asaas, conforme status atual.",
 )
-def cancel_payment(payment_id: str, db: Session = Depends(get_session)):
+async def cancel_payment(payment_id: str, db: AsyncSession = Depends(get_session)):
     """Cancela pagamento pendente/agendado localmente; se submetido, chama Asaas."""
     try:
-        row = svc.cancel(db, payment_id)
-        db.commit()
+        row = await svc.cancel(db, payment_id)
+        await db.commit()
     except svc.PaymentError as e:
-        db.rollback()
+        await db.rollback()
         if str(e) == "not_found":
             raise HTTPException(404, "not_found") from e
         raise HTTPException(400, str(e)) from e
@@ -403,13 +403,13 @@ def cancel_payment(payment_id: str, db: Session = Depends(get_session)):
         "Cancela localmente payments em SCHEDULED ou AWAITING_BALANCE. Dispara notificacao interna."
     ),
 )
-def delete_payment(payment_id: str, db: Session = Depends(get_session)):
+async def delete_payment(payment_id: str, db: AsyncSession = Depends(get_session)):
     """Remove (cancela) pagamento. So permitido para SCHEDULED e AWAITING_BALANCE."""
     try:
-        row = svc.delete_one(db, payment_id)
-        db.commit()
+        row = await svc.delete_one(db, payment_id)
+        await db.commit()
     except svc.PaymentError as e:
-        db.rollback()
+        await db.rollback()
         if str(e) == "not_found":
             raise HTTPException(404, "not_found") from e
         raise HTTPException(400, str(e)) from e
@@ -423,8 +423,8 @@ def delete_payment(payment_id: str, db: Session = Depends(get_session)):
     summary="Consultar pagamento",
     response_description="Status e metadados do payment.",
 )
-def get_payment(payment_id: str, db: Session = Depends(get_session)):
-    row = svc.get_by_payment_id(db, payment_id)
+async def get_payment(payment_id: str, db: AsyncSession = Depends(get_session)):
+    row = await svc.get_by_payment_id(db, payment_id)
     if row is None:
         raise HTTPException(404, "not_found")
     return svc.to_dict(row)

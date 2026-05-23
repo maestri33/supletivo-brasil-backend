@@ -20,10 +20,7 @@ class Settings(BaseSettings):
     )
 
     # Banco — Postgres central v7m com schema asaas
-    database_url: str = Field(
-        default="postgresql+psycopg2://v7m:v7m@postgres:5432/v7m",
-        validation_alias="ASAAS_APP_DB_URL",
-    )
+    database_url: str = Field(validation_alias="ASAAS_APP_DB_URL")
     database_schema: str = "asaas"
 
     # Asaas — production-only por padrao; habilita sandbox via env
@@ -39,9 +36,15 @@ class Settings(BaseSettings):
     asaas_external_url: str | None = Field(default=None, validation_alias="ASAAS_EXTERNAL_URL")
     asaas_wallet_id: str | None = Field(default=None, validation_alias="ASAAS_WALLET_ID")
     asaas_internal_url: str | None = Field(default=None, validation_alias="ASAAS_INTERNAL_URL")
-    asaas_internal_url_charge: str | None = Field(default=None, validation_alias="ASAAS_INTERNAL_URL_CHARGE")
-    asaas_internal_url_payout: str | None = Field(default=None, validation_alias="ASAAS_INTERNAL_URL_PAYOUT")
-    asaas_internal_url_scheduling: str | None = Field(default=None, validation_alias="ASAAS_INTERNAL_URL_SCHEDULING")
+    asaas_internal_url_charge: str | None = Field(
+        default=None, validation_alias="ASAAS_INTERNAL_URL_CHARGE"
+    )
+    asaas_internal_url_payout: str | None = Field(
+        default=None, validation_alias="ASAAS_INTERNAL_URL_PAYOUT"
+    )
+    asaas_internal_url_scheduling: str | None = Field(
+        default=None, validation_alias="ASAAS_INTERNAL_URL_SCHEDULING"
+    )
 
     # Nonce TTL for external URL verification
     url_verify_nonce_ttl: int = 600
@@ -87,6 +90,7 @@ WEBHOOK_EVENTS = [
     "PAYMENT_BANK_SLIP_VIEWED",
     "PAYMENT_CHECKOUT_VIEWED",
 ]
+
 
 @lru_cache
 def get_settings() -> Settings:

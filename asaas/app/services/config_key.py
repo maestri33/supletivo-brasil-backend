@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import secrets
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import config_store as cfg
 from ..config import WEBHOOK_EVENTS, get_settings
@@ -36,28 +36,28 @@ def webhook_url(external_url: str) -> str:
 # ---------- step 1: set_key ----------
 
 
-def set_key(db: Session, api_key: str) -> dict:
+async def set_key(db: AsyncSession, api_key: str) -> dict:
     is_prod = api_key.startswith("$aact_prod_")
     is_sandbox = api_key.startswith("$aact_hmlg_")
     if not is_prod and not (is_sandbox and _settings.asaas_allow_sandbox):
         # Production-only por padrao; sandbox so com ASAAS_ALLOW_SANDBOX=true
         raise ValidationError("production_key_required")
 
-    client = AsaasClient(api_key)
-    try:
-        account = client.get_my_account()
-    except AsaasError as e:
-        raise ValidationError(f"asaas_rejected_key: {e.body}") from e
-    finally:
-        client.close()
+    async with AsaasClient(api_key) as client:
+        try:
+            account = await client.get_my_account()
+        except AsaasError as e:
+            raise ValidationError(f"asaas_rejected_key: {e.body}") from e
 
     # preserva token ja existente pra sobreviver a rollbacks sem refazer painel
-    token = cfg.get(db, cfg.K_ASAAS_SECURITY_TOKEN) or secrets.token_hex(32)
+    token = await cfg.get(db, cfg.K_ASAAS_SECURITY_TOKEN) or secrets.token_hex(32)
 
-    cfg.set_(db, cfg.K_ASAAS_API_KEY, api_key)
-    cfg.set_(db, cfg.K_ASAAS_SECURITY_TOKEN, token)
-    cfg.set_(db, cfg.K_ASAAS_WALLET_ID, account.get("walletId") or account.get("id") or "")
-    cfg.set_(db, cfg.K_ASAAS_ACCOUNT_NAME, account.get("name") or account.get("companyName") or "")
+    await cfg.set_(db, cfg.K_ASAAS_API_KEY, api_key)
+    await cfg.set_(db, cfg.K_ASAAS_SECURITY_TOKEN, token)
+    await cfg.set_(db, cfg.K_ASAAS_WALLET_ID, account.get("walletId") or account.get("id") or "")
+    await cfg.set_(
+        db, cfg.K_ASAAS_ACCOUNT_NAME, account.get("name") or account.get("companyName") or ""
+    )
 
     return {
         "security_token": token,
@@ -72,9 +72,9 @@ def set_key(db: Session, api_key: str) -> dict:
 # ---------- step 2: confirm_key ----------
 
 
-def _find_managed_webhook(client: AsaasClient, wanted_url: str) -> dict | None:
+async def _find_managed_webhook(client: AsaasClient, wanted_url: str) -> dict | None:
     try:
-        res = client.list_webhooks()
+        res = await client.list_webhooks()
     except AsaasError:
         return None
     for w in res.get("data") or []:
@@ -83,17 +83,17 @@ def _find_managed_webhook(client: AsaasClient, wanted_url: str) -> dict | None:
     return None
 
 
-def _register_webhook(client: AsaasClient, external_url: str, auth_token: str) -> dict:
+async def _register_webhook(client: AsaasClient, external_url: str, auth_token: str) -> dict:
     # Sempre recria pra garantir authToken sincronizado com nosso DB
     target_url = webhook_url(external_url)
-    existing = _find_managed_webhook(client, target_url)
+    existing = await _find_managed_webhook(client, target_url)
     if existing:
         try:
-            client.delete_webhook(existing["id"])
+            await client.delete_webhook(existing["id"])
         except AsaasError:
             pass
     # Asaas exige email nao-vazio; pega o da conta autenticada
-    account = client.get_my_account()
+    account = await client.get_my_account()
     notify_email = account.get("email") or "webhook@invalid.local"
     payload = {
         "name": _settings.webhook_name,
@@ -106,7 +106,7 @@ def _register_webhook(client: AsaasClient, external_url: str, auth_token: str) -
         "sendType": "SEQUENTIALLY",
         "events": WEBHOOK_EVENTS,
     }
-    return client.create_webhook(payload)
+    return await client.create_webhook(payload)
 
 
 def _doc_matches(masked_or_full: str, expected: str) -> bool:
@@ -127,26 +127,21 @@ def _doc_matches(masked_or_full: str, expected: str) -> bool:
     return True
 
 
-def confirm_key(db: Session) -> dict:
+async def confirm_key(db: AsyncSession) -> dict:
     """Apos set_key + configuracao do painel pelo usuario, registra o webhook.
 
     A validacao de chave PIX ficou no modulo /pixkey — o confirm aqui so garante
     que o webhook da conta aponta pra gente com o authToken atual.
     """
-    api_key = cfg.get(db, cfg.K_ASAAS_API_KEY)
-    token = cfg.get(db, cfg.K_ASAAS_SECURITY_TOKEN)
-    external_url = cfg.get(db, cfg.K_EXTERNAL_URL)
+    api_key = await cfg.get(db, cfg.K_ASAAS_API_KEY)
+    token = await cfg.get(db, cfg.K_ASAAS_SECURITY_TOKEN)
+    external_url = await cfg.get(db, cfg.K_EXTERNAL_URL)
     if not api_key or not token:
         raise ValidationError("set_key_not_done")
     if not external_url:
         raise ValidationError("external_url_not_set")
 
-    client = AsaasClient(api_key)
-    try:
-        webhook = _register_webhook(client, external_url, token)
+    # nao limpa secrets em falha — usuario pode retry so do webhook
+    async with AsaasClient(api_key) as client:
+        webhook = await _register_webhook(client, external_url, token)
         return {"webhook_registered": webhook}
-    except Exception:
-        # nao limpa secrets — usuario pode retry so do webhook
-        raise
-    finally:
-        client.close()

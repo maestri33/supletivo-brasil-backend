@@ -6,7 +6,7 @@ lifespan no main.py chama `seed_from_env(db)` no startup — copia env vars
 pra DB se a tabela esta vazia. Veja services/asaas/app/config.py.
 """
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import get_settings
 from .models import ConfigKV
@@ -43,26 +43,26 @@ def internal_url_key(target: str) -> str:
         raise ValueError(f"invalid_internal_url_target: {target}") from e
 
 
-def get(db: Session, key: str) -> str | None:
-    row = db.get(ConfigKV, key)
+async def get(db: AsyncSession, key: str) -> str | None:
+    row = await db.get(ConfigKV, key)
     return row.value if row else None
 
 
-def set_(db: Session, key: str, value: str | None) -> None:
-    row = db.get(ConfigKV, key)
+async def set_(db: AsyncSession, key: str, value: str | None) -> None:
+    row = await db.get(ConfigKV, key)
     if row is None:
         row = ConfigKV(key=key, value=value)
         db.add(row)
     else:
         row.value = value
-    db.flush()
+    await db.flush()
 
 
-def delete(db: Session, key: str) -> None:
-    row = db.get(ConfigKV, key)
+async def delete(db: AsyncSession, key: str) -> None:
+    row = await db.get(ConfigKV, key)
     if row is not None:
-        db.delete(row)
-        db.flush()
+        await db.delete(row)
+        await db.flush()
 
 
 # ── Bootstrap via env ────────────────────────────────────────────────────────
@@ -71,17 +71,17 @@ def delete(db: Session, key: str) -> None:
 # valor inicial. Operador pode override via POST /config/key e o DB vence.
 _ENV_BOOTSTRAP = (
     # (settings_field, db_key)
-    ("asaas_api_key",                  K_ASAAS_API_KEY),
-    ("asaas_external_url",             K_EXTERNAL_URL),
-    ("asaas_wallet_id",                K_ASAAS_WALLET_ID),
-    ("asaas_internal_url",             K_INTERNAL_URL),
-    ("asaas_internal_url_charge",      K_INTERNAL_URL_CHARGE),
-    ("asaas_internal_url_payout",      K_INTERNAL_URL_PAYOUT),
-    ("asaas_internal_url_scheduling",  K_INTERNAL_URL_SCHEDULING),
+    ("asaas_api_key", K_ASAAS_API_KEY),
+    ("asaas_external_url", K_EXTERNAL_URL),
+    ("asaas_wallet_id", K_ASAAS_WALLET_ID),
+    ("asaas_internal_url", K_INTERNAL_URL),
+    ("asaas_internal_url_charge", K_INTERNAL_URL_CHARGE),
+    ("asaas_internal_url_payout", K_INTERNAL_URL_PAYOUT),
+    ("asaas_internal_url_scheduling", K_INTERNAL_URL_SCHEDULING),
 )
 
 
-def seed_from_env(db: Session) -> dict[str, str]:
+async def seed_from_env(db: AsyncSession) -> dict[str, str]:
     """Pos-wipe / first-boot: popula asaas.config a partir do .env.
 
     Chamada no lifespan startup. Para cada chave do _ENV_BOOTSTRAP:
@@ -94,19 +94,19 @@ def seed_from_env(db: Session) -> dict[str, str]:
     result: dict[str, str] = {}
     for settings_field, db_key in _ENV_BOOTSTRAP:
         env_value = getattr(settings, settings_field, None)
-        current = get(db, db_key)
+        current = await get(db, db_key)
         if current:
             result[db_key] = "kept"
             continue
         if env_value:
-            set_(db, db_key, env_value)
+            await set_(db, db_key, env_value)
             result[db_key] = "seeded"
         else:
             result[db_key] = "absent"
     return result
 
 
-def all_status(db: Session) -> dict:
+async def all_status(db: AsyncSession) -> dict:
     """Short summary of what is configured (without leaking secrets)."""
 
     def mask(v: str | None) -> str | None:
@@ -117,13 +117,13 @@ def all_status(db: Session) -> dict:
         return f"{v[:6]}...{v[-4:]}"
 
     return {
-        "external_url": get(db, K_EXTERNAL_URL),
-        "internal_url": get(db, K_INTERNAL_URL),
-        "internal_url_scheduling": get(db, K_INTERNAL_URL_SCHEDULING),
-        "internal_url_payout": get(db, K_INTERNAL_URL_PAYOUT),
-        "internal_url_charge": get(db, K_INTERNAL_URL_CHARGE),
-        "asaas_api_key": mask(get(db, K_ASAAS_API_KEY)),
-        "asaas_security_token": mask(get(db, K_ASAAS_SECURITY_TOKEN)),
-        "asaas_wallet_id": get(db, K_ASAAS_WALLET_ID),
-        "asaas_account_name": get(db, K_ASAAS_ACCOUNT_NAME),
+        "external_url": await get(db, K_EXTERNAL_URL),
+        "internal_url": await get(db, K_INTERNAL_URL),
+        "internal_url_scheduling": await get(db, K_INTERNAL_URL_SCHEDULING),
+        "internal_url_payout": await get(db, K_INTERNAL_URL_PAYOUT),
+        "internal_url_charge": await get(db, K_INTERNAL_URL_CHARGE),
+        "asaas_api_key": mask(await get(db, K_ASAAS_API_KEY)),
+        "asaas_security_token": mask(await get(db, K_ASAAS_SECURITY_TOKEN)),
+        "asaas_wallet_id": await get(db, K_ASAAS_WALLET_ID),
+        "asaas_account_name": await get(db, K_ASAAS_ACCOUNT_NAME),
     }

@@ -5,22 +5,21 @@ Roda em: uvicorn app.main:app --host 0.0.0.0 --port 80
 """
 
 import asyncio
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from .api.router import api_router, root_router
 from . import config_store as cfg
-from .db import init_db, SessionLocal
+from .api.router import api_router, root_router
+from .db import async_session_maker, close_db
 from .exceptions import DomainError
 from .schemas import ERROR_CODES
 from .services import payment as payment_service
-from .utils.logging import log_event
+from .utils.logging import configure_logging, log_event
 
-log = logging.getLogger("asaas_app")
+configure_logging()
 
 
 def _format_error_catalog() -> str:
@@ -164,25 +163,26 @@ Payload comum:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     log_event("service.startup")
-    init_db()
 
     # Bootstrap config a partir do .env — pos-wipe, isso re-hidrata
     # asaas.config sem precisar de POST /api/v1/config/key manual.
     # DB vence se ja tem entry; env so preenche o que falta.
-    with SessionLocal() as session:
+    async with async_session_maker() as session:
         try:
-            seed_result = cfg.seed_from_env(session)
-            session.commit()
+            seed_result = await cfg.seed_from_env(session)
+            await session.commit()
             log_event("config.seed_from_env", result=seed_result)
         except Exception as exc:  # noqa: BLE001
-            session.rollback()
-            log.warning("seed_from_env failed: %s", exc)
+            await session.rollback()
+            log_event("config.seed_from_env.failed", error=str(exc))
 
-    asyncio.create_task(payment_service.worker_loop(30.0))
+    worker = asyncio.create_task(payment_service.worker_loop(30.0))
     try:
         yield
     finally:
-        log.info("service.shutdown")
+        worker.cancel()
+        log_event("service.shutdown")
+        await close_db()
 
 
 app = FastAPI(
@@ -192,8 +192,6 @@ app = FastAPI(
     openapi_tags=tags_metadata,
     lifespan=lifespan,
 )
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
 @app.exception_handler(DomainError)

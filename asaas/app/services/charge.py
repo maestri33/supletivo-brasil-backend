@@ -21,8 +21,8 @@ import json
 import uuid
 from datetime import UTC, date, datetime, timedelta
 
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import config_store as cfg
 from ..config import get_settings
@@ -56,9 +56,9 @@ def _new_payment_id() -> str:
     return f"pay_{uuid.uuid4().hex[:16]}"
 
 
-def _new_or_check_payment_id(db: Session, payment_id: str | None) -> str:
+async def _new_or_check_payment_id(db: AsyncSession, payment_id: str | None) -> str:
     pid = payment_id or _new_payment_id()
-    if db.query(Payment).filter(Payment.payment_id == pid).first():
+    if (await db.execute(select(Payment).where(Payment.payment_id == pid))).scalar_one_or_none():
         raise PaymentError("payment_id_already_exists")
     return pid
 
@@ -75,8 +75,8 @@ def _resolve_due_date(due_date: str | None) -> date:
     return parsed
 
 
-def create(
-    db: Session,
+async def create(
+    db: AsyncSession,
     *,
     external_id: str,
     amount: float,
@@ -87,18 +87,18 @@ def create(
 ) -> Payment:
     if amount is None or amount <= 0:
         raise PaymentError("invalid_amount")
-    api_key = cfg.get(db, cfg.K_ASAAS_API_KEY)
+    api_key = await cfg.get(db, cfg.K_ASAAS_API_KEY)
     if not api_key:
         raise PaymentError("asaas_api_key_not_set")
 
     try:
-        cust = customer_service.find_or_create(db, external_id, payer)
+        cust = await customer_service.find_or_create(db, external_id, payer)
     except ValidationError as e:
         # bubble up como PaymentError pra unificar handling no router
         raise PaymentError(str(e)) from e
 
     due = _resolve_due_date(due_date)
-    pid = _new_or_check_payment_id(db, payment_id)
+    pid = await _new_or_check_payment_id(db, payment_id)
 
     payload = {
         "customer": cust.asaas_id,
@@ -109,20 +109,17 @@ def create(
         "externalReference": pid,
     }
 
-    client = AsaasClient(api_key)
-    try:
+    async with AsaasClient(api_key) as client:
         try:
-            created = client.create_payment(payload)
+            created = await client.create_payment(payload)
         except AsaasError as e:
             raise PaymentError(f"asaas_charge_create_failed: {e.body}") from e
         try:
-            qr = client.get_payment_pix_qr_code(created["id"])
+            qr = await client.get_payment_pix_qr_code(created["id"])
         except AsaasError as e:
             # nao bloqueia criacao — persistimos sem QR e cliente pode rebuscar via GET /qr
             log_event("charge_qr_fetch_failed", asaas_id=created.get("id"), body=str(e.body))
             qr = None
-    finally:
-        client.close()
 
     row = Payment(
         payment_id=pid,
@@ -137,7 +134,7 @@ def create(
         asaas_id=created["id"],
     )
     db.add(row)
-    db.flush()
+    await db.flush()
     log_event(
         "charge_created",
         payment_id=pid,
@@ -151,24 +148,24 @@ def create(
 # ---------------- queries ----------------
 
 
-def get_by_payment_id(db: Session, payment_id: str) -> Payment | None:
+async def get_by_payment_id(db: AsyncSession, payment_id: str) -> Payment | None:
     return (
-        db.query(Payment)
-        .filter(Payment.kind == "charge", Payment.payment_id == payment_id)
-        .one_or_none()
-    )
+        await db.execute(
+            select(Payment).where(Payment.kind == "charge", Payment.payment_id == payment_id)
+        )
+    ).scalar_one_or_none()
 
 
-def get_by_asaas_id(db: Session, asaas_id: str) -> Payment | None:
+async def get_by_asaas_id(db: AsyncSession, asaas_id: str) -> Payment | None:
     return (
-        db.query(Payment)
-        .filter(Payment.kind == "charge", Payment.asaas_id == asaas_id)
-        .one_or_none()
-    )
+        await db.execute(
+            select(Payment).where(Payment.kind == "charge", Payment.asaas_id == asaas_id)
+        )
+    ).scalar_one_or_none()
 
 
-def list_all(
-    db: Session,
+async def list_all(
+    db: AsyncSession,
     *,
     limit: int = 200,
     offset: int = 0,
@@ -177,85 +174,81 @@ def list_all(
 ) -> list[Payment]:
     limit = max(1, min(int(limit), 500))
     offset = max(0, int(offset))
-    q = db.query(Payment).filter(Payment.kind == "charge")
+    stmt = select(Payment).where(Payment.kind == "charge")
     if status is not None:
         if status not in CHARGE_STATUSES:
             raise PaymentError(f"invalid_status: {status}")
-        q = q.filter(Payment.status == status)
+        stmt = stmt.where(Payment.status == status)
     if external_id is not None:
-        q = q.filter(Payment.customer_external_id == external_id)
-    return q.order_by(Payment.id.desc()).offset(offset).limit(limit).all()
+        stmt = stmt.where(Payment.customer_external_id == external_id)
+    stmt = stmt.order_by(Payment.id.desc()).offset(offset).limit(limit)
+    return list((await db.execute(stmt)).scalars().all())
 
 
-def count_by_status(db: Session) -> dict[str, int]:
+async def count_by_status(db: AsyncSession) -> dict[str, int]:
     rows = (
-        db.query(Payment.status, func.count(Payment.id))
-        .filter(Payment.kind == "charge")
-        .group_by(Payment.status)
-        .all()
-    )
+        await db.execute(
+            select(Payment.status, func.count(Payment.id))
+            .where(Payment.kind == "charge")
+            .group_by(Payment.status)
+        )
+    ).all()
     return {status: count for status, count in rows}
 
 
 # ---------------- refresh QR ----------------
 
 
-def refresh_qr(db: Session, payment_id: str) -> Payment:
-    row = get_by_payment_id(db, payment_id)
+async def refresh_qr(db: AsyncSession, payment_id: str) -> Payment:
+    row = await get_by_payment_id(db, payment_id)
     if row is None:
         raise PaymentError("not_found")
     if not row.asaas_id:
         raise PaymentError("asaas_qr_fetch_failed: no asaas_id")
-    api_key = cfg.get(db, cfg.K_ASAAS_API_KEY)
+    api_key = await cfg.get(db, cfg.K_ASAAS_API_KEY)
     if not api_key:
         raise PaymentError("asaas_api_key_not_set")
-    client = AsaasClient(api_key)
-    try:
+    async with AsaasClient(api_key) as client:
         try:
-            qr = client.get_payment_pix_qr_code(row.asaas_id)
+            qr = await client.get_payment_pix_qr_code(row.asaas_id)
         except AsaasError as e:
             raise PaymentError(f"asaas_qr_fetch_failed: {e.body}") from e
-    finally:
-        client.close()
     row.qrcode_payload = qr.get("payload") or row.qrcode_payload
     row.pix_qr_image = qr.get("encodedImage") or row.pix_qr_image
     row.updated_at = datetime.now(UTC)
-    db.flush()
+    await db.flush()
     return row
 
 
 # ---------------- cancel ----------------
 
 
-def cancel(db: Session, payment_id: str) -> Payment:
-    row = get_by_payment_id(db, payment_id)
+async def cancel(db: AsyncSession, payment_id: str) -> Payment:
+    row = await get_by_payment_id(db, payment_id)
     if row is None:
         raise PaymentError("not_found")
     if row.status in _TERMINAL:
         if row.status == "CANCELLED":
             return row
         raise PaymentError(f"cannot_cancel_status: {row.status}")
-    api_key = cfg.get(db, cfg.K_ASAAS_API_KEY)
+    api_key = await cfg.get(db, cfg.K_ASAAS_API_KEY)
     if not api_key:
         raise PaymentError("asaas_api_key_not_set")
     if not row.asaas_id:
         row.status = "CANCELLED"
         row.updated_at = datetime.now(UTC)
-        db.flush()
+        await db.flush()
         return row
-    client = AsaasClient(api_key)
-    try:
+    async with AsaasClient(api_key) as client:
         try:
-            client.delete_payment(row.asaas_id)
+            await client.delete_payment(row.asaas_id)
         except AsaasError as e:
             row.last_error = json.dumps(e.body, ensure_ascii=False)[:500]
-            db.flush()
+            await db.flush()
             raise PaymentError(f"asaas_charge_delete_failed: {e.body}") from e
-    finally:
-        client.close()
     row.status = "CANCELLED"
     row.updated_at = datetime.now(UTC)
-    db.flush()
+    await db.flush()
     log_event("charge_cancelled", payment_id=row.payment_id, asaas_id=row.asaas_id)
     return row
 
@@ -263,7 +256,7 @@ def cancel(db: Session, payment_id: str) -> Payment:
 # ---------------- webhook ----------------
 
 
-def apply_webhook(db: Session, payload: dict) -> Payment | None:
+async def apply_webhook(db: AsyncSession, payload: dict) -> Payment | None:
     """Mapeia evento PAYMENT_* a Payment(kind=charge). Retorna o row atualizado ou None."""
     if not isinstance(payload, dict):
         return None
@@ -278,9 +271,9 @@ def apply_webhook(db: Session, payload: dict) -> Payment | None:
     external_ref = asaas_payment.get("externalReference")
     row: Payment | None = None
     if external_ref:
-        row = get_by_payment_id(db, external_ref)
+        row = await get_by_payment_id(db, external_ref)
     if row is None and asaas_id:
-        row = get_by_asaas_id(db, asaas_id)
+        row = await get_by_asaas_id(db, asaas_id)
     if row is None:
         return None
     if asaas_id and row.asaas_id != asaas_id:
@@ -288,13 +281,13 @@ def apply_webhook(db: Session, payload: dict) -> Payment | None:
     if new_status is None:
         # PAYMENT_UPDATED — apenas refresh metadata sem mudar status
         row.updated_at = datetime.now(UTC)
-        db.flush()
+        await db.flush()
         return None  # nao dispara notificacao
     if row.status == new_status:
         return None
     row.status = new_status
     row.updated_at = datetime.now(UTC)
-    db.flush()
+    await db.flush()
     log_event(
         "charge_status_changed",
         payment_id=row.payment_id,

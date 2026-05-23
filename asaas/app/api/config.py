@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import config_store as cfg
 from ..config import WEBHOOK_EVENTS, get_settings
@@ -35,10 +35,10 @@ router = APIRouter(prefix="/config", tags=["config"])
     summary="Registrar URL publica",
     response_description="Nonce e URL de verificacao para provar que o dominio aponta para este app.",
 )
-def set_external_url(body: SetUrlRequest, db: Session = Depends(get_session)):
+async def set_external_url(body: SetUrlRequest, db: AsyncSession = Depends(get_session)):
     """Cria um nonce temporario para validar a URL publica base do asaas-app."""
-    nonce, verify_url = config_url.issue_nonce(db, str(body.url))
-    db.commit()
+    nonce, verify_url = await config_url.issue_nonce(db, str(body.url))
+    await db.commit()
     return SetUrlResponse(
         verify_url=verify_url, nonce=nonce, expires_in=get_settings().url_verify_nonce_ttl
     )
@@ -51,11 +51,11 @@ def set_external_url(body: SetUrlRequest, db: Session = Depends(get_session)):
     summary="Validar URL publica",
     response_description="Pagina HTML simples confirmando se o nonce foi aceito.",
 )
-def verify_external_url(nonce: str, db: Session = Depends(get_session)):
+async def verify_external_url(nonce: str, db: AsyncSession = Depends(get_session)):
     """Consome o nonce de `/config/url` e persiste a URL publica."""
     try:
-        row = config_url.consume_nonce(db, nonce)
-        db.commit()
+        row = await config_url.consume_nonce(db, nonce)
+        await db.commit()
         html = f"""<!doctype html><meta charset='utf-8'><title>URL verificada</title>
         <body style="font-family:system-ui;padding:32px;max-width:640px;margin:auto;">
         <h1>Pronto.</h1>
@@ -87,7 +87,7 @@ def verify_external_url(nonce: str, db: Session = Depends(get_session)):
         "Roteamento por target: default | scheduling | payout | charge."
     ),
 )
-def set_internal_url(body: SetInternalUrlRequest, db: Session = Depends(get_session)):
+async def set_internal_url(body: SetInternalUrlRequest, db: AsyncSession = Depends(get_session)):
     """Envia onboarding ao destino interno e salva a URL na categoria escolhida.
 
     - target=default   -> internal_url (catch-all, compat)
@@ -103,13 +103,13 @@ def set_internal_url(body: SetInternalUrlRequest, db: Session = Depends(get_sess
             status_code=400, detail=f"invalid_internal_url_target: {body.target}"
         ) from e
     try:
-        result = config_internal.send_onboarding(url, target=body.target)
+        result = await config_internal.send_onboarding(url, target=body.target)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"onboarding_send_failed: {e}") from e
     if not result["ok"]:
         raise HTTPException(status_code=400, detail=f"onboarding_http_{result['status_code']}")
-    cfg.set_(db, key, url)
-    db.commit()
+    await cfg.set_(db, key, url)
+    await db.commit()
     return {
         "ok": True,
         "internal_url": url,
@@ -159,17 +159,17 @@ def _instructions_html(
     summary="Registrar API key Asaas",
     response_description="Token de seguranca, URL validadora, endpoint de webhook e instrucoes para o painel Asaas.",
 )
-def set_api_key(body: SetKeyRequest, db: Session = Depends(get_session)):
+async def set_api_key(body: SetKeyRequest, db: AsyncSession = Depends(get_session)):
     """Valida uma API key de producao, salva segredo e gera instrucoes de configuracao manual."""
-    external_url = cfg.get(db, cfg.K_EXTERNAL_URL)
+    external_url = await cfg.get(db, cfg.K_EXTERNAL_URL)
     if not external_url:
         raise HTTPException(status_code=400, detail="external_url_not_set; call /config/url first")
     try:
-        result = config_key.set_key(db, body.api_key)
+        result = await config_key.set_key(db, body.api_key)
     except ValidationError as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
-    db.commit()
+    await db.commit()
 
     validator_url = f"{external_url.rstrip('/')}/security-validator"
     webhook_endpoint = config_key.webhook_url(external_url)
@@ -198,10 +198,10 @@ def set_api_key(body: SetKeyRequest, db: Session = Depends(get_session)):
     summary="Confirmar API key e recriar webhook",
     response_description="Webhook Asaas recriado em /webhook/ com authToken sincronizado.",
 )
-def confirm_api_key(db: Session = Depends(get_session)):
+async def confirm_api_key(db: AsyncSession = Depends(get_session)):
     """Registra ou recria o webhook oficial do Asaas apontando para `<external_url>/webhook/`."""
     try:
-        result = config_key.confirm_key(db)
+        result = await config_key.confirm_key(db)
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -218,6 +218,6 @@ def confirm_api_key(db: Session = Depends(get_session)):
     summary="Consultar status de configuracao",
     response_description="Conta, saldo, webhook registrado, configuracoes mascaradas e erros pendentes.",
 )
-def get_status(db: Session = Depends(get_session)):
+async def get_status(db: AsyncSession = Depends(get_session)):
     """Health operacional agregado. `errors: []` indica configuracao pronta."""
-    return ConfigStatusResponse(**config_status.status(db))
+    return ConfigStatusResponse(**await config_status.status(db))

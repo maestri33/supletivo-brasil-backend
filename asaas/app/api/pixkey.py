@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db import get_session
 from ..schemas import OkResponse, PixKeyCheckResponse, PixKeyResponse, responses_for
@@ -56,14 +56,14 @@ class CreatePixKeyRequest(BaseModel):
     summary="Cadastrar e validar pixkey",
     response_description="Pixkey persistida com dados do titular retornados pelo DICT.",
 )
-def create(body: CreatePixKeyRequest, db: Session = Depends(get_session)):
+async def create(body: CreatePixKeyRequest, db: AsyncSession = Depends(get_session)):
     """Valida a chave no DICT, compara documento esperado e salva para pagamentos futuros."""
     try:
-        row = svc.create(db, body.external_id, body.document, body.key, body.key_type)
+        row = await svc.create(db, body.external_id, body.document, body.key, body.key_type)
     except svc.PixKeyError as e:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(status_code=400, detail=str(e)) from e
-    db.commit()
+    await db.commit()
     return svc.to_dict(row)
 
 
@@ -73,12 +73,12 @@ def create(body: CreatePixKeyRequest, db: Session = Depends(get_session)):
     summary="Listar pixkeys",
     response_description="Lista paginada de chaves Pix cadastradas.",
 )
-def list_keys(
+async def list_keys(
     limit: int = Query(default=200, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
-    db: Session = Depends(get_session),
+    db: AsyncSession = Depends(get_session),
 ):
-    return [svc.to_dict(r) for r in svc.list_all(db, limit=limit, offset=offset)]
+    return [svc.to_dict(r) for r in await svc.list_all(db, limit=limit, offset=offset)]
 
 
 @router.get(
@@ -88,10 +88,10 @@ def list_keys(
     summary="Consultar pixkey sem salvar",
     response_description="Dados DICT encontrados no banco ou consultados no Asaas sem persistir.",
 )
-def check_key(key: str, db: Session = Depends(get_session)):
+async def check_key(key: str, db: AsyncSession = Depends(get_session)):
     """Consulta DB primeiro; se a chave nao existir localmente, faz lookup DICT no Asaas."""
     try:
-        return svc.check(db, key)
+        return await svc.check(db, key)
     except svc.PixKeyError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -103,8 +103,8 @@ def check_key(key: str, db: Session = Depends(get_session)):
     summary="Buscar pixkey por external_id",
     response_description="Pixkey cadastrada.",
 )
-def get_key(external_id: str, db: Session = Depends(get_session)):
-    row = svc.get_by_external_id(db, external_id)
+async def get_key(external_id: str, db: AsyncSession = Depends(get_session)):
+    row = await svc.get_by_external_id(db, external_id)
     if row is None:
         raise HTTPException(status_code=404, detail="not_found")
     return svc.to_dict(row)
@@ -117,9 +117,9 @@ def get_key(external_id: str, db: Session = Depends(get_session)):
     summary="Remover pixkey",
     response_description="Confirmacao de remocao.",
 )
-def delete_key(external_id: str, db: Session = Depends(get_session)):
-    ok = svc.delete(db, external_id)
-    db.commit()
+async def delete_key(external_id: str, db: AsyncSession = Depends(get_session)):
+    ok = await svc.delete(db, external_id)
+    await db.commit()
     if not ok:
         raise HTTPException(status_code=404, detail="not_found")
     return {"ok": True}

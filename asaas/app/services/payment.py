@@ -25,12 +25,12 @@ from datetime import UTC, datetime, timedelta
 from urllib.parse import unquote
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, update
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import config_store as cfg
 from ..config import get_settings
-from ..db import SessionLocal
+from ..db import async_session_maker
 from ..exceptions import PaymentError
 from ..integrations.asaas_client import AsaasClient, AsaasError
 from ..models import Payment, PixKey
@@ -65,8 +65,10 @@ def _new_payment_id() -> str:
     return f"pay_{uuid.uuid4().hex[:16]}"
 
 
-def _resolve_pixkey(db: Session, external_id: str) -> PixKey:
-    row = db.query(PixKey).filter(PixKey.external_id == external_id).one_or_none()
+async def _resolve_pixkey(db: AsyncSession, external_id: str) -> PixKey:
+    row = (
+        await db.execute(select(PixKey).where(PixKey.external_id == external_id))
+    ).scalar_one_or_none()
     if row is None:
         raise PaymentError("pixkey_not_found")
     return row
@@ -83,15 +85,15 @@ def _compute_scheduled_utc(date_str: str, hour: int | None, minute: int | None) 
     return local.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
 
 
-def _new_or_check_payment_id(db: Session, payment_id: str | None) -> str:
+async def _new_or_check_payment_id(db: AsyncSession, payment_id: str | None) -> str:
     pid = payment_id or _new_payment_id()
-    if db.query(Payment).filter(Payment.payment_id == pid).first():
+    if (await db.execute(select(Payment).where(Payment.payment_id == pid))).scalar_one_or_none():
         raise PaymentError("payment_id_already_exists")
     return pid
 
 
-def create_pixkey(
-    db: Session,
+async def create_pixkey(
+    db: AsyncSession,
     pixkey_external_id: str,
     amount: float,
     payment_id: str | None = None,
@@ -102,8 +104,8 @@ def create_pixkey(
 ) -> Payment:
     if amount <= 0:
         raise PaymentError("invalid_amount")
-    _resolve_pixkey(db, pixkey_external_id)
-    pid = _new_or_check_payment_id(db, payment_id)
+    await _resolve_pixkey(db, pixkey_external_id)
+    pid = await _new_or_check_payment_id(db, payment_id)
     scheduled_for = _compute_scheduled_utc(schedule_date, hour, minute) if schedule_date else None
     row = Payment(
         payment_id=pid,
@@ -115,12 +117,12 @@ def create_pixkey(
         status="SCHEDULED" if scheduled_for else "QUEUED",
     )
     db.add(row)
-    db.flush()
+    await db.flush()
     return row
 
 
-def create_qrcode(
-    db: Session,
+async def create_qrcode(
+    db: AsyncSession,
     qrcode_payload: str,
     amount: float | None,
     payment_id: str | None = None,
@@ -144,7 +146,7 @@ def create_qrcode(
         raise PaymentError("qrcode_amount_required")
     if amount <= 0:
         raise PaymentError("invalid_amount")
-    pid = _new_or_check_payment_id(db, payment_id)
+    pid = await _new_or_check_payment_id(db, payment_id)
     scheduled_for = _compute_scheduled_utc(schedule_date, hour, minute) if schedule_date else None
     row = Payment(
         payment_id=pid,
@@ -156,19 +158,21 @@ def create_qrcode(
         status="SCHEDULED" if scheduled_for else "QUEUED",
     )
     db.add(row)
-    db.flush()
+    await db.flush()
     return row
 
 
 # ---------------- queries ----------------
 
 
-def get_by_payment_id(db: Session, payment_id: str) -> Payment | None:
-    return db.query(Payment).filter(Payment.payment_id == payment_id).one_or_none()
+async def get_by_payment_id(db: AsyncSession, payment_id: str) -> Payment | None:
+    return (
+        await db.execute(select(Payment).where(Payment.payment_id == payment_id))
+    ).scalar_one_or_none()
 
 
-def list_all(
-    db: Session,
+async def list_all(
+    db: AsyncSession,
     limit: int = 200,
     offset: int = 0,
     kind: str | None = None,
@@ -176,54 +180,66 @@ def list_all(
 ) -> list[Payment]:
     limit = max(1, min(int(limit), 500))
     offset = max(0, int(offset))
-    q = db.query(Payment)
+    stmt = select(Payment)
     if kind is not None:
         if kind not in ("pixkey", "qrcode"):
             raise PaymentError(f"invalid_kind: {kind}")
-        q = q.filter(Payment.kind == kind)
+        stmt = stmt.where(Payment.kind == kind)
     if status is not None:
         if status not in _VALID_STATUSES:
             raise PaymentError(f"invalid_status: {status}")
-        q = q.filter(Payment.status == status)
-    return q.order_by(Payment.id.desc()).offset(offset).limit(limit).all()
+        stmt = stmt.where(Payment.status == status)
+    stmt = stmt.order_by(Payment.id.desc()).offset(offset).limit(limit)
+    return list((await db.execute(stmt)).scalars().all())
 
 
-def list_awaiting_balance(db: Session) -> list[Payment]:
-    return (
-        db.query(Payment)
-        .filter(Payment.status == "AWAITING_BALANCE")
-        .order_by(Payment.id.desc())
+async def list_awaiting_balance(db: AsyncSession) -> list[Payment]:
+    return list(
+        (
+            await db.execute(
+                select(Payment)
+                .where(Payment.status == "AWAITING_BALANCE")
+                .order_by(Payment.id.desc())
+            )
+        )
+        .scalars()
         .all()
     )
 
 
-def count_by_status(db: Session) -> dict[str, int]:
-    rows = db.query(Payment.status, func.count(Payment.id)).group_by(Payment.status).all()
+async def count_by_status(db: AsyncSession) -> dict[str, int]:
+    rows = (
+        await db.execute(select(Payment.status, func.count(Payment.id)).group_by(Payment.status))
+    ).all()
     return {status: count for status, count in rows}
 
 
-def count_total(db: Session) -> int:
-    return db.query(func.count(Payment.id)).scalar() or 0
+async def count_total(db: AsyncSession) -> int:
+    return (await db.execute(select(func.count()).select_from(Payment))).scalar_one() or 0
 
 
-def sum_awaiting_balance(db: Session) -> dict:
+async def sum_awaiting_balance(db: AsyncSession) -> dict:
     total = (
-        db.query(func.sum(Payment.amount)).filter(Payment.status == "AWAITING_BALANCE").scalar()
-    ) or 0.0
+        await db.execute(
+            select(func.sum(Payment.amount)).where(Payment.status == "AWAITING_BALANCE")
+        )
+    ).scalar() or 0.0
     count = (
-        db.query(func.count(Payment.id)).filter(Payment.status == "AWAITING_BALANCE").scalar()
-    ) or 0
+        await db.execute(
+            select(func.count()).select_from(Payment).where(Payment.status == "AWAITING_BALANCE")
+        )
+    ).scalar_one() or 0
     return {"status": "AWAITING_BALANCE", "count": count, "total": round(float(total), 2)}
 
 
-def delete_one(db: Session, payment_id: str) -> Payment:
-    row = get_by_payment_id(db, payment_id)
+async def delete_one(db: AsyncSession, payment_id: str) -> Payment:
+    row = await get_by_payment_id(db, payment_id)
     if row is None:
         raise PaymentError("not_found")
     if row.status not in DELETABLE_STATUSES:
         raise PaymentError(f"cannot_delete_status: {row.status}")
-    _mark_payment(db, row, "CANCELLED")
-    _notify_internal(db, row)
+    await _mark_payment(db, row, "CANCELLED")
+    await _notify_internal(db, row)
     log_event("payment_deleted", payment_id=row.payment_id)
     return row
 
@@ -265,27 +281,27 @@ def _is_insufficient_balance(body: object) -> bool:
     return any(p in s for p in _INSUFFICIENT_BALANCE_PATTERNS)
 
 
-def _claim_for_submit(db: Session, payment: Payment) -> bool:
+async def _claim_for_submit(db: AsyncSession, payment: Payment) -> bool:
     """Atomically move a queued payment to SUBMITTING before calling Asaas."""
     if payment.status not in CLAIMABLE_STATUSES:
         return False
     now = datetime.now(UTC)
-    result = db.execute(
+    result = await db.execute(
         update(Payment)
         .where(Payment.id == payment.id, Payment.status.in_(CLAIMABLE_STATUSES))
         .values(status="SUBMITTING", updated_at=now)
     )
-    db.commit()
+    await db.commit()
     if result.rowcount != 1:
-        db.refresh(payment)
+        await db.refresh(payment)
         return False
-    db.refresh(payment)
+    await db.refresh(payment)
     log_event("payment_claimed", payment_id=payment.payment_id)
     return True
 
 
-def _mark_payment(
-    db: Session,
+async def _mark_payment(
+    db: AsyncSession,
     payment: Payment,
     status: str,
     *,
@@ -297,35 +313,34 @@ def _mark_payment(
     if asaas_id is not None:
         payment.asaas_id = asaas_id
     payment.last_error = last_error
-    db.flush()
+    await db.flush()
 
 
-def submit_one(db: Session, payment: Payment) -> None:
+async def submit_one(db: AsyncSession, payment: Payment) -> None:
     """Tenta submeter uma Payment ao Asaas. Atualiza status in-place."""
-    api_key = cfg.get(db, cfg.K_ASAAS_API_KEY)
+    api_key = await cfg.get(db, cfg.K_ASAAS_API_KEY)
     if not api_key:
         payment.last_error = "waiting_asaas_api_key"
-        db.flush()
+        await db.flush()
         return
     old_status = payment.status
-    if not _claim_for_submit(db, payment):
+    if not await _claim_for_submit(db, payment):
         return
-    client = AsaasClient(api_key)
-    try:
+    async with AsaasClient(api_key) as client:
         try:
             if payment.kind == "qrcode":
-                res = client.pay_qr_code(
+                res = await client.pay_qr_code(
                     payment.qrcode_payload,
                     payment.amount,
                     payment.description,
                 )
             else:
                 try:
-                    pix = _resolve_pixkey(db, payment.pixkey_external_id)
+                    pix = await _resolve_pixkey(db, payment.pixkey_external_id)
                 except PaymentError as e:
-                    _mark_payment(db, payment, "FAILED", last_error=str(e))
+                    await _mark_payment(db, payment, "FAILED", last_error=str(e))
                     return
-                res = client.create_transfer(
+                res = await client.create_transfer(
                     {
                         "value": round(float(payment.amount), 2),
                         "pixAddressKey": pix.key,
@@ -334,30 +349,28 @@ def submit_one(db: Session, payment: Payment) -> None:
                     }
                 )
 
-            _mark_payment(db, payment, "SUBMITTED", asaas_id=res.get("id"))
-            _notify_internal(db, payment)
+            await _mark_payment(db, payment, "SUBMITTED", asaas_id=res.get("id"))
+            await _notify_internal(db, payment)
             log_event("payment_submitted", payment_id=payment.payment_id, asaas_id=payment.asaas_id)
 
         except AsaasError as e:
             if _is_insufficient_balance(e.body):
                 was_already = old_status == "AWAITING_BALANCE"
-                _mark_payment(
+                await _mark_payment(
                     db,
                     payment,
                     "AWAITING_BALANCE",
                     last_error=json.dumps(e.body, ensure_ascii=False)[:500],
                 )
                 if not was_already:
-                    _notify_internal(db, payment)
+                    await _notify_internal(db, payment)
                 log_event("payment_awaiting_balance", payment_id=payment.payment_id)
             else:
-                _mark_payment(
+                await _mark_payment(
                     db, payment, "FAILED", last_error=json.dumps(e.body, ensure_ascii=False)[:500]
                 )
-                _notify_internal(db, payment)
+                await _notify_internal(db, payment)
                 log_event("payment_failed", payment_id=payment.payment_id, error=payment.last_error)
-    finally:
-        client.close()
 
 
 # ---------------- reconciliation ----------------
@@ -376,33 +389,38 @@ _PIX_TRANSACTION_STATUS_TO_OURS = {
 }
 
 
-def reconcile_submitted(db: Session) -> int:
+async def reconcile_submitted(db: AsyncSession) -> int:
     """Pra cada SUBMITTED com asaas_id, consulta status real no Asaas.
 
     Necessario porque webhooks podem chegar tarde ou nao chegar
     (ex.: authToken dessincronizado, retries em backoff).
     """
-    api_key = cfg.get(db, cfg.K_ASAAS_API_KEY)
+    api_key = await cfg.get(db, cfg.K_ASAAS_API_KEY)
     if not api_key:
         return 0
-    targets = (
-        db.query(Payment).filter(Payment.status == "SUBMITTED", Payment.asaas_id.is_not(None)).all()
+    targets = list(
+        (
+            await db.execute(
+                select(Payment).where(Payment.status == "SUBMITTED", Payment.asaas_id.is_not(None))
+            )
+        )
+        .scalars()
+        .all()
     )
     if not targets:
         return 0
     updated = 0
-    client = AsaasClient(api_key)
-    try:
+    async with AsaasClient(api_key) as client:
         for p in targets:
             try:
                 if p.kind == "qrcode":
-                    res = client.get_pix_transaction(p.asaas_id)
+                    res = await client.get_pix_transaction(p.asaas_id)
                     mapped = _PIX_TRANSACTION_STATUS_TO_OURS.get(res.get("status"))
                     if mapped == "PAID" and res.get("transferId"):
                         p.asaas_id = res.get("transferId")
                     fail_reason = res.get("refusalReason")
                 else:
-                    res = client.get_transfer(p.asaas_id)
+                    res = await client.get_transfer(p.asaas_id)
                     mapped = _ASAAS_STATUS_TO_OURS.get(res.get("status"))
                     fail_reason = res.get("failReason")
             except AsaasError:
@@ -412,31 +430,35 @@ def reconcile_submitted(db: Session) -> int:
                 p.updated_at = datetime.now(UTC)
                 if mapped == "FAILED":
                     p.last_error = fail_reason or "reconciled_failed"
-                _notify_internal(db, p)
+                await _notify_internal(db, p)
                 log_event("payment_reconciled", payment_id=p.payment_id, status=mapped)
                 updated += 1
-    finally:
-        client.close()
     if updated:
-        db.flush()
+        await db.flush()
     return updated
 
 
 # ---------------- worker tick ----------------
 
 
-def tick(db: Session) -> dict:
+async def tick(db: AsyncSession) -> dict:
     """Uma iteracao do worker. Retorna contadores."""
     now = datetime.now(UTC)
     moved_scheduled = 0
     submitted = 0
 
     stale = now - SUBMITTING_STALE_AFTER
-    stuck = (
-        db.query(Payment)
-        .filter(
-            Payment.status == "SUBMITTING", Payment.updated_at <= stale, Payment.asaas_id.is_(None)
+    stuck = list(
+        (
+            await db.execute(
+                select(Payment).where(
+                    Payment.status == "SUBMITTING",
+                    Payment.updated_at <= stale,
+                    Payment.asaas_id.is_(None),
+                )
+            )
         )
+        .scalars()
         .all()
     )
     for p in stuck:
@@ -446,30 +468,41 @@ def tick(db: Session) -> dict:
         log_event("payment_requeued_stale_submitting", payment_id=p.payment_id)
 
     # SCHEDULED -> QUEUED se chegou a hora
-    due = (
-        db.query(Payment).filter(Payment.status == "SCHEDULED", Payment.scheduled_for <= now).all()
+    due = list(
+        (
+            await db.execute(
+                select(Payment).where(Payment.status == "SCHEDULED", Payment.scheduled_for <= now)
+            )
+        )
+        .scalars()
+        .all()
     )
     for p in due:
         p.status = "QUEUED"
         p.updated_at = now
         moved_scheduled += 1
-        _notify_internal(db, p)
+        await _notify_internal(db, p)
     if due:
-        db.flush()
+        await db.flush()
 
     # QUEUED + AWAITING_BALANCE -> tenta
-    targets = (
-        db.query(Payment)
-        .filter(Payment.status.in_(["QUEUED", "AWAITING_BALANCE"]))
-        .order_by(Payment.id.asc())
+    targets = list(
+        (
+            await db.execute(
+                select(Payment)
+                .where(Payment.status.in_(["QUEUED", "AWAITING_BALANCE"]))
+                .order_by(Payment.id.asc())
+            )
+        )
+        .scalars()
         .all()
     )
     for p in targets:
-        submit_one(db, p)
+        await submit_one(db, p)
         submitted += 1
 
     # SUBMITTED -> reconcilia com Asaas (cobre casos de webhook perdido)
-    reconciled = reconcile_submitted(db)
+    reconciled = await reconcile_submitted(db)
 
     return {"moved_scheduled": moved_scheduled, "submitted": submitted, "reconciled": reconciled}
 
@@ -477,9 +510,9 @@ def tick(db: Session) -> dict:
 async def worker_loop(interval_seconds: float = 30.0) -> None:
     while True:
         try:
-            with SessionLocal() as s:
-                tick(s)
-                s.commit()
+            async with async_session_maker() as s:
+                await tick(s)
+                await s.commit()
         except Exception:
             log_event("worker_tick_error")
         await asyncio.sleep(interval_seconds)
@@ -515,7 +548,7 @@ def _extract_qrcode_payment_id_from_receipt(url: str | None) -> str | None:
 _PAYOUT_KINDS = ("pixkey", "qrcode")
 
 
-def apply_webhook(db: Session, payload: dict) -> Payment | None:
+async def apply_webhook(db: AsyncSession, payload: dict) -> Payment | None:
     """Se o webhook (TRANSFER_*) for de uma transfer nossa, atualiza Payment.status.
 
     Filtra por kind in (pixkey, qrcode) — webhooks PAYMENT_* sao tratados pelo charge service.
@@ -532,26 +565,30 @@ def apply_webhook(db: Session, payload: dict) -> Payment | None:
     row = None
     if ext_ref:
         row = (
-            db.query(Payment)
-            .filter(Payment.kind.in_(_PAYOUT_KINDS), Payment.payment_id == ext_ref)
-            .first()
-        )
+            await db.execute(
+                select(Payment).where(
+                    Payment.kind.in_(_PAYOUT_KINDS), Payment.payment_id == ext_ref
+                )
+            )
+        ).scalar_one_or_none()
     if row is None and asaas_id:
         row = (
-            db.query(Payment)
-            .filter(Payment.kind.in_(_PAYOUT_KINDS), Payment.asaas_id == asaas_id)
-            .first()
-        )
+            await db.execute(
+                select(Payment).where(Payment.kind.in_(_PAYOUT_KINDS), Payment.asaas_id == asaas_id)
+            )
+        ).scalar_one_or_none()
     if row is None and event == "TRANSFER_DONE":
         qr_payment_id = _extract_qrcode_payment_id_from_receipt(
             transfer.get("transactionReceiptUrl")
         )
         if qr_payment_id:
             row = (
-                db.query(Payment)
-                .filter(Payment.kind.in_(_PAYOUT_KINDS), Payment.asaas_id == qr_payment_id)
-                .first()
-            )
+                await db.execute(
+                    select(Payment).where(
+                        Payment.kind.in_(_PAYOUT_KINDS), Payment.asaas_id == qr_payment_id
+                    )
+                )
+            ).scalar_one_or_none()
     if row is None:
         return None
     if asaas_id and row.asaas_id != asaas_id:
@@ -562,43 +599,41 @@ def apply_webhook(db: Session, payload: dict) -> Payment | None:
     row.updated_at = datetime.now(UTC)
     if new_status == "FAILED":
         row.last_error = transfer.get("failReason") or f"event={event}"
-    db.flush()
+    await db.flush()
     return row
 
 
-def cancel(db: Session, payment_id: str) -> Payment:
-    row = get_by_payment_id(db, payment_id)
+async def cancel(db: AsyncSession, payment_id: str) -> Payment:
+    row = await get_by_payment_id(db, payment_id)
     if row is None:
         raise PaymentError("not_found")
     if row.status in ("PAID", "FAILED", "CANCELLED"):
         return row
     if row.status in ("SCHEDULED", "QUEUED", "AWAITING_BALANCE"):
-        _mark_payment(db, row, "CANCELLED")
-        _notify_internal(db, row)
+        await _mark_payment(db, row, "CANCELLED")
+        await _notify_internal(db, row)
         log_event("payment_cancelled_local", payment_id=row.payment_id)
         return row
     if row.status == "SUBMITTED":
         if not row.asaas_id:
-            _mark_payment(db, row, "CANCELLED")
-            _notify_internal(db, row)
+            await _mark_payment(db, row, "CANCELLED")
+            await _notify_internal(db, row)
             return row
-        api_key = cfg.get(db, cfg.K_ASAAS_API_KEY)
+        api_key = await cfg.get(db, cfg.K_ASAAS_API_KEY)
         if not api_key:
             raise PaymentError("asaas_api_key_not_set")
-        client = AsaasClient(api_key)
-        try:
-            if row.kind == "qrcode":
-                client.cancel_pix_transaction(row.asaas_id)
-            else:
-                client.cancel_transfer(row.asaas_id)
-        except AsaasError as e:
-            row.last_error = json.dumps(e.body, ensure_ascii=False)[:500]
-            db.flush()
-            raise PaymentError(f"asaas_cancel_failed: {e.body}") from e
-        finally:
-            client.close()
-        _mark_payment(db, row, "CANCELLED")
-        _notify_internal(db, row)
+        async with AsaasClient(api_key) as client:
+            try:
+                if row.kind == "qrcode":
+                    await client.cancel_pix_transaction(row.asaas_id)
+                else:
+                    await client.cancel_transfer(row.asaas_id)
+            except AsaasError as e:
+                row.last_error = json.dumps(e.body, ensure_ascii=False)[:500]
+                await db.flush()
+                raise PaymentError(f"asaas_cancel_failed: {e.body}") from e
+        await _mark_payment(db, row, "CANCELLED")
+        await _notify_internal(db, row)
         log_event("payment_cancelled_asaas", payment_id=row.payment_id, asaas_id=row.asaas_id)
         return row
     raise PaymentError(f"cannot_cancel_status:{row.status}")

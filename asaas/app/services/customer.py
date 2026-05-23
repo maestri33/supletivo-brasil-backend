@@ -16,7 +16,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import config_store as cfg
 from ..exceptions import ValidationError
@@ -44,20 +45,24 @@ def _validate_cpf_cnpj(raw: str) -> str:
     return digits
 
 
-def get(db: Session, external_id: str) -> Customer | None:
+async def get(db: AsyncSession, external_id: str) -> Customer | None:
     if not external_id:
         return None
-    return db.query(Customer).filter(Customer.external_id == external_id).one_or_none()
+    return (
+        await db.execute(select(Customer).where(Customer.external_id == external_id))
+    ).scalar_one_or_none()
 
 
-def get_by_asaas_id(db: Session, asaas_id: str) -> Customer | None:
+async def get_by_asaas_id(db: AsyncSession, asaas_id: str) -> Customer | None:
     if not asaas_id:
         return None
-    return db.query(Customer).filter(Customer.asaas_id == asaas_id).one_or_none()
+    return (
+        await db.execute(select(Customer).where(Customer.asaas_id == asaas_id))
+    ).scalar_one_or_none()
 
 
-def _persist(
-    db: Session,
+async def _persist(
+    db: AsyncSession,
     *,
     external_id: str,
     asaas_id: str,
@@ -75,22 +80,21 @@ def _persist(
         mobile_phone=mobile_phone,
     )
     db.add(row)
-    db.flush()
+    await db.flush()
     return row
 
 
-def _create_in_asaas(api_key: str, *, external_id: str, payer: PayerData) -> dict:
+async def _create_in_asaas(api_key: str, *, external_id: str, payer: PayerData) -> dict:
     cpf_cnpj = _validate_cpf_cnpj(payer.cpf_cnpj)
-    client = AsaasClient(api_key)
-    try:
-        existing = client.find_customer_by_external_reference(external_id)
+    async with AsaasClient(api_key) as client:
+        existing = await client.find_customer_by_external_reference(external_id)
         if existing:
             log_event(
                 "customer_found_in_asaas", external_id=external_id, asaas_id=existing.get("id")
             )
             return existing
         try:
-            created = client.create_customer(
+            created = await client.create_customer(
                 {
                     "name": payer.name,
                     "cpfCnpj": cpf_cnpj,
@@ -104,28 +108,26 @@ def _create_in_asaas(api_key: str, *, external_id: str, payer: PayerData) -> dic
             raise ValidationError(f"asaas_customer_create_failed: {e.body}") from e
         log_event("customer_created_in_asaas", external_id=external_id, asaas_id=created.get("id"))
         return created
-    finally:
-        client.close()
 
 
-def find_or_create(
-    db: Session,
+async def find_or_create(
+    db: AsyncSession,
     external_id: str,
     payer: PayerData | None,
 ) -> Customer:
     """Resolve customer por external_id; cria se nao existe (exige payer)."""
     if not external_id or not external_id.strip():
         raise ValidationError("external_id_required")
-    existing = get(db, external_id)
+    existing = await get(db, external_id)
     if existing is not None:
         return existing
     if payer is None:
         raise ValidationError("customer_required")
-    api_key = cfg.get(db, cfg.K_ASAAS_API_KEY)
+    api_key = await cfg.get(db, cfg.K_ASAAS_API_KEY)
     if not api_key:
         raise ValidationError("asaas_api_key_not_set")
-    asaas_customer = _create_in_asaas(api_key, external_id=external_id, payer=payer)
-    return _persist(
+    asaas_customer = await _create_in_asaas(api_key, external_id=external_id, payer=payer)
+    return await _persist(
         db,
         external_id=external_id,
         asaas_id=asaas_customer["id"],
@@ -136,10 +138,18 @@ def find_or_create(
     )
 
 
-def list_all(db: Session, limit: int = 200, offset: int = 0) -> list[Customer]:
+async def list_all(db: AsyncSession, limit: int = 200, offset: int = 0) -> list[Customer]:
     limit = max(1, min(int(limit), 500))
     offset = max(0, int(offset))
-    return db.query(Customer).order_by(Customer.id.desc()).offset(offset).limit(limit).all()
+    return list(
+        (
+            await db.execute(
+                select(Customer).order_by(Customer.id.desc()).offset(offset).limit(limit)
+            )
+        )
+        .scalars()
+        .all()
+    )
 
 
 def to_dict(row: Customer) -> dict:

@@ -14,8 +14,8 @@ Middleware FastAPI sobre a API Asaas v3. Suporta dois fluxos:
 |---|---|
 | Linguagem | Python 3.12 |
 | Framework | FastAPI 0.115 |
-| ORM | SQLAlchemy 2.0 **sync** (exceção do projeto — ver `CONVENTIONS.md`) |
-| Driver | psycopg2-binary |
+| ORM | SQLAlchemy 2.0 async (`AsyncSession`) |
+| Driver | asyncpg |
 | Schema | `v7m.asaas` (Postgres central) |
 | Migrations | Alembic |
 
@@ -25,7 +25,7 @@ Middleware FastAPI sobre a API Asaas v3. Suporta dois fluxos:
 
 ```bash
 # Database
-ASAAS_APP_DB_URL=postgresql+psycopg2://v7m:v7m@postgres:5432/v7m   # default
+ASAAS_APP_DB_URL=postgresql+asyncpg://v7m:v7m@postgres:5432/v7m   # obrigatório (vem do .env, sem default)
 
 # Asaas
 ASAAS_BASE_URL=https://api.asaas.com                # production (default)

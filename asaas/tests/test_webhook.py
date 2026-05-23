@@ -2,46 +2,52 @@
 
 from __future__ import annotations
 
+from sqlalchemy import func, select
+
 from app.models import Payment, PixKey, WebhookEvent
 
 
-def test_webhook_sem_token_401(client):
-    r = client.post("/webhook/", json={"event": "TRANSFER_DONE"})
+async def test_webhook_sem_token_401(client):
+    r = await client.post("/webhook/", json={"event": "TRANSFER_DONE"})
     assert r.status_code == 401
 
 
-def test_webhook_token_errado_401(client, seeded_token):
-    r = client.post("/webhook/", json={"event": "FOO"}, headers={"asaas-access-token": "wrong"})
+async def test_webhook_token_errado_401(client, seeded_token):
+    r = await client.post(
+        "/webhook/", json={"event": "FOO"}, headers={"asaas-access-token": "wrong"}
+    )
     assert r.status_code == 401
 
 
-def test_webhook_persiste_evento(db, client, seeded_token):
-    r = client.post(
+async def test_webhook_persiste_evento(db, client, seeded_token):
+    r = await client.post(
         "/webhook/",
         json={"event": "PAYMENT_RECEIVED", "payment": {"id": "p1"}},
         headers={"asaas-access-token": seeded_token},
     )
     assert r.status_code == 200
-    rows = db.query(WebhookEvent).all()
+    rows = (await db.execute(select(WebhookEvent))).scalars().all()
     assert len(rows) == 1
     assert rows[0].event == "PAYMENT_RECEIVED"
 
 
-def test_security_validator_recusa_sem_token(client, seeded_token):
-    r = client.post("/security-validator", json={})
+async def test_security_validator_recusa_sem_token(client, seeded_token):
+    r = await client.post("/security-validator", json={})
     assert r.status_code == 401
 
 
-def test_security_validator_recusa_body_vazio(client, seeded_token):
+async def test_security_validator_recusa_body_vazio(client, seeded_token):
     """Sem 'type' no payload nao da pra validar — recusa."""
-    r = client.post("/security-validator", json={}, headers={"asaas-access-token": seeded_token})
+    r = await client.post(
+        "/security-validator", json={}, headers={"asaas-access-token": seeded_token}
+    )
     assert r.status_code == 200
     body = r.json()
     assert body["status"] == "REFUSED"
     assert "missing_type" in body["refuseReason"]
 
 
-def test_webhook_bridge_atualiza_payment_para_paid(db, client, seeded_token):
+async def test_webhook_bridge_atualiza_payment_para_paid(db, client, seeded_token):
     """TRANSFER_DONE com transferId existente vira PAID no nosso DB."""
     db.add(
         PixKey(
@@ -63,9 +69,9 @@ def test_webhook_bridge_atualiza_payment_para_paid(db, client, seeded_token):
             asaas_id="tr_xyz",
         )
     )
-    db.commit()
+    await db.commit()
 
-    r = client.post(
+    r = await client.post(
         "/webhook/",
         json={
             "event": "TRANSFER_DONE",
@@ -76,11 +82,11 @@ def test_webhook_bridge_atualiza_payment_para_paid(db, client, seeded_token):
     assert r.status_code == 200
 
     db.expire_all()
-    p = db.query(Payment).filter_by(payment_id="pay_test1").one()
+    p = (await db.execute(select(Payment).where(Payment.payment_id == "pay_test1"))).scalar_one()
     assert p.status == "PAID"
 
 
-def test_webhook_bridge_transfer_failed_vira_failed(db, client, seeded_token):
+async def test_webhook_bridge_transfer_failed_vira_failed(db, client, seeded_token):
     db.add(
         PixKey(
             external_id="y",
@@ -101,9 +107,9 @@ def test_webhook_bridge_transfer_failed_vira_failed(db, client, seeded_token):
             asaas_id="tr_failed",
         )
     )
-    db.commit()
+    await db.commit()
 
-    r = client.post(
+    r = await client.post(
         "/webhook/",
         json={
             "event": "TRANSFER_FAILED",
@@ -114,13 +120,13 @@ def test_webhook_bridge_transfer_failed_vira_failed(db, client, seeded_token):
     assert r.status_code == 200
 
     db.expire_all()
-    p = db.query(Payment).filter_by(payment_id="pay_test2").one()
+    p = (await db.execute(select(Payment).where(Payment.payment_id == "pay_test2"))).scalar_one()
     assert p.status == "FAILED"
 
 
-def test_webhook_evento_sem_match_nao_quebra(db, client, seeded_token):
+async def test_webhook_evento_sem_match_nao_quebra(db, client, seeded_token):
     """Evento que nao mapeia pra nenhum Payment nosso ainda persiste e retorna 200."""
-    r = client.post(
+    r = await client.post(
         "/webhook/",
         json={
             "event": "TRANSFER_DONE",
@@ -129,4 +135,5 @@ def test_webhook_evento_sem_match_nao_quebra(db, client, seeded_token):
         headers={"asaas-access-token": seeded_token},
     )
     assert r.status_code == 200
-    assert db.query(WebhookEvent).count() == 1
+    count = (await db.execute(select(func.count()).select_from(WebhookEvent))).scalar_one()
+    assert count == 1

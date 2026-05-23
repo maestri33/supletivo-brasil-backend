@@ -17,7 +17,7 @@ class ConfigKV(Base):
     __tablename__ = "config"
     key = Column(String, primary_key=True)
     value = Column(Text, nullable=True)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
 class UrlVerifyNonce(Base):
@@ -27,8 +27,8 @@ class UrlVerifyNonce(Base):
     nonce = Column(String, primary_key=True)
     target_url = Column(Text, nullable=False)
     purpose = Column(String, nullable=False)  # "external" | "internal"
-    created_at = Column(DateTime, default=_utcnow)
-    consumed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    consumed_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class WebhookEvent(Base):
@@ -36,11 +36,11 @@ class WebhookEvent(Base):
 
     __tablename__ = "webhook_event"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    received_at = Column(DateTime, default=_utcnow, index=True)
+    received_at = Column(DateTime(timezone=True), default=_utcnow, index=True)
     event = Column(String, index=True)
     payload = Column(Text)
     forwarded_ok = Column(Boolean, default=False)
-    forwarded_at = Column(DateTime, nullable=True)
+    forwarded_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class PixKey(Base):
@@ -58,7 +58,7 @@ class PixKey(Base):
     holder_document = Column(String, index=True)  # CPF (11) ou CNPJ (14) do titular
     holder_name = Column(String)
     bank_name = Column(String)
-    validated_at = Column(DateTime, default=_utcnow)
+    validated_at = Column(DateTime(timezone=True), default=_utcnow)
     raw_dict = Column(Text)
 
 
@@ -78,8 +78,8 @@ class Customer(Base):
     cpf_cnpj = Column(String, index=True, nullable=False)
     email = Column(String, nullable=True)
     mobile_phone = Column(String, nullable=True)
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
 
 class Payment(Base):
@@ -115,12 +115,13 @@ class Payment(Base):
 
     amount = Column(Float)
     description = Column(Text, nullable=True)
-    scheduled_for = Column(DateTime, nullable=True)  # NULL = imediato (so para outbound)
+    # NULL = imediato (so para outbound)
+    scheduled_for = Column(DateTime(timezone=True), nullable=True)
     status = Column(String, index=True)
     # outbound: SCHEDULED | QUEUED | SUBMITTING | SUBMITTED | AWAITING_BALANCE
     #           | PAID | FAILED | CANCELLED
     # charge:   PENDING | PAID | EXPIRED | CANCELLED | REFUNDED
     asaas_id = Column(String, nullable=True, index=True)
     last_error = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=_utcnow)
-    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    created_at = Column(DateTime(timezone=True), default=_utcnow)
+    updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
