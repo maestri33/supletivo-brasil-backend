@@ -37,7 +37,9 @@ asaas/
 
 > A migração **cria o schema `asaas` sozinha** (em `env.py` e no `0001`, padrão do `address`) — validado em DB novo (drop → `alembic upgrade head` recria tudo, revision 0003, 0 colunas naive).
 >
-> Pendências conhecidas: PK ainda Integer autoincrement (→ UUID na Fase 4); TODO de produção (onboarding da security key no painel Asaas). `models/` e `schemas/` ainda monolíticos (`__init__.py`) → split na Fase 4.
+> Pendências conhecidas: PK ainda Integer autoincrement (→ UUID na Fase 4); `models/` e `schemas/` ainda monolíticos (`__init__.py`) → split na Fase 4.
+>
+> **Checklist de deploy (operação manual, não-código):** gerar a security key (`POST /config/key`), colá-la no dashboard do Asaas e confirmar (`POST /config/key/confirm`); validar de ponta a ponta que a autorização de pagamento (`POST /security-validator`) aprova transfers reais — garantir que a comunicação de criptografia de autorização funciona — antes de liberar pagamentos em produção.
 
 ## Endpoints
 

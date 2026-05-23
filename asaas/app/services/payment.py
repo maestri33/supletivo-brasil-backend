@@ -350,6 +350,11 @@ async def submit_one(db: AsyncSession, payment: Payment) -> None:
                 )
 
             await _mark_payment(db, payment, "SUBMITTED", asaas_id=res.get("id"))
+            # Commit imediato do asaas_id: o /security-validator do Asaas chega ~5s
+            # depois numa transação separada e casa o pagamento por asaas_id. Sem este
+            # commit, o asaas_id só seria persistido no fim do tick e o validator
+            # recusaria uma transferência legítima (operation_not_found_locally).
+            await db.commit()
             await _notify_internal(db, payment)
             log_event("payment_submitted", payment_id=payment.payment_id, asaas_id=payment.asaas_id)
 
