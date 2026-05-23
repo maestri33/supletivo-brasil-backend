@@ -29,8 +29,8 @@ contrato de `addresses`, com as funcionalidades extras por cima.
    create/update/delete de Address (best-effort).
 5. **Validação** unificada nos `app/validators/` da produção (zipcode, kind com
    aliases pt-br, UF, country) — substitui os validators inline do LOCAL.
-6. **Exceptions** alinhadas às genéricas da produção (`NotFound`, `Conflict`,
-   `ValidationError`, `NotImplementedYet`).
+6. **Exceptions** alinhadas ao template da frota (`NotFound`, `Conflict`,
+   `ValidationError`, `IntegrationError`). Ver análise de coesão em `coesao-frota.md`.
 
 ## Mudanças por arquivo
 
@@ -41,7 +41,9 @@ contrato de `addresses`, com as funcionalidades extras por cima.
   shadow `auth.users` + `get_session`/`close_db` (era `register_tortoise`).
 - `app/main.py` — `lifespan`, logging configurado, CORS por `cors_origins`.
 - `app/utils/logging.py` — `configure_logging`/`get_logger`.
-- `app/exceptions.py` — exceções genéricas da produção.
+- `app/exceptions.py` — exceções genéricas no padrão do template (`NotFound`,
+  `Conflict`, `ValidationError`, `IntegrationError`); `IntegrationError` é usado no
+  ViaCEP (502 quando upstream cai; entidade degrada graciosamente).
 - `app/models/address.py` — SQLAlchemy 2 + `lat`/`lng` nullable (era Tortoise).
 - `app/schemas/address.py` — usa `validators/`, `external_id/kind/country`,
   `extra="forbid"`, `AddressPatch`, `+ lat/lng`, `+ ViaCepResult`.
