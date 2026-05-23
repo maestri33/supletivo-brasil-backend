@@ -37,10 +37,6 @@ class Settings(BaseSettings):
     PROFILES_BASE_URL: str
     ROLES_BASE_URL: str
 
-    # ── Integração com APIs externas ───────────────────────────────────────
-    CPFHUB_API_KEY: str = ""
-    CPFHUB_BASE_URL: str = "https://api.cpfhub.io"
-
     HTTP_TIMEOUT: int = Field(default=10, ge=1)
 
     # ── Regras de negócio ───────────────────────────────────────────────────

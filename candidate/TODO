@@ -1,0 +1,24 @@
+Candidato é o aspirante a ser promotor, trabalhar com a gente
+
+as fases dele devem seguir a mesma lógica do lead (quando digo mesmo lógica é o passo a passo mas os requisitos sao totalmente diferentes)
+
+veja o desing seguido lá, nao é pq eu vou por numero que é pra por numero, siga convencao já estabelecida
+
+1 - é criado, tem que receber POSt /register/ deve receber     phone: str
+    cpf: str e hub: (este deve ter um HUB_DEFAULT em .env, caso nao seja informado,)
+
+2 - /profile/ completar Profile (veja que cpf já puxa nome e etc, veja lógica)
+
+3 - /addrress/ endereco (veja que primeiro cep, se puxar dados só número, nao duplique lógica)
+
+4 - documents , RG ou CNH
+
+5 - cadastro chave pix (e validar no asaas, já tem a lógica implementada lá...)
+
+6 - Selfie REAL (valida como se fosse uma assinatura de contrato) -> Se tudo ok conclui fase de candidato e vai para (update role) taining, cria novo lá.
+
+
+siga lógica de LEAD, notifys, validacoes e etc...
+
+
+demais endpoints, publicos (EXPOSTOS AO MUNDO, como login e etc), autenticados (que exigem autenticacao) e desmilitarizados, (que serao usandos somente dentro da plataforma, como listar candidatos, filtrar por hub e etc...)

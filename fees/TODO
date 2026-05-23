@@ -1,0 +1,3 @@
+integrado ao asaas, aqui o coordenado do hub vai sempre fazer dois pagamento usando qr-code, um a vista e o outro agendamento (já implementado no asaas)
+este é relacionado ao student (external_id) e deve mudar de status conforme asaas é ataulizado
+quem tem acesso a ele é só o coordenador do hub, acesso a plataforma só é liberado quando a primeira parte da taxa é paga...

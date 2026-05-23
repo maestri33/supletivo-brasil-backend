@@ -5,9 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import fastapi_structured_logging
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi_structured_logging import AccessLogConfig, AccessLogMiddleware
 

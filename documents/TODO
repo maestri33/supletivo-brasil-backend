@@ -1,0 +1,13 @@
+corrija isso, tá bem ruim, nome de arquivo em portugues, enfim, aqui o nome já diz, é onde vai ficar os Documentos
+
+minha ideia era 
+
+ao ser criado usurio, um document é criado com seu external_id e todos documentos sao criados juntos respectivamentes, com capos null, so document_id relacionado a ao document
+
+ai tipo
+
+cnh mesmo tem todos dados que tem lá mais espaco para fotos
+e assim écom todos
+rg 
+certidao (tipo pode ser nascimento, casamento e etc, mas só uma por document)
+servico militar (só pra homens, mas tem que criar...)

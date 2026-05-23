@@ -1,0 +1,17 @@
+Aqui pensei o seguinte fazer tipo um lms
+
+funcoes desmilitarizada
+
+post para criar matéria
+
+matéria reebe 1 video (quando craida já vem null) , 1 foto, 1 texto, 1 questao (1 resposta esperada)
+
+ai outra tabela onde o training ao fazer git da matéria salva a data nesta tabela, post para enviar resposta da matéria, post para nota,e texto comentario correcao e funcao que se nota = ou maior que 6 flag aprovado
+ao receber resposta, de forma assincorna ia (integrar com app, deepseek v4 pro) compara resposta do usuario com com a resposta da matéria, dá nota de 0 a 10, justifica a mesma...
+se nao aprovado pode enviar novametne
+
+quanto envia usuario tem todas matérias aprovado
+
+status esperando entrevista com coordenado do hub, que simplesmente post/external_id/ aprova, ou rejeita, se rejeita texto com motivo
+
+aprovado torna-se entao promotor...

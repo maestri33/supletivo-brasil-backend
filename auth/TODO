@@ -1,0 +1,11 @@
+este app é a principal fonte de verdade da nossa plataforma, por isso o mesmo deve GARANTIR que ao ser criado automaticamente é criado um 
+Profile + tabelas auxiliares
+Documentos + auxiliares
+contato (notify)
+endereco
+todos a maioria com null...
+
+
+JAMAIS PODE TER DOIS USUARIOS com
+CPF ou PHONE ou EMAIL iguais ou falsos
+

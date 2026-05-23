@@ -1,3 +1,5 @@
+#TODO: Remova, desnecessário, só polui o código
+
 """Endpoint público de documentação da API — markdown raw e HTML renderizado.
 
 Serve `services/lead/app/docs/api_guide.md` (espelho do `.claude/skills/v7m-api/
@@ -28,7 +30,8 @@ def _strip_frontmatter(text: str) -> str:
 
     O api_guide.md eh fonte unica compartilhada com a skill Claude Code, que exige
     frontmatter (name/description/trigger). Browsers e scripts externos nao precisam
-    ver esses metadados — strip antes de servir.
+
+        ver esses metadados — strip antes de servir.
     """
     if not text.startswith("---\n"):
         return text
@@ -159,7 +162,6 @@ async def docs_root() -> HTMLResponse:
     summary="Documentação em markdown bruto",
 )
 async def docs_md() -> PlainTextResponse:
-    import json
 
     return PlainTextResponse(
         _read_doc(),

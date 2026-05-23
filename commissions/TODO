@@ -1,0 +1,12 @@
+app com funcao unica de pagar promotores
+
+pensei em duas tabelas
+
+toda vez que um novo lead é completo uma nova comicao (valor definido em ENV, taca 100 agora) é gerada aqui pra o promotor relacionado ao LEAD
+toda vez que student conclui (é postado foto dele com diploma) é gerado uma comissao para o coordenador do hub (defino em env também, poe 50)
+
+sexta feira, as 18h, é somado o número de leads que geraram comissao aqui, se igual ou maior que ENV, é adicionado
++ comissao bonus = env, soma o valor, muda o status delas para processada, e em outra tabela é criado uma solicitacao de pagamentos
+entao é disparado um pix usando integracao já feita com asaas, webhook atualiza e muda status.
+
+veja se horário é igual AMERICA SAO PAULO, garanta forma segura disto nao se repetir, veja asaas já está bem coeso...

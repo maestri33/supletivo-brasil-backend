@@ -1,0 +1,8 @@
+Veja... funcos totalmente desmilitarizadas (irao ser usadas so dentro do app)
+
+get /external_id/ (procura endereco de um usuario)
+get /id/ busca por id do endereco
+get list / busca todos enderecos
+post /external_id/{CEP} - Valida CEP, faz busca usando api externa já implementada, insere dados da busca (devolve no payload e já salva no db)
+patch /external_id/ demais dados
+post /webhook/external_id/ (cria endereco null, toda vez aque usuario é criado, implementar em auth)
