@@ -38,7 +38,9 @@ async def check_blocked(external_id: UUID, session: AsyncSession = Depends(get_s
 
 @router.post("/{external_id}/{role}", status_code=200)
 async def assign(
-    external_id: UUID, role: str, session: AsyncSession = Depends(get_session),
+    external_id: UUID,
+    role: str,
+    session: AsyncSession = Depends(get_session),
 ):
     roles = await assign_role(session, external_id, role)
     return {"external_id": str(external_id), "roles": roles}
@@ -46,7 +48,9 @@ async def assign(
 
 @router.post("/{external_id}/up/{to_role}", status_code=200)
 async def promote_role(
-    external_id: UUID, to_role: str, session: AsyncSession = Depends(get_session),
+    external_id: UUID,
+    to_role: str,
+    session: AsyncSession = Depends(get_session),
 ):
     roles = await promote(session, external_id, to_role)
     return {"external_id": str(external_id), "roles": roles}

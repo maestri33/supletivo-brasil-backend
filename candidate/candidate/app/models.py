@@ -22,8 +22,7 @@ class TimestampMixin:
 class Lead(models.Model, TimestampMixin):
     id = fields.BigIntField(pk=True)
 
-    external_id = fields.CharField(
-        max_length=36,
+    external_id = fields.UUIDField(
         unique=True,
         index=True,
         description="UUID do usuario vindo do Auth",
@@ -35,8 +34,7 @@ class Lead(models.Model, TimestampMixin):
         description="Estado atual do lead",
     )
 
-    hub_external_id = fields.CharField(
-        max_length=36,
+    hub_external_id = fields.UUIDField(
         null=True,
         index=True,
         description="UUID do hub",
@@ -53,8 +51,7 @@ class Lead(models.Model, TimestampMixin):
 class Checkout(models.Model, TimestampMixin):
     id = fields.BigIntField(pk=True)
 
-    external_id = fields.CharField(
-        max_length=36,
+    external_id = fields.UUIDField(
         unique=True,
         index=True,
         description="UUID do lead",
@@ -83,8 +80,8 @@ class Message(models.Model, TimestampMixin):
         null=True, index=True, description="ID retornado pelo notify"
     )
 
-    external_id = fields.CharField(
-        max_length=36, index=True, description="UUID do lead"
+    external_id = fields.UUIDField(
+        index=True, description="UUID do lead"
     )
 
     direction = fields.CharField(

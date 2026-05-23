@@ -7,7 +7,7 @@ CERTIDAO_TIPOS = {"nascimento", "casamento", "obito"}
 
 class Document(Model):
     id = fields.IntField(pk=True)
-    external_id = fields.CharField(max_length=50, unique=True, index=True)
+    external_id = fields.UUIDField(unique=True, index=True)
 
     rg = fields.ForeignKeyField("models.RG", null=True, on_delete=fields.SET_NULL)
     cnh = fields.ForeignKeyField("models.CNH", null=True, on_delete=fields.SET_NULL)

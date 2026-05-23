@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import NotFound, ValidationError
@@ -15,7 +16,9 @@ from app.models.user_role import UserRole
 
 
 async def _get_rule(
-    session: AsyncSession, to_role: str, from_role: str | None = None,
+    session: AsyncSession,
+    to_role: str,
+    from_role: str | None = None,
 ) -> RoleRule | None:
     stmt = select(RoleRule).where(RoleRule.to_role == to_role)
     if from_role is not None:
@@ -27,9 +30,7 @@ async def _get_rule(
 
 async def _get_promotion_rule(session: AsyncSession, to_role: str) -> RoleRule | None:
     return await session.scalar(
-        select(RoleRule)
-        .where(RoleRule.to_role == to_role, RoleRule.mode == "replace")
-        .limit(1)
+        select(RoleRule).where(RoleRule.to_role == to_role, RoleRule.mode == "replace").limit(1)
     )
 
 
@@ -41,6 +42,18 @@ async def _get_active(session: AsyncSession, external_id: UUID) -> list[str]:
         )
     )
     return sorted(result.all())
+
+
+async def _commit_assignment(session: AsyncSession, external_id: UUID) -> None:
+    """Commita a atribuição; traduz violação de FK (external_id ausente em auth.users)."""
+    try:
+        await session.commit()
+    except IntegrityError as exc:
+        await session.rollback()
+        raise NotFound(
+            f"Usuário '{external_id}' não encontrado",
+            code="USER_NOT_FOUND",
+        ) from exc
 
 
 # ── Role Rules CRUD ────────────────────────────────────────────────────────
@@ -95,9 +108,7 @@ async def assign_role(session: AsyncSession, external_id: UUID, role: str) -> li
     rule = await _get_rule(session, to_role=role, from_role=None)
 
     if not rule:
-        any_rule = await session.scalar(
-            select(RoleRule).where(RoleRule.to_role == role).limit(1)
-        )
+        any_rule = await session.scalar(select(RoleRule).where(RoleRule.to_role == role).limit(1))
         if any_rule and any_rule.mode == "replace":
             raise ValidationError(
                 f"Role '{role}' não pode ser atribuída diretamente — "
@@ -111,7 +122,8 @@ async def assign_role(session: AsyncSession, external_id: UUID, role: str) -> li
                 code="INVALID_ROLE_ASSIGNMENT",
             )
         raise NotFound(
-            f"Regra para role '{role}' não encontrada", code="ROLE_NOT_FOUND",
+            f"Regra para role '{role}' não encontrada",
+            code="ROLE_NOT_FOUND",
         )
 
     currently_active = await _get_active(session, external_id)
@@ -130,11 +142,12 @@ async def assign_role(session: AsyncSession, external_id: UUID, role: str) -> li
 
     if role in currently_active:
         raise ValidationError(
-            f"Usuário já possui role '{role}'", code="INVALID_ROLE_ASSIGNMENT",
+            f"Usuário já possui role '{role}'",
+            code="INVALID_ROLE_ASSIGNMENT",
         )
 
     session.add(UserRole(external_id=external_id, role=role))
-    await session.commit()
+    await _commit_assignment(session, external_id)
     return await _get_active(session, external_id)
 
 
@@ -145,7 +158,8 @@ async def promote(session: AsyncSession, external_id: UUID, to_role: str) -> lis
     rule = await _get_promotion_rule(session, to_role)
     if not rule:
         raise ValidationError(
-            f"Promoção para '{to_role}' não existe", code="INVALID_ROLE_PROMOTION",
+            f"Promoção para '{to_role}' não existe",
+            code="INVALID_ROLE_PROMOTION",
         )
     if not rule.from_role:
         raise ValidationError(
@@ -170,7 +184,8 @@ async def promote(session: AsyncSession, external_id: UUID, to_role: str) -> lis
 
     if to_role in currently_active:
         raise ValidationError(
-            f"Usuário já possui role '{to_role}'", code="INVALID_ROLE_PROMOTION",
+            f"Usuário já possui role '{to_role}'",
+            code="INVALID_ROLE_PROMOTION",
         )
 
     current = await session.scalar(
@@ -199,22 +214,15 @@ async def get_roles(session: AsyncSession, external_id: UUID) -> dict:
 
 
 async def list_users(session: AsyncSession) -> list[dict]:
-    result = await session.scalars(
-        select(UserRole).where(UserRole.revoked_at.is_(None))
-    )
+    result = await session.scalars(select(UserRole).where(UserRole.revoked_at.is_(None)))
     users: dict[str, list[str]] = {}
     for r in result.all():
         users.setdefault(str(r.external_id), []).append(r.role)
-    return [
-        {"external_id": eid, "roles": sorted(roles)}
-        for eid, roles in sorted(users.items())
-    ]
+    return [{"external_id": eid, "roles": sorted(roles)} for eid, roles in sorted(users.items())]
 
 
 async def delete_user(session: AsyncSession, external_id: UUID) -> int:
-    result = await session.execute(
-        delete(UserRole).where(UserRole.external_id == external_id)
-    )
+    result = await session.execute(delete(UserRole).where(UserRole.external_id == external_id))
     await session.commit()
     return result.rowcount or 0
 
@@ -224,8 +232,6 @@ async def is_blocked(session: AsyncSession, external_id: UUID) -> bool:
     if not active:
         return False
     blocking_rule = await session.scalar(
-        select(RoleRule)
-        .where(RoleRule.to_role.in_(active), RoleRule.blocking.is_(True))
-        .limit(1)
+        select(RoleRule).where(RoleRule.to_role.in_(active), RoleRule.blocking.is_(True)).limit(1)
     )
     return blocking_rule is not None

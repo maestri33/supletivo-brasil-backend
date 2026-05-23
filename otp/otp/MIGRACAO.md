@@ -187,3 +187,41 @@ uv run alembic upgrade head     # cria otp.otp_logs, pending_notify, rate_limit
 # 3. Subir o serviço
 uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+---
+
+## 7. Coesão com o ecossistema `/home/maestri33/backend/` (2026-05-22)
+
+**Veredito: o OTP está COESO com o padrão "v7m".** Após a sincronização, o
+serviço conforma-se ao `backend/CLAUDE.md` (convenção canônica) e ao app-modelo
+`address`.
+
+### Evidências
+
+| Dimensão            | Resultado |
+| ------------------- | --------- |
+| `app/db.py`         | **Semanticamente idêntico** ao app-modelo `address` (só docstring/formatação diferem) e byte-idêntico a `enrollment`/`profiles`: mesma `NAMING_CONVENTION`, mesma `Base`, mesma tabela-sombra `auth.users`. |
+| `app/config.py`     | Mesmo padrão: `database_url = postgresql+asyncpg://v7m:v7m@postgres:5432/v7m`, `database_schema` próprio (`otp`). |
+| `Dockerfile`        | **Byte-idêntico** ao `enrollment`: base `python:3.12-slim`, `uv`, `EXPOSE 8000`, `CMD alembic upgrade head && uvicorn ... --port 8000`. |
+| `pyproject.toml`    | Mesmo `[build-system]` hatchling (`packages=["app"]`), mesmas libs (sqlalchemy[asyncio]/asyncpg/alembic/pydantic*/structlog), ruff `line-length=100`/`py312`, pytest `asyncio_mode=auto`. |
+| Topologia de banco  | Um único banco `v7m`, **schema por serviço** (`otp`) — confirmado em enrollment/profiles/lead. |
+| FK cross-schema     | `external_id → auth.users.external_id` aponta pra tabela **real** do serviço `auth` (`auth/app/models/user.py`: `User`, `__tablename__="users"`, `external_id UUID`). |
+| Integração notify   | `NOTIFY_BASE_URL` = host **sem** `/api/v1` (cliente prefixa), igual ao `lead` (`http://10.10.10.157`). notify é o serviço VMID 157. |
+| Stack canônica §2   | Conforme: FastAPI, uvicorn[standard], SQLAlchemy 2 async, asyncpg, Alembic, Pydantic v2, pydantic-settings, httpx, structlog, ruff. Nenhuma lib proibida. |
+| Estrutura §3        | Conforme: `app/{api,models,schemas,services,integrations,utils}`, `api/` (não `routers/`), `models/`/`schemas/` como pastas. |
+| Doc de sync         | `MIGRACAO.md` segue o padrão dos irmãos (`enrollment/MIGRACAO.md`, `auth/SYNC_REPORT.md`, `profiles/RELATORIO_SYNC.md`, `lead/ALTERACOES.md`). |
+
+### Desvios observados (presentes na própria fonte da verdade, não introduzidos aqui)
+
+1. **PK inteiro em `otp_logs`/`pending_notify`** — o `backend/CLAUDE.md` §4 diz
+   "PK = UUID". O OTP usa `Integer autoincrement` nessas tabelas (só
+   `rate_limit` usa `external_id` UUID como PK). Defensável para tabelas de log
+   append-only, mas é um desvio da convenção. O app-modelo `address` usa UUID.
+2. **`README.md` e `scripts/otp.service` desatualizados** — citam Tortoise/porta
+   80; o `otp.service` diverge do `Dockerfile` (80 vs 8000). Idênticos no remoto.
+3. **Suíte de testes legada em skip** — sem cobertura automatizada da stack nova
+   (ecossistema também tem serviços nesse estado).
+
+Nenhum desvio quebra a coesão estrutural/operacional; são pontos de dívida
+herdados do remoto. Recomendação (não aplicada, pra não divergir da fonte):
+endereçar #1–#3 num passe combinado local+remoto.

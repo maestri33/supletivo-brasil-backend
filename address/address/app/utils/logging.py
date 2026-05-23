@@ -6,6 +6,7 @@ import structlog
 
 
 def configure_logging(level: str = "INFO") -> None:
+    """Configura logging estruturado com structlog."""
     logging.basicConfig(level=level, format="%(message)s")
     structlog.configure(
         processors=[
@@ -21,4 +22,5 @@ def configure_logging(level: str = "INFO") -> None:
 
 
 def get_logger(name: str):
+    """Retorna um logger structlog com o nome do módulo."""
     return structlog.get_logger(name)

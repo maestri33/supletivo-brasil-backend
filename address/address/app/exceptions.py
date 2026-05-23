@@ -1,7 +1,14 @@
-"""Exceções de domínio. Lance estas em services/; main.py converte em JSON."""
+"""
+Exceções de domínio.
+
+Lance estas exceções na camada `services/`. O handler global em `main.py`
+converte para JSON — services NÃO devem importar HTTPException.
+"""
 
 
 class DomainError(Exception):
+    """Base de todas as exceções de domínio deste serviço."""
+
     status_code: int = 400
     code: str = "domain_error"
 
@@ -11,20 +18,28 @@ class DomainError(Exception):
 
 
 class NotFound(DomainError):
+    """Recurso não encontrado."""
+
     status_code = 404
     code = "not_found"
 
 
 class Conflict(DomainError):
+    """Conflito — recurso duplicado (ex.: (entity_type, external_id))."""
+
     status_code = 409
     code = "conflict"
 
 
 class ValidationError(DomainError):
+    """Erro de validação — campo inválido (CEP, UF, kind, external_id)."""
+
     status_code = 422
     code = "validation_error"
 
 
-class NotImplementedYet(DomainError):
-    status_code = 501
-    code = "not_implemented"
+class IntegrationError(DomainError):
+    """Falha ao chamar serviço externo (ViaCEP, webhook)."""
+
+    status_code = 502
+    code = "integration_error"

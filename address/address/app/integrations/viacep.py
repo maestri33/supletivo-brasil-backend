@@ -1,7 +1,8 @@
 """Integração ViaCEP — lookup de CEP brasileiro.
 
-Portado do código original (LOCAL). Best-effort: erros de rede viram None,
-o chamador decide o fallback (ex.: salvar só o zipcode).
+Portado do código original (LOCAL). Distingue dois casos:
+- CEP inexistente / formato inválido  -> retorna None (o chamador decide).
+- ViaCEP indisponível (rede/HTTP)     -> levanta IntegrationError (502).
 """
 
 import re
@@ -9,6 +10,7 @@ import re
 import httpx
 
 from app.config import get_settings
+from app.exceptions import IntegrationError
 from app.utils.logging import get_logger
 
 settings = get_settings()
@@ -16,7 +18,10 @@ log = get_logger(__name__)
 
 
 async def lookup(zipcode: str) -> dict | None:
-    """Consulta a ViaCEP e devolve campos normalizados, ou None se falhar/não achar.
+    """Consulta a ViaCEP e devolve campos normalizados.
+
+    Retorna None se o CEP não existir ou tiver formato inválido. Levanta
+    IntegrationError se a ViaCEP estiver indisponível (rede ou status != 200).
 
     Chaves de retorno (alinhadas ao modelo `addresses`): zipcode, street,
     complement, neighborhood, city, state.
@@ -29,13 +34,13 @@ async def lookup(zipcode: str) -> dict | None:
     try:
         async with httpx.AsyncClient(timeout=settings.viacep_timeout_seconds) as client:
             resp = await client.get(url)
-    except Exception:
+    except Exception as exc:
         log.warning("viacep.request_failed", zipcode=clean)
-        return None
+        raise IntegrationError("ViaCEP indisponível no momento") from exc
 
     if resp.status_code != 200:
         log.warning("viacep.bad_status", zipcode=clean, status=resp.status_code)
-        return None
+        raise IntegrationError(f"ViaCEP retornou status {resp.status_code}")
 
     data = resp.json()
     if data.get("erro"):

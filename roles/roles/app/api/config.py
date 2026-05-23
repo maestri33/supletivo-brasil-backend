@@ -30,7 +30,8 @@ async def get_role_rule(rule_id: uuid.UUID, session: AsyncSession = Depends(get_
 
 @router.post("", status_code=201, response_model=RoleRuleRead)
 async def create_role_rule(
-    data: RoleRuleCreate, session: AsyncSession = Depends(get_session),
+    data: RoleRuleCreate,
+    session: AsyncSession = Depends(get_session),
 ):
     if data.mode not in ("add", "replace"):
         raise HTTPException(400, "mode deve ser 'add' ou 'replace'")
@@ -48,6 +49,7 @@ async def update_role_rule(
 
 @router.delete("/{rule_id}", status_code=204)
 async def delete_role_rule(
-    rule_id: uuid.UUID, session: AsyncSession = Depends(get_session),
+    rule_id: uuid.UUID,
+    session: AsyncSession = Depends(get_session),
 ):
     await delete_rule(session, rule_id)

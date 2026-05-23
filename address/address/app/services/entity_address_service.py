@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.exceptions import NotFound
+from app.exceptions import IntegrationError, NotFound
 from app.integrations import viacep
 from app.models.entity_address import EntityAddress, EntityAddressDetail
 from app.schemas.entity_address import EntityAddressRead
@@ -61,13 +61,17 @@ async def update_address_by_cep(
         session.add(ea.address)
 
     cep_clean = re.sub(r"\D", "", cep or "")
-    data = await viacep.lookup(cep_clean)
+    try:
+        data = await viacep.lookup(cep_clean)
+    except IntegrationError:
+        # ViaCEP indisponível: degrada e salva só o zipcode.
+        data = None
 
     if data:
         for key, val in data.items():
             setattr(ea.address, key, val)
     else:
-        # ViaCEP fora do ar ou CEP inexistente: salva só o zipcode.
+        # CEP inexistente ou ViaCEP fora do ar: salva só o zipcode.
         ea.address.zipcode = cep_clean or None
 
     await session.commit()

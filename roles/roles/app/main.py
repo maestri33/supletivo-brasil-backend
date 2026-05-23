@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 
 from app.api.router import router
 from app.config import settings
-from app.db import async_session_maker, engine, get_session
+from app.db import async_session_maker, engine
 from app.exceptions import DomainError, NotFound, ValidationError
 from app.models.role_rule import RoleRule
 from app.models.user_role import UserRole
@@ -60,7 +60,10 @@ app = FastAPI(
 )
 
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(router)
@@ -75,7 +78,8 @@ async def domain_error_handler(request: Request, exc: DomainError):
             http_status = http_code
             break
     return JSONResponse(
-        status_code=http_status, content={"detail": exc.message, "code": exc.code},
+        status_code=http_status,
+        content={"detail": exc.message, "code": exc.code},
     )
 
 
@@ -93,9 +97,7 @@ async def root():
             select(func.count(RoleRule.id)).where(RoleRule.blocking.is_(True))
         )
 
-        active = await session.scalars(
-            select(UserRole).where(UserRole.revoked_at.is_(None))
-        )
+        active = await session.scalars(select(UserRole).where(UserRole.revoked_at.is_(None)))
         active_list = list(active.all())
 
     total_assignments = len(active_list)
@@ -105,9 +107,7 @@ async def root():
     for r in active_list:
         role_distribution[r.role] = role_distribution.get(r.role, 0) + 1
 
-    top_roles = dict(
-        sorted(role_distribution.items(), key=lambda x: x[1], reverse=True)[:10]
-    )
+    top_roles = dict(sorted(role_distribution.items(), key=lambda x: x[1], reverse=True)[:10])
 
     uptime = str(datetime.now(timezone.utc) - started_at).split(".")[0]
 

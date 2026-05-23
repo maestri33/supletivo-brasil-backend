@@ -13,12 +13,12 @@ from fastapi_structured_logging import AccessLogConfig, AccessLogMiddleware
 
 from app.config import settings
 from app.db import engine
-from app.routers.public.auth import router as auth_router
-from app.routers.public.docs import router as docs_router
-from app.routers.demilitarized.webhooks import router as webhooks_router
-from app.routers.demilitarized.leads import router as leads_crud_router
-from app.routers.demilitarized.checkouts import router as checkouts_crud_router
-from app.routers.authenticated import (
+from app.api.public.auth import router as auth_router
+from app.api.public.docs import router as docs_router
+from app.api.demilitarized.webhooks import router as webhooks_router
+from app.api.demilitarized.leads import router as leads_crud_router
+from app.api.demilitarized.checkouts import router as checkouts_crud_router
+from app.api.authenticated import (
     captured_router,
     waiting_router,
     checkout_router,

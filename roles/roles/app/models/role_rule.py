@@ -13,7 +13,9 @@ class RoleRule(Base):
     __tablename__ = "role_rules"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True), primary_key=True, default=uuid.uuid4,
+        PG_UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
     )
     from_role: Mapped[str | None] = mapped_column(String(64), nullable=True)
     to_role: Mapped[str] = mapped_column(String(64), nullable=False)

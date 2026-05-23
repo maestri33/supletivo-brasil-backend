@@ -276,3 +276,50 @@ encontrado = bug UUID→str nos GETs de checkout, **corrigido e validado no loca
 Caminho de escrita (`POST /checkout/` → InfinitePay real) não exercitado por decisão do
 operador (evitar artefato em produção). As URLs novas do Checkout (e-mail) já estão
 ativas no pacote `app/` e foram exercitadas indiretamente pelo cliente real.
+
+---
+
+## 10. Coesão com o monorepo `/home/maestri33/backend/` (v7m)
+
+Comparação do InfinitePay com os serviços irmãos (asaas, auth, lead, address, notify,
+otp, profiles, roles, ai, jwt, enrollment, documents).
+
+### ✅ Coerente (segue o padrão do stack)
+
+| Convenção | Padrão v7m | InfinitePay |
+|---|---|---|
+| Estrutura | pacote `app/` (main, config, db, api/, models/, schemas/, services/) | ✅ |
+| Migrações | `alembic/` + `alembic.ini` | ✅ |
+| Banco | Postgres central `postgresql+psycopg2://v7m:v7m@postgres:5432/v7m` | ✅ |
+| Schema por serviço | `database_schema` via `MetaData(schema=...)` | ✅ `infinitepay` |
+| FK cross-schema | FK → `auth.users` | ✅ checkouts/webhook_logs/outbound_jobs |
+| Config | pydantic-settings, `.env`, `extra=ignore`, `case_sensitive=False` | ✅ |
+| Bootstrap | `seed_from_env()` + `Field(validation_alias=...)` | ✅ (igual asaas) |
+| Engine | `create_engine(..., pool_pre_ping=True)` (sync) | ✅ (igual asaas/address) |
+| Prefixo API | `APIRouter(prefix="/api/v1")` | ✅ |
+| Dockerfile CMD | `sh -c "alembic upgrade head && exec uvicorn app.main:app --proxy-headers"` | ✅ idêntico |
+| Python | `requires-python = ">=3.12"` | ✅ |
+| Lint | ruff `line-length=100`, select E/F/I/B/UP/N/ASYNC | ✅ |
+
+### ⚠️ Diverge dos irmãos
+
+| # | Divergência | Padrão v7m | InfinitePay | Sev. |
+|---|---|---|---|---|
+| 1 | Corpo do `/health` | `{"status":"ok","service":service_name}` | `{"ok":true}` | Média |
+| 2 | `/ready` | faz `SELECT 1` no DB (retorna `not_ready` se cai) | retorna `{"ok":true}` fixo (probe falso-positivo) | Média |
+| 3 | `service_name`/`/status` | a maioria tem `service_name` e `/status` (version/uptime) | não tem (asaas também não) | Baixa |
+| 4 | Helper de sessão | `get_session()` via `Depends` (CLAUDE.md §7) | `session_scope()` (contextmanager no service) — único no stack | Média |
+| 5 | Layout local | `<svc>/<svc>/` único | duplo `opt-code`/`root-code` | Baixa (working copy) |
+| 6 | Sync vs async | CLAUDE.md §4 manda `asyncpg`/async; na prática asaas/address/infinitepay = sync psycopg2; profiles = async | sync (alinhado ao asaas, diverge da doc) | Informativo |
+
+### Veredito
+
+**Coeso em ~90%**: estrutura, banco, migrações, config, deploy e lint seguem o padrão
+v7m (e o InfinitePay espelha o asaas, sua referência declarada). As divergências reais
+são de **observabilidade** (`/health`, `/ready`, `service_name`/`/status`) e de **idioma
+de sessão** (`session_scope` vs `get_session`).
+
+**⚠️ Importante:** os itens 1–4 vêm da própria fonte de verdade (remoto) — não foram
+introduzidos no sync. Alinhar deve ser feito **no remoto primeiro** e re-sincronizado,
+senão o local re-diverge. Recomendação prioritária: padronizar `/health` e `/ready`
+(item 1+2) — barato e melhora a observabilidade uniforme do stack.

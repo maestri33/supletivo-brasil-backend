@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 from datetime import date, datetime
-
-from app.models.document import CERTIDAO_TIPOS
+from uuid import UUID
 
 
 ALLOWED_MIME_IMG = {"image/jpeg", "image/png", "image/webp"}
@@ -123,7 +122,7 @@ class DocumentUpdate(BaseModel):
 
 class DocumentOut(BaseModel):
     id: int
-    external_id: str
+    external_id: UUID
     created_at: datetime
     updated_at: datetime
 
