@@ -27,6 +27,8 @@ SCHEMA = "asaas"
 
 
 def upgrade() -> None:
+    op.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
+
     op.create_table(
         "config",
         sa.Column("key", sa.String(), nullable=False),

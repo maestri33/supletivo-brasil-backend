@@ -35,7 +35,9 @@ asaas/
 └── tests/                 # async (pytest-asyncio, httpx.AsyncClient/ASGITransport)
 ```
 
-> Pendências conhecidas: PK ainda Integer autoincrement (→ UUID na Fase 4); a migração inicial **não cria** o schema `asaas` (deploy precisa de `CREATE SCHEMA asaas`); TODO de produção (onboarding da security key no painel Asaas). `models/` e `schemas/` ainda monolíticos (`__init__.py`) → split na Fase 4.
+> A migração **cria o schema `asaas` sozinha** (em `env.py` e no `0001`, padrão do `address`) — validado em DB novo (drop → `alembic upgrade head` recria tudo, revision 0003, 0 colunas naive).
+>
+> Pendências conhecidas: PK ainda Integer autoincrement (→ UUID na Fase 4); TODO de produção (onboarding da security key no painel Asaas). `models/` e `schemas/` ainda monolíticos (`__init__.py`) → split na Fase 4.
 
 ## Endpoints
 
