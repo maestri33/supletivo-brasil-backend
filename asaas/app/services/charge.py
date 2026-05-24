@@ -181,7 +181,7 @@ async def list_all(
         stmt = stmt.where(Payment.status == status)
     if external_id is not None:
         stmt = stmt.where(Payment.customer_external_id == external_id)
-    stmt = stmt.order_by(Payment.created_at.desc()).offset(offset).limit(limit)
+    stmt = stmt.order_by(Payment.created_at.desc(), Payment.id.desc()).offset(offset).limit(limit)
     return list((await db.execute(stmt)).scalars().all())
 
 

@@ -197,7 +197,7 @@ async def list_all(
         if status not in _VALID_STATUSES:
             raise PaymentError(f"invalid_status: {status}")
         stmt = stmt.where(Payment.status == status)
-    stmt = stmt.order_by(Payment.created_at.desc()).offset(offset).limit(limit)
+    stmt = stmt.order_by(Payment.created_at.desc(), Payment.id.desc()).offset(offset).limit(limit)
     return list((await db.execute(stmt)).scalars().all())
 
 
@@ -207,7 +207,7 @@ async def list_awaiting_balance(db: AsyncSession) -> list[Payment]:
             await db.execute(
                 select(Payment)
                 .where(Payment.status == "AWAITING_BALANCE")
-                .order_by(Payment.created_at.desc())
+                .order_by(Payment.created_at.desc(), Payment.id.desc())
             )
         )
         .scalars()
@@ -654,7 +654,7 @@ async def tick(db: AsyncSession) -> dict:
             await db.execute(
                 select(Payment)
                 .where(Payment.status.in_(["QUEUED", "AWAITING_BALANCE"]))
-                .order_by(Payment.created_at.asc())
+                .order_by(Payment.created_at.asc(), Payment.id.asc())
             )
         )
         .scalars()

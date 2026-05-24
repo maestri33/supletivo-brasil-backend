@@ -237,7 +237,8 @@ async def create_checkout(db: AsyncSession, body: dict[str, Any]) -> dict:
 
 
 async def list_checkouts(db: AsyncSession) -> list[dict]:
-    rows = (await db.execute(select(Checkout).order_by(Checkout.created_at.desc()))).scalars().all()
+    stmt = select(Checkout).order_by(Checkout.created_at.desc(), Checkout.id.desc())
+    rows = (await db.execute(stmt)).scalars().all()
     return [_serialize(c) for c in rows]
 
 
