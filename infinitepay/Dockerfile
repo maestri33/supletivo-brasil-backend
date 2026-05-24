@@ -5,8 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/app/.venv \
-    PATH="/app/.venv/bin:${PATH}" \
-    IPAY_DB_PATH=/data/app.db
+    PATH="/app/.venv/bin:${PATH}"
 
 WORKDIR /app
 
@@ -22,7 +21,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     else uv sync --no-dev --no-install-project; fi
 
 COPY app ./app
-COPY infinitepay ./infinitepay
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 

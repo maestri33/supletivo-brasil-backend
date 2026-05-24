@@ -1,3 +1,9 @@
+"""Configuracao do servico — leitura do .env via pydantic-settings.
+
+Tudo que vem de fora (URL de banco, secrets, config da loja) passa por aqui.
+Nao leia env var direto fora deste modulo.
+"""
+
 from functools import lru_cache
 
 from pydantic import Field
@@ -5,42 +11,51 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
-    database_url: str = "postgresql+psycopg2://v7m:v7m@postgres:5432/v7m"
+    # Banco — Postgres central v7m com schema infinitepay
+    database_url: str = "postgresql+asyncpg://v7m:v7m@postgres:5432/v7m"
     database_schema: str = "infinitepay"
 
+    # InfinitePay API externa
     infinitepay_base_url: str = "https://api.checkout.infinitepay.io"
     http_timeout: float = 15.0
     worker_poll_seconds: float = 5.0
     run_inline_worker: bool = True
 
+    # Fernet key p/ cifrar o external_id no webhook_url (rota publica)
     webhook_encryption_key: str = ""
 
-    # ── Bootstrap config via .env ─────────────────────────────────────────────
-    # Pos-wipe, _seed_from_env() popula a tabela infinitepay.config (row id=1)
-    # com esses valores se eles vierem do .env. DB vence se ja tem entry
-    # (operador pode override via PATCH /api/v1/config). Mesmo padrao do
-    # Asaas/Mailcow.
-    infinitepay_handle: str | None = Field(default=None, validation_alias="INFINITEPAY_HANDLE")
-    infinitepay_price: int | None = Field(default=None, validation_alias="INFINITEPAY_PRICE")
-    infinitepay_quantity: int | None = Field(default=None, validation_alias="INFINITEPAY_QUANTITY")
-    infinitepay_description: str | None = Field(default=None, validation_alias="INFINITEPAY_DESCRIPTION")
-    infinitepay_redirect_url: str | None = Field(default=None, validation_alias="INFINITEPAY_REDIRECT_URL")
-    infinitepay_backend_webhook: str | None = Field(default=None, validation_alias="INFINITEPAY_BACKEND_WEBHOOK")
-    infinitepay_public_api_url: str | None = Field(default=None, validation_alias="INFINITEPAY_PUBLIC_API_URL")
+    # ── Config da loja (antes na tabela `config`; agora 100% via .env) ─────────
+    # Defaults usados quando o body do POST /checkout nao informa o campo.
+    handle: str | None = Field(default=None, validation_alias="INFINITEPAY_HANDLE")
+    price: int | None = Field(default=None, validation_alias="INFINITEPAY_PRICE")
+    quantity: int = Field(default=1, validation_alias="INFINITEPAY_QUANTITY")
+    description: str | None = Field(default=None, validation_alias="INFINITEPAY_DESCRIPTION")
+    redirect_url: str | None = Field(default=None, validation_alias="INFINITEPAY_REDIRECT_URL")
+    backend_webhook: str | None = Field(
+        default=None, validation_alias="INFINITEPAY_BACKEND_WEBHOOK"
+    )
+    public_api_url: str | None = Field(
+        default=None, validation_alias="INFINITEPAY_PUBLIC_API_URL"
+    )
 
-    # AI service v7m (usado por receipt + monitor, sem tool_calling).
-    # analytics + reporter ainda chamam DeepSeek direto via OpenAI client
-    # porque dependem de tool_calling com DB local — ver app/ai/client.py.
+    # ── Integracao com o app `ai` central (usado por receipt + monitor) ────────
+    # receipt/monitor chamam o app `ai` em {ai_base_url}/api/v1/text/chat — nunca
+    # a DeepSeek direto (§12: 1 integracao externa = 1 app dono). Sem essa
+    # integracao o fluxo de checkout continua funcionando (fallbacks).
     ai_base_url: str = "http://ai:8000"
-
-    deepseek_api_key: str = ""
-    deepseek_model: str = "deepseek-v4-flash"
-    deepseek_pro_model: str = "deepseek-v4-pro"
-    deepseek_ai_features_enabled: bool = False
+    ai_features_enabled: bool = Field(default=False, validation_alias="AI_FEATURES_ENABLED")
+    ai_model: str = "deepseek-v4-flash"  # triagem rapida / mensagem de recibo
+    ai_pro_model: str = "deepseek-v4-pro"  # analise profunda de anomalia
 
 
 @lru_cache
 def get_settings() -> Settings:
+    """Settings singleton — uma instancia por processo."""
     return Settings()

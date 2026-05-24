@@ -1,3 +1,14 @@
+"""Camada HTTP fina e isolada sobre a API de checkout da InfinitePay.
+
+Regras (§12):
+ - INFINITEPAY_BASE_URL vem de Settings (.env).
+ - Sem regra de negocio aqui. Cada funcao mapeia 1:1 um endpoint InfinitePay.
+ - Levanta InfinitePayError em qualquer 2xx-com-erro ou nao-2xx (o caller decide).
+ - I/O async (httpx.AsyncClient): nao bloqueia o event loop do uvicorn nem o worker.
+"""
+
+from __future__ import annotations
+
 import httpx
 
 from app.config import get_settings
@@ -10,17 +21,17 @@ class InfinitePayError(Exception):
         self.status_code = status_code
 
 
-def _client() -> httpx.Client:
+def _client() -> httpx.AsyncClient:
     s = get_settings()
-    return httpx.Client(base_url=s.infinitepay_base_url, timeout=s.http_timeout)
+    return httpx.AsyncClient(base_url=s.infinitepay_base_url, timeout=s.http_timeout)
 
 
-def create_checkout_link(payload: dict) -> dict:
-    with _client() as c:
-        r = c.post("/links", json=payload)
+async def create_checkout_link(payload: dict) -> dict:
+    async with _client() as c:
+        r = await c.post("/links", json=payload)
         try:
             data = r.json()
-        except Exception:
+        except ValueError:
             data = {"raw": r.text}
 
         if r.status_code >= 400:
@@ -38,9 +49,9 @@ def create_checkout_link(payload: dict) -> dict:
         return data
 
 
-def payment_check(*, handle: str, order_nsu: str, transaction_nsu: str, slug: str) -> dict:
-    with _client() as c:
-        r = c.post(
+async def payment_check(*, handle: str, order_nsu: str, transaction_nsu: str, slug: str) -> dict:
+    async with _client() as c:
+        r = await c.post(
             "/payment_check",
             json={
                 "handle": handle,
@@ -52,7 +63,7 @@ def payment_check(*, handle: str, order_nsu: str, transaction_nsu: str, slug: st
         if r.status_code >= 400:
             try:
                 data = r.json()
-            except Exception:
+            except ValueError:
                 data = {"raw": r.text}
             raise InfinitePayError(
                 f"HTTP {r.status_code} from InfinitePay payment_check",
@@ -61,5 +72,5 @@ def payment_check(*, handle: str, order_nsu: str, transaction_nsu: str, slug: st
             )
         try:
             return r.json()
-        except Exception:
+        except ValueError:
             return {"success": False, "raw": r.text, "status_code": r.status_code}

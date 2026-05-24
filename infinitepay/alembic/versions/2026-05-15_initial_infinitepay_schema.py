@@ -1,7 +1,6 @@
 """initial infinitepay schema
 
 Tabelas:
-- infinitepay.config
 - infinitepay.checkouts (FK external_id -> auth.users RESTRICT)
 - infinitepay.webhook_logs (FK external_id -> auth.users SET NULL)
 - infinitepay.outbound_jobs (FK external_id -> auth.users SET NULL)
@@ -11,7 +10,7 @@ Revises:
 Create Date: 2026-05-15
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -19,31 +18,15 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "0001"
-down_revision: Union[str, None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 SCHEMA = "infinitepay"
 
 
 def upgrade() -> None:
-    op.create_table(
-        "config",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("handle", sa.String(length=128), nullable=True),
-        sa.Column("price", sa.Integer(), nullable=True),
-        sa.Column("quantity", sa.Integer(), nullable=False),
-        sa.Column("description", sa.String(length=255), nullable=True),
-        sa.Column("redirect_url", sa.String(length=500), nullable=True),
-        sa.Column("backend_webhook", sa.String(length=500), nullable=True),
-        sa.Column("public_api_url", sa.String(length=500), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
-        schema=SCHEMA,
-    )
-
     op.create_table(
         "checkouts",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -112,11 +95,12 @@ def upgrade() -> None:
         schema=SCHEMA,
     )
     op.create_index("ix_outbound_jobs_external_id", "outbound_jobs", ["external_id"], schema=SCHEMA)
-    op.create_index("ix_outbound_jobs_next_attempt_at", "outbound_jobs", ["next_attempt_at"], schema=SCHEMA)
+    op.create_index(
+        "ix_outbound_jobs_next_attempt_at", "outbound_jobs", ["next_attempt_at"], schema=SCHEMA
+    )
 
 
 def downgrade() -> None:
     op.drop_table("outbound_jobs", schema=SCHEMA)
     op.drop_table("webhook_logs", schema=SCHEMA)
     op.drop_table("checkouts", schema=SCHEMA)
-    op.drop_table("config", schema=SCHEMA)

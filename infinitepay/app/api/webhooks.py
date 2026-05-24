@@ -1,7 +1,7 @@
-import asyncio
+from fastapi import APIRouter, Depends, Query, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastapi import APIRouter, Query, Request
-
+from app.db import get_session
 from app.schemas.checkout import CheckoutResponse
 from app.schemas.error import ErrorResponse
 from app.schemas.webhook import WebhookResponse
@@ -21,8 +21,16 @@ router = APIRouter()
         502: {"model": ErrorResponse, "description": "Falha na validacao via InfinitePay"},
     },
 )
-async def infinitepay_webhook(request: Request, external_id: str = Query(...)):
-    """Server-to-server webhook da InfinitePay — atualiza status do checkout."""
+async def infinitepay_webhook(
+    request: Request,
+    external_id: str = Query(...),
+    db: AsyncSession = Depends(get_session),
+):
+    """Server-to-server webhook da InfinitePay — atualiza status do checkout.
+
+    O external_id chega cifrado (Fernet) na query; token invalido => 422. A
+    confirmacao do pagamento e feita out-of-band via payment_check antes de marcar pago.
+    """
     external_id = decrypt_external_id(external_id)
     try:
         payload = await request.json()
@@ -30,16 +38,15 @@ async def infinitepay_webhook(request: Request, external_id: str = Query(...)):
         payload = {}
     if not isinstance(payload, dict):
         payload = {"raw": payload}
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(
-        None, checkout_service.handle_infinitepay_webhook, external_id, payload
-    )
+    result = await checkout_service.handle_infinitepay_webhook(db, external_id, payload)
+    await db.commit()
+    return result
 
 
-@router.get(
-    "/",
-    response_model=CheckoutResponse,
-)
-async def checkout_status(order_nsu: str = Query(...)):
+@router.get("/", response_model=CheckoutResponse)
+async def checkout_status(
+    order_nsu: str = Query(...),
+    db: AsyncSession = Depends(get_session),
+):
     """Consulta status de um checkout (nao altera nada)."""
-    return checkout_service.get_checkout(order_nsu)
+    return await checkout_service.get_checkout(db, order_nsu)

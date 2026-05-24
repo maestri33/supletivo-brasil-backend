@@ -1,29 +1,43 @@
-def test_process_due_marks_delivered(monkeypatch):
-    from infinitepay.core import queue
-    from infinitepay.db.models import OutboundJob
-    from infinitepay.db.session import init_db, session_scope
-    from sqlalchemy import select
+from app.db import async_session_maker
+from app.models.models import OutboundJob
+from app.workers import outbound_queue as q
 
-    init_db()
-    queue.enqueue(
-        "https://backend.test/hook/pedido-1/",
-        {"external_id": "pedido-1", "paid": True},
-        external_id="pedido-1",
-    )
 
-    calls = []
+async def test_process_due_marks_delivered(db, monkeypatch):
+    jid = await q.enqueue(db, url="https://backend.test/hook/", payload={"x": 1})
+    await db.commit()
 
-    def fake_deliver(url, payload):
+    calls: list = []
+
+    async def fake_deliver(url, payload):
         calls.append((url, payload))
         return True, None, 200
 
-    monkeypatch.setattr(queue, "_deliver_payload", fake_deliver)
+    monkeypatch.setattr(q, "_deliver_payload", fake_deliver)
 
-    assert queue.process_due() == 1
-    assert calls == [("https://backend.test/hook/pedido-1/", {"external_id": "pedido-1", "paid": True})]
+    assert await q.process_due() == 1
+    assert calls == [("https://backend.test/hook/", {"x": 1})]
 
-    with session_scope() as s:
-        job = s.execute(select(OutboundJob)).scalar_one()
+    async with async_session_maker() as s:
+        job = await s.get(OutboundJob, jid)
         assert job.attempts == 1
         assert job.delivered_at is not None
         assert job.last_error is None
+
+
+async def test_process_due_retries_on_failure(db, monkeypatch):
+    jid = await q.enqueue(db, url="https://backend.test/hook/", payload={"x": 1})
+    await db.commit()
+
+    async def fake_deliver(url, payload):
+        return False, "boom", 500
+
+    monkeypatch.setattr(q, "_deliver_payload", fake_deliver)
+
+    assert await q.process_due() == 1
+
+    async with async_session_maker() as s:
+        job = await s.get(OutboundJob, jid)
+        assert job.delivered_at is None
+        assert job.attempts == 1
+        assert job.last_error == "boom"

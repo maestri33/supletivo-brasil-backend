@@ -1,18 +1,19 @@
-"""Alembic env — schema `infinitepay` no Postgres central (sync)."""
+"""Alembic env — schema `infinitepay` no Postgres central (async)."""
 
+import asyncio
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import create_async_engine
 
+import app.models  # noqa: F401 — popula a metadata
 from alembic import context
 from app.config import get_settings
-from app.models.models import Base
+from app.db import Base
 
 settings = get_settings()
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
-
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
@@ -40,25 +41,33 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def run_migrations_online() -> None:
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
+def do_run_migrations(connection):
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_schemas=True,
+        version_table_schema=SCHEMA,
+        include_object=include_object,
     )
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            include_schemas=True,
-            version_table_schema=SCHEMA,
-            include_object=include_object,
-        )
-        with context.begin_transaction():
-            context.run_migrations()
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_migrations_online() -> None:
+    connectable = create_async_engine(settings.database_url)
+    # A tabela alembic_version vive em `version_table_schema=SCHEMA`, entao o
+    # schema precisa existir antes do primeiro upgrade num banco novo (em prod
+    # ja existe). Cria e commita numa conexao propria — fora da transacao das
+    # migrations, senao o autobegin impede o commit do upgrade.
+    async with connectable.connect() as conn:
+        await conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{SCHEMA}"'))
+        await conn.commit()
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+    await connectable.dispose()
 
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    run_migrations_online()
+    asyncio.run(run_migrations_online())

@@ -1,69 +1,63 @@
-import logging
-import threading
+"""Fila de saida (outbound_jobs): reenvia eventos internos com retry exponencial.
+
+Caminho do dinheiro: `enqueue` insere o job na sessao do caller, entao ele commita
+junto com o estado durável (ex.: checkout marcado pago) — atomico. A entrega fica a
+cargo do worker (`process_due`), que faz claim atomico antes de cada POST para nao
+duplicar entrega entre instancias (API + worker dedicado podem rodar em paralelo).
+"""
+
+from __future__ import annotations
+
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import structlog
 from sqlalchemy import delete, select, update
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.db import session_scope
+from app.db import async_session_maker
 from app.models.models import OutboundJob
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger("infinitepay")
 
 BACKOFF_SECONDS = [60, 300, 1800, 7200, 43200, 86400]
 
 
-def _now():
+def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _deliver_payload(url: str, payload: dict) -> tuple[bool, str | None, int | None]:
+async def _deliver_payload(url: str, payload: dict) -> tuple[bool, str | None, int | None]:
     try:
-        r = httpx.post(url, json=payload, timeout=get_settings().http_timeout)
+        async with httpx.AsyncClient(timeout=get_settings().http_timeout) as client:
+            r = await client.post(url, json=payload)
         if 200 <= r.status_code < 300:
             return True, None, r.status_code
         return False, f"HTTP {r.status_code}: {r.text[:300]}", r.status_code
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — qualquer falha de transporte vira retry
         return False, f"{type(e).__name__}: {e}", None
 
 
-def _deliver_job(job_id: int, url: str, payload: dict) -> None:
-    ok, err, _status = _deliver_payload(url, payload)
-    with session_scope() as s:
-        job = s.get(OutboundJob, job_id)
-        if job is None or job.delivered_at is not None:
-            return
-        job.attempts = 1
-        if ok:
-            job.delivered_at = _now()
-            job.last_error = None
-        else:
-            job.last_error = err
-            delay = BACKOFF_SECONDS[0]
-            job.next_attempt_at = _now() + timedelta(seconds=delay)
+async def enqueue(
+    db: AsyncSession, *, url: str, payload: dict, external_id: str | None = None
+) -> int:
+    """Insere um job na sessao do caller (commit fica com o caller — atomico)."""
+    job = OutboundJob(
+        url=url,
+        payload=payload,
+        external_id=external_id,
+        max_attempts=len(BACKOFF_SECONDS) + 1,
+    )
+    db.add(job)
+    await db.flush()
+    return job.id
 
 
-def enqueue(url: str, payload: dict, external_id: str | None = None) -> int:
-    with session_scope() as s:
-        job = OutboundJob(
-            url=url,
-            payload=payload,
-            external_id=external_id,
-            max_attempts=len(BACKOFF_SECONDS) + 1,
-        )
-        s.add(job)
-        s.flush()
-        job_id = job.id
-
-    t = threading.Thread(target=_deliver_job, args=(job_id, url, payload), daemon=True)
-    t.start()
-
-    return job_id
-
-
-def process_due(limit: int = 20) -> int:
-    with session_scope() as s:
+async def process_due(limit: int = 20) -> int:
+    """Entrega jobs vencidos. Claim atomico (commit) antes do POST evita duplicar."""
+    async with async_session_maker() as s:
         stmt = (
             select(
                 OutboundJob.id,
@@ -77,29 +71,29 @@ def process_due(limit: int = 20) -> int:
             .order_by(OutboundJob.next_attempt_at)
             .limit(limit)
         )
-        jobs = s.execute(stmt).all()
+        jobs = (await s.execute(stmt)).all()
 
     processed = 0
     for job_id, url, payload, attempts, max_attempts in jobs:
-        locked = False
-        with session_scope() as s:
-            result = s.execute(
+        async with async_session_maker() as s:
+            result = await s.execute(
                 update(OutboundJob)
                 .where(OutboundJob.id == job_id)
                 .where(OutboundJob.next_attempt_at <= _now())
                 .where(OutboundJob.delivered_at.is_(None))
                 .values(next_attempt_at=_now() + timedelta(seconds=30))
             )
+            await s.commit()
             locked = result.rowcount == 1
 
         if not locked:
             continue
 
-        ok, err, _status = _deliver_payload(url, payload)
+        ok, err, _status = await _deliver_payload(url, payload)
         attempts += 1
 
-        with session_scope() as s:
-            job = s.get(OutboundJob, job_id)
+        async with async_session_maker() as s:
+            job = await s.get(OutboundJob, job_id)
             if job is None or job.delivered_at is not None:
                 continue
             job.attempts = attempts
@@ -113,31 +107,31 @@ def process_due(limit: int = 20) -> int:
                 else:
                     delay = BACKOFF_SECONDS[min(attempts - 1, len(BACKOFF_SECONDS) - 1)]
                     job.next_attempt_at = _now() + timedelta(seconds=delay)
+            await s.commit()
         processed += 1
     return processed
 
 
-def cleanup_old_jobs(days: int = 30) -> int:
+async def cleanup_old_jobs(days: int = 30) -> int:
     cutoff = _now() - timedelta(days=days)
-    with session_scope() as s:
-        result = s.execute(
+    async with async_session_maker() as s:
+        result = await s.execute(
             delete(OutboundJob)
             .where(OutboundJob.delivered_at.is_(None))
             .where(OutboundJob.attempts >= OutboundJob.max_attempts)
             .where(OutboundJob.updated_at < cutoff)
         )
+        await s.commit()
         return result.rowcount
 
 
-async def run_worker_loop(stop_event=None) -> None:
-    import asyncio
-
-    cleanup_old_jobs()
+async def run_worker_loop(stop_event: asyncio.Event | None = None) -> None:
+    await cleanup_old_jobs()
     while True:
         if stop_event is not None and stop_event.is_set():
             return
         try:
-            process_due()
+            await process_due()
         except Exception:
-            logger.exception("worker loop: process_due failed")
+            logger.exception("worker_loop_process_due_failed")
         await asyncio.sleep(get_settings().worker_poll_seconds)

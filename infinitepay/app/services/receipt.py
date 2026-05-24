@@ -1,18 +1,19 @@
+"""Mensagem de confirmacao de pagamento (gerada pelo app `ai`).
+
+Fallback robusto se o app `ai` estiver fora, desabilitado ou retornar erro —
+o fluxo de checkout nunca quebra por causa disso.
 """
-Geracao da mensagem de confirmacao de pagamento.
 
-Migrado para chamar o AI service v7m via HTTP (sem tool_calling).
-Fallback robusto se o AI service estiver fora ou retornar erro.
-"""
+from __future__ import annotations
 
-from app.ai.ai_service_client import AiServiceError, chat
-from app.ai.client import ai_enabled
+from app.config import get_settings
+from app.integrations.ai import AiServiceError, ai_enabled, chat
 
 
-def generate_receipt_message(
+async def generate_receipt_message(
     customer_name: str, product: str, price_cents: int, receipt_url: str
 ) -> str:
-    """Gera mensagem curta de confirmação personalizada."""
+    """Gera mensagem curta de confirmacao personalizada (pt-BR)."""
     price_reais = price_cents / 100
 
     fallback = (
@@ -30,19 +31,15 @@ def generate_receipt_message(
         "Inclua nome do cliente, produto e valor. "
         "NAO inclua links."
     )
-    user_msg = (
-        f"Cliente: {customer_name}\n"
-        f"Produto: {product}\n"
-        f"Valor: R$ {price_reais:.2f}"
-    )
+    user_msg = f"Cliente: {customer_name}\nProduto: {product}\nValor: R$ {price_reais:.2f}"
 
     try:
-        result = chat(
+        result = await chat(
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_msg},
             ],
-            model="deepseek-v4-flash",
+            model=get_settings().ai_model,
             max_tokens=150,
             temperature=0.7,
         )

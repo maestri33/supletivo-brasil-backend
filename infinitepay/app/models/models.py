@@ -1,53 +1,28 @@
+"""Models SQLAlchemy do schema `infinitepay`.
+
+PK Integer e o split em models/<entidade>.py ficam para a Fase 4 (mexe em dados).
+"""
+
 from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import (
-    JSON, Boolean, Column, DateTime, ForeignKey, Integer, MetaData, String, Table, Text,
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
-from app.config import get_settings
+from app.db import Base
 
 
 def utcnow() -> datetime:
     return datetime.now(UTC)
-
-
-_settings = get_settings()
-
-
-class Base(DeclarativeBase):
-    metadata = MetaData(schema=_settings.database_schema)
-
-
-# Shadow auth.users — necessário pro SQLAlchemy resolver FK cross-schema.
-auth_users = Table(
-    "users",
-    Base.metadata,
-    Column("external_id", PG_UUID(as_uuid=True), primary_key=True),
-    schema="auth",
-)
-
-
-class Config(Base):
-    #TODO:REMOVA, coloque lógica em .env
-    __tablename__ = "config"
-    id: Mapped[int] = mapped_column(primary_key=True)
-
-    handle: Mapped[str | None] = mapped_column(String(128))
-    price: Mapped[int | None] = mapped_column(Integer)
-    quantity: Mapped[int] = mapped_column(Integer, default=1)
-    description: Mapped[str | None] = mapped_column(String(255))
-    redirect_url: Mapped[str | None] = mapped_column(Text)
-    backend_webhook: Mapped[str | None] = mapped_column(Text)
-
-    public_api_url: Mapped[str | None] = mapped_column(Text)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow
-    )
 
 
 class Checkout(Base):
@@ -55,7 +30,7 @@ class Checkout(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     external_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+        PG_UUID(as_uuid=False),
         ForeignKey(
             "auth.users.external_id",
             ondelete="RESTRICT",
@@ -90,7 +65,7 @@ class WebhookLog(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     external_id: Mapped[UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True),
+        PG_UUID(as_uuid=False),
         ForeignKey(
             "auth.users.external_id",
             ondelete="SET NULL",
@@ -115,7 +90,7 @@ class OutboundJob(Base):
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
 
     external_id: Mapped[UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True),
+        PG_UUID(as_uuid=False),
         ForeignKey(
             "auth.users.external_id",
             ondelete="SET NULL",

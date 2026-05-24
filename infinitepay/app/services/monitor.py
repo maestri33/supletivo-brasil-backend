@@ -1,24 +1,25 @@
-"""
-Triagem de anomalias em pagamentos.
+"""Triagem de anomalias em pagamentos (via app `ai`).
 
-Migrado para chamar o AI service v7m via HTTP (sem tool_calling).
-- Triagem rapida (flash) -> json_mode
-- Analise profunda (pro) -> chat simples, so quando flash flagar
+- Triagem rapida (modelo flash) -> json_mode
+- Analise profunda (modelo pro) -> chat simples, so quando a flash flagar
 
-Falha silenciosa por design: monitoring nao deve quebrar checkout flow.
+Falha silenciosa por design: o monitoramento nunca quebra o fluxo de checkout.
 """
+
+from __future__ import annotations
 
 import json
-import logging
 
-from app.ai.ai_service_client import AiServiceError, chat
-from app.ai.client import ai_enabled
+import structlog
 
-logger = logging.getLogger(__name__)
+from app.config import get_settings
+from app.integrations.ai import AiServiceError, ai_enabled, chat
+
+logger = structlog.get_logger("infinitepay")
 
 
-def check_anomaly(external_id: str, payload: dict) -> dict:
-    """Triagem rapida com flash. Retorna {alert: bool, reason: str}."""
+async def check_anomaly(external_id: str, payload: dict) -> dict:
+    """Triagem rapida (flash). Retorna {alert: bool, reason: str[, deep_analysis]}."""
     if not ai_enabled():
         return {"alert": False, "reason": "ai disabled"}
 
@@ -31,16 +32,13 @@ def check_anomaly(external_id: str, payload: dict) -> dict:
             "Anomalias: valor suspeito, dados inconsistentes, "
             "nome estranho, email invalido aparente."
         )
-        user_msg = (
-            f"external_id: {external_id}\n"
-            f"payload: {json.dumps(payload, default=str)}"
-        )
-        result = chat(
+        user_msg = f"external_id: {external_id}\npayload: {json.dumps(payload, default=str)}"
+        result = await chat(
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_msg},
             ],
-            model="deepseek-v4-flash",
+            model=get_settings().ai_model,
             json_mode=True,
             max_tokens=150,
             temperature=0.1,
@@ -50,21 +48,17 @@ def check_anomaly(external_id: str, payload: dict) -> dict:
         reason = parsed.get("reason", "")
 
         if alert:
-            deep = _deep_analysis(external_id, payload, reason)
-            return {
-                "alert": True,
-                "reason": reason,
-                "deep_analysis": deep,
-            }
+            deep = await _deep_analysis(external_id, payload, reason)
+            return {"alert": True, "reason": reason, "deep_analysis": deep}
 
         return {"alert": False, "reason": ""}
     except (AiServiceError, json.JSONDecodeError, ValueError) as exc:
-        logger.warning("anomaly check failed: %s", exc)
+        logger.warning("anomaly_check_failed", external_id=external_id, error=str(exc))
         return {"alert": False, "reason": "ai check failed"}
 
 
-def _deep_analysis(external_id: str, payload: dict, flash_reason: str) -> str:
-    """Analise profunda com pro quando flash detecta anomalia."""
+async def _deep_analysis(external_id: str, payload: dict, flash_reason: str) -> str:
+    """Analise profunda (modelo pro) quando a triagem flash detecta anomalia."""
     try:
         system_msg = (
             "Voce e um especialista em prevencao a fraudes em pagamentos. "
@@ -80,16 +74,16 @@ def _deep_analysis(external_id: str, payload: dict, flash_reason: str) -> str:
             f"external_id: {external_id}\n"
             f"payload: {json.dumps(payload, default=str)}"
         )
-        result = chat(
+        result = await chat(
             messages=[
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_msg},
             ],
-            model="deepseek-v4-pro",
+            model=get_settings().ai_pro_model,
             max_tokens=250,
             temperature=0.3,
         )
         return result.content.strip()
     except AiServiceError as exc:
-        logger.warning("deep anomaly analysis failed: %s", exc)
+        logger.warning("deep_anomaly_analysis_failed", external_id=external_id, error=str(exc))
         return ""

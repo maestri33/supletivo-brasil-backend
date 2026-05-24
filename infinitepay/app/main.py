@@ -1,4 +1,10 @@
+"""Entrypoint FastAPI.
+
+Roda em: uvicorn app.main:app --host 0.0.0.0 --port 8000
+"""
+
 import asyncio
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -8,27 +14,17 @@ from fastapi.responses import JSONResponse
 from app.api.health import router as health_router
 from app.api.router import router as api_router
 from app.config import get_settings
+from app.db import close_db
 from app.exceptions import DomainError
-from app.utils.logging import configure_logging
+from app.utils.logging import configure_logging, log_event
 from app.workers import outbound_queue
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Bootstrap config a partir do .env — pos-wipe, isso re-hidrata
-    # infinitepay.config(id=1) sem precisar de PATCH /api/v1/config manual.
-    # DB vence se ja tem entry; env so preenche o que falta.
-    try:
-        from app.services.config_service import seed_from_env
-        result = seed_from_env()
-        import logging
-        logging.getLogger("infinitepay").info("config.seed_from_env: %s", result)
-    except Exception as exc:
-        import logging
-        logging.getLogger("infinitepay").warning("seed_from_env failed: %s", exc)
-
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    log_event("service.startup")
     stop = asyncio.Event()
-    worker_task = None
+    worker_task: asyncio.Task | None = None
     if get_settings().run_inline_worker:
         worker_task = asyncio.create_task(outbound_queue.run_worker_loop(stop))
     try:
@@ -39,50 +35,35 @@ async def lifespan(app: FastAPI):
             worker_task.cancel()
             try:
                 await worker_task
-            except (asyncio.CancelledError, Exception):
+            except asyncio.CancelledError:
                 pass
+        log_event("service.shutdown")
+        await close_db()
 
 
 def create_app() -> FastAPI:
     configure_logging()
 
     tags_metadata = [
-        {
-            "name": "health",
-            "description": "Health check e readiness probe.",
-        },
+        {"name": "health", "description": "Health check e readiness probe."},
         {
             "name": "checkout",
             "description": "Criacao, listagem e consulta de links de pagamento InfinitePay.",
         },
         {
-            "name": "config",
-            "description": "Configuracao global: handle, precos padrao, URLs de webhook.",
-        },
-        {
             "name": "webhook",
             "description": "Recebimento de webhooks server-to-server da InfinitePay.",
-        },
-        {
-            "name": "ai",
-            "description": (
-                "Perguntas em linguagem natural sobre checkouts e relatorios (DeepSeek AI)."
-            ),
         },
     ]
 
     app = FastAPI(
         title="infinitepay API",
         version="1.0.0",
-        description="Checkout integration with InfinitePay.",
-        contact={
-            "name": "InfinitePay Team",
-        },
-        license_info={
-            "name": "MIT",
-        },
+        description="Integracao com a API de checkout da InfinitePay.",
+        contact={"name": "InfinitePay Team"},
+        license_info={"name": "MIT"},
         openapi_tags=tags_metadata,
-        summary="Integracao com InfinitePay — criacao de checkouts, webhooks e analise AI.",
+        summary="Cria checkouts InfinitePay, recebe webhooks e reenvia eventos internos.",
         lifespan=lifespan,
     )
 

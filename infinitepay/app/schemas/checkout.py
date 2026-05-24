@@ -7,9 +7,37 @@ class CustomerIn(BaseModel):
     phone_number: str
 
 
+class AddressIn(BaseModel):
+    cep: str
+    street: str
+    neighborhood: str
+    number: str
+    complement: str | None = None
+
+
+class ItemIn(BaseModel):
+    price: int
+    description: str
+    quantity: int = 1
+
+
 class CheckoutCreate(BaseModel):
+    """Entrada do POST /checkout.
+
+    external_id + customer sao obrigatorios. Os demais campos sao overrides
+    opcionais: quando omitidos, usam os defaults do .env (handle, price,
+    description, redirect_url).
+    """
+
     external_id: str
     customer: CustomerIn
+    address: AddressIn | None = None
+    items: list[ItemIn] | None = None
+    price: int | None = None
+    description: str | None = None
+    quantity: int | None = None
+    handle: str | None = None
+    redirect_url: str | None = None
 
 
 # ── response schemas ──────────────────────────────────────────────

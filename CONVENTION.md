@@ -13,7 +13,7 @@
 - **Deploy:** uma **VM no Proxmox rodando Docker** (via `docker-compose`) — inicialmente; 1 container Docker por serviço.
 - Regra de ouro: **1 serviço = 1 diretório na raiz = 1 container Docker = 1 schema Postgres = 1 responsabilidade**.
 - Stack predominante: **Python / FastAPI** (núcleo da convenção).
-- **Apps-modelo de referência: `lead` e `enrollment`** (estrutura correta `<servico>/app`, sem aninhamento). Na dúvida, espelhe a estrutura e o estilo deles.
+- **App-modelo de referência: `lead`** (estrutura correta `<servico>/app`, sem aninhamento). Na dúvida, espelhe a estrutura e o estilo dele.
 - **Encontre os TODOS**, sempre que encontrar um TODO, é sua obrigacao, 1 Entender ele, 2 confirmar com usuário  mais informaocoes, para realmente ficarem alinhados, 3 resolver e apagar ele...
 
 ---
