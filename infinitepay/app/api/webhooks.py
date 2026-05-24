@@ -7,6 +7,7 @@ from app.schemas.error import ErrorResponse
 from app.schemas.webhook import WebhookResponse
 from app.services import checkout_service
 from app.utils.crypto import decrypt_external_id
+from app.utils.net import client_ip, user_agent
 
 router = APIRouter()
 
@@ -38,7 +39,13 @@ async def infinitepay_webhook(
         payload = {}
     if not isinstance(payload, dict):
         payload = {"raw": payload}
-    result = await checkout_service.handle_infinitepay_webhook(db, external_id, payload)
+    result = await checkout_service.handle_infinitepay_webhook(
+        db,
+        external_id,
+        payload,
+        source_ip=client_ip(request),
+        user_agent=user_agent(request),
+    )
     await db.commit()
     return result
 

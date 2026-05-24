@@ -132,7 +132,11 @@ async def list_all(db: AsyncSession, limit: int = 200, offset: int = 0) -> list[
     limit = max(1, min(int(limit), 500))
     offset = max(0, int(offset))
     return list(
-        (await db.execute(select(PixKey).order_by(PixKey.id.desc()).offset(offset).limit(limit)))
+        (
+            await db.execute(
+                select(PixKey).order_by(PixKey.validated_at.desc()).offset(offset).limit(limit)
+            )
+        )
         .scalars()
         .all()
     )

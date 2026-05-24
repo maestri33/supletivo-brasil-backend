@@ -1,6 +1,7 @@
 """Camada de banco — SQLAlchemy async + Base com schema `asaas`."""
 
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import (
@@ -27,6 +28,11 @@ metadata = MetaData(naming_convention=NAMING_CONVENTION, schema=settings.databas
 
 class Base(DeclarativeBase):
     metadata = metadata
+
+
+def utcnow() -> datetime:
+    """Timestamp aware em UTC — default das colunas timestamptz."""
+    return datetime.now(UTC)
 
 
 engine = create_async_engine(settings.database_url, pool_pre_ping=True)

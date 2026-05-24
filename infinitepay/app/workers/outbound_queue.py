@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.db import async_session_maker
-from app.models.models import OutboundJob
+from app.models import OutboundJob
 
 logger = structlog.get_logger("infinitepay")
 
@@ -42,7 +42,7 @@ async def _deliver_payload(url: str, payload: dict) -> tuple[bool, str | None, i
 
 async def enqueue(
     db: AsyncSession, *, url: str, payload: dict, external_id: str | None = None
-) -> int:
+) -> str:
     """Insere um job na sessao do caller (commit fica com o caller — atomico)."""
     job = OutboundJob(
         url=url,

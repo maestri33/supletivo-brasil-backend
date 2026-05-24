@@ -15,6 +15,7 @@ from ..services import notifications
 from ..services import payment as payment_service
 from ..services import security_validator as security_validator_svc
 from ..utils.logging import log_event
+from ..utils.net import client_ip, user_agent
 
 router = APIRouter(tags=["asaas-inbound"])
 
@@ -72,7 +73,12 @@ async def receive_webhook(
     body = await request.json()
     event = body.get("event") if isinstance(body, dict) else None
 
-    row = WebhookEvent(event=event, payload=json.dumps(body, ensure_ascii=False))
+    row = WebhookEvent(
+        event=event,
+        payload=json.dumps(body, ensure_ascii=False),
+        source_ip=client_ip(request),
+        user_agent=user_agent(request),
+    )
     db.add(row)
     await db.flush()
 

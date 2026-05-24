@@ -9,7 +9,7 @@ Middleware FastAPI sobre a API Asaas v3 para **pagamentos PIX**: payouts (saída
 **Funcional e conforme à CONVENTION (stack canônica async).** Migrado de síncrono para async na Fase 3 (2026-05-23) e validado contra Postgres real.
 
 - Stack: FastAPI + SQLAlchemy 2.0 **`AsyncSession`** + **asyncpg** + **`httpx.AsyncClient`** + **structlog** + pydantic-settings.
-- Verificação: `ruff` limpo · `pytest` **190 passed** (`sqlite+aiosqlite`) + **2 testes de integração contra Postgres real** (`tests_pg/`, fora do `testpaths`; rodar com `ASAAS_TEST_PG_URL`) · `alembic upgrade head` (`0001→0003`) OK contra Postgres real + smoke de escrita OK.
+- Verificação: `ruff` limpo · `pytest` **190 passed** (`sqlite+aiosqlite`) + **2 testes de integração contra Postgres real** (`tests_pg/`, fora do `testpaths`; rodar com `ASAAS_TEST_PG_URL`) · `alembic upgrade head` (`0001`) OK contra Postgres real + smoke de escrita OK.
 - `database_url` é **obrigatório** (sem default; vem do `.env`).
 
 ## Estrutura
@@ -25,19 +25,19 @@ asaas/
 │   ├── config_store.py    # acessores async da tabela `config` (get/set_/seed_from_env/all_status)
 │   ├── exceptions.py      # DomainError + subclasses
 │   ├── api/               # config, payment, pixkey, charge, webhook + router (agrega)
-│   ├── models/__init__.py # SQLAlchemy (estilo Column legado; datetime = timestamptz)
+│   ├── models/            # SQLAlchemy — 1 arquivo por entidade (estilo Column legado; datetime = timestamptz)
 │   ├── schemas/           # Pydantic v2
 │   ├── services/          # lógica de negócio async (charge, payment, pixkey, customer,
 │   │                      #   notifications, security_validator, config_*)
 │   ├── integrations/asaas_client.py  # AsaasClient (httpx.AsyncClient)
 │   └── utils/             # brcode.py, logging.py (structlog + shim log_event)
-├── alembic/               # env.py async + versions 0001, 0002, 0003
+├── alembic/               # env.py async + version 0001
 └── tests/                 # async (pytest-asyncio, httpx.AsyncClient/ASGITransport)
 ```
 
-> A migração **cria o schema `asaas` sozinha** (em `env.py` e no `0001`, padrão do `address`) — validado em DB novo (drop → `alembic upgrade head` recria tudo, revision 0003, 0 colunas naive).
+> A migração **cria o schema `asaas` sozinha** (em `env.py` e no `0001`, padrão do `address`) — validado em DB novo (drop → `alembic upgrade head` recria tudo, revision 0001, 0 colunas naive).
 >
-> Pendências conhecidas: PK ainda Integer autoincrement (→ UUID na Fase 4); `models/` e `schemas/` ainda monolíticos (`__init__.py`) → split na Fase 4.
+> Pendência conhecida: `schemas/` ainda monolítico (`__init__.py`) → split em arquivo por entidade pendente (o `models/` já foi splitado na Fase 4).
 >
 > **Checklist de deploy (operação manual, não-código):** gerar a security key (`POST /config/key`), colá-la no dashboard do Asaas e confirmar (`POST /config/key/confirm`); validar de ponta a ponta que a autorização de pagamento (`POST /security-validator`) aprova transfers reais — garantir que a comunicação de criptografia de autorização funciona — antes de liberar pagamentos em produção.
 
@@ -100,16 +100,16 @@ asaas/
 
 ## Dados
 
-**Schema Postgres:** `asaas`. **PK = Integer autoincrement** (UUID na Fase 4). Colunas de data/hora são **`timestamptz`** (armazenam UTC).
+**Schema Postgres:** `asaas`. **PK = UUID** (`postgresql.UUID`, gerada na app via `uuid4`; `config`/`url_verify_nonce` mantêm PK String `key`/`nonce`). Colunas de data/hora são **`timestamptz`** (armazenam UTC).
 
 | Tabela | PK | Campos-chave | Unique/Index |
 |--------|----|--------------|--------------|
 | `config` | `key` (String) | `value` (Text), `updated_at` | PK=key |
 | `url_verify_nonce` | `nonce` (String) | `target_url`, `purpose`, `created_at`, `consumed_at` | PK=nonce |
-| `webhook_event` | `id` (Integer) | `event`, `payload` (Text), `received_at`, `forwarded_ok` | idx: received_at, event |
-| `pix_key` | `id` (Integer) | `external_id`, `key`, `key_type`, `holder_document`, `holder_name`, `validated_at`, `raw_dict` | UNIQUE: external_id, key; idx: holder_document |
-| `customer` | `id` (Integer) | `external_id`, `asaas_id`, `name`, `cpf_cnpj`, `email`, `mobile_phone` | UNIQUE: external_id, asaas_id; idx: cpf_cnpj |
-| `payment` | `id` (Integer) | `payment_id`, `kind`, `pixkey_external_id`, `qrcode_payload`, `customer_external_id`, `pix_qr_image`, `due_date`, `amount`, `status`, `asaas_id`, `scheduled_for`, `last_error` | UNIQUE: payment_id; idx: kind, status, asaas_id, pixkey_external_id, customer_external_id |
+| `webhook_event` | `id` (UUID) | `event`, `payload` (Text), `received_at`, `forwarded_ok`, `source_ip`, `user_agent` | idx: received_at, event |
+| `pix_key` | `id` (UUID) | `external_id`, `key`, `key_type`, `holder_document`, `holder_name`, `validated_at`, `raw_dict` | UNIQUE: external_id, key; idx: holder_document |
+| `customer` | `id` (UUID) | `external_id`, `asaas_id`, `name`, `cpf_cnpj`, `email`, `mobile_phone` | UNIQUE: external_id, asaas_id; idx: cpf_cnpj |
+| `payment` | `id` (UUID) | `payment_id`, `kind`, `pixkey_external_id`, `qrcode_payload`, `customer_external_id`, `pix_qr_image`, `due_date`, `amount`, `status`, `asaas_id`, `scheduled_for`, `last_error` | UNIQUE: payment_id; idx: kind, status, asaas_id, pixkey_external_id, customer_external_id |
 
 Referências cross-table por **valor** (sem FK declarada): `payment.pixkey_external_id` → `pix_key.external_id`; `payment.customer_external_id` → `customer.external_id`. Sem shadow tables cross-schema — `external_id` é opaco (fornecido pelo cliente da API).
 
@@ -146,4 +146,4 @@ A submissão envia **`Idempotency-Key=payment_id`** no `create_transfer` e no `p
 
 ## Tipos de endpoint (§5)
 
-Todos os `config`/`payment`/`pixkey`/`charge` são **desmilitarizados** (consumidos por outros apps da plataforma). `webhook.py` é **público externo** com verificação por `asaas-access-token` (Mecanismo de Segurança + webhook oficial do Asaas).
+Todos os `config`/`payment`/`pixkey`/`charge` são **desmilitarizados** (consumidos por outros apps da plataforma). `webhook.py` é **público externo** com verificação por `asaas-access-token` (Mecanismo de Segurança + webhook oficial do Asaas). O `webhook_event` grava `source_ip` (resolve X-Forwarded-For/X-Real-IP atrás do proxy) e `user_agent` da origem (§5).

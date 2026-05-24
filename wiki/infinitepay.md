@@ -9,7 +9,7 @@ Middleware FastAPI sobre a API de **checkout da InfinitePay**: cria links de pag
 **Funcional e conforme à CONVENTION (stack canônica async).** Migrado de síncrono para async na Fase 3 (2026-05-24) e validado contra Postgres real.
 
 - Stack: FastAPI + SQLAlchemy 2.0 **`AsyncSession`** + **asyncpg** + **`httpx.AsyncClient`** + **structlog** + pydantic-settings.
-- Verificação: `ruff` limpo · `pytest` **20 passed** (`sqlite+aiosqlite`) · `alembic upgrade head` (`0001→0002`) OK contra Postgres real (schema + tabelas + FKs cross-schema criados, **sem** tabela `config`).
+- Verificação: `ruff` limpo · `pytest` **20 passed** (`sqlite+aiosqlite`) · `alembic upgrade head` (`0001`) OK contra Postgres real (schema + tabelas + FKs cross-schema criados, **sem** tabela `config`).
 - Config da loja (handle, preços, URLs) vem **100% do `.env`** (a antiga tabela `config` e as rotas `/config` foram removidas — igual `otp`).
 - IA direta (DeepSeek via SDK `openai`) **removida**; recibo e triagem de fraude usam o app `ai` central via `integrations/ai.py`.
 
@@ -23,22 +23,20 @@ infinitepay/
 │   ├── main.py            # FastAPI; lifespan (worker async + close_db); structlog
 │   ├── config.py          # Settings (pydantic-settings); database_url asyncpg; config da loja via .env
 │   ├── db.py              # create_async_engine, Base, NAMING_CONVENTION, async_session_maker,
-│   │                      #   get_session, close_db, shadow auth.users
+│   │                      #   get_session, close_db, utcnow, shadow auth.users
 │   ├── exceptions.py      # DomainError + subclasses (Conflict, NotFound, ValidationError, IntegrationError)
 │   ├── api/               # checkout, webhooks, health + router (agrega)
-│   ├── models/models.py   # SQLAlchemy (Checkout, WebhookLog, OutboundJob)
+│   ├── models/            # SQLAlchemy — 1 arquivo por entidade (checkout, webhook_log, outbound_job)
 │   ├── schemas/           # Pydantic v2 (checkout, webhook, health, error)
 │   ├── services/          # checkout_service (negócio async) + receipt + monitor (usam app `ai`)
 │   ├── integrations/      # infinitepay_client.py (httpx.AsyncClient) + ai.py (client do app `ai`)
 │   ├── workers/outbound_queue.py  # fila outbound_jobs, retry exponencial, claim atômico
 │   └── utils/             # validators.py, crypto.py (Fernet), logging.py (structlog)
-├── alembic/               # env.py async + versions 0001, 0002
+├── alembic/               # env.py async + version 0001
 └── tests/                 # async (pytest-asyncio, httpx.AsyncClient/ASGITransport)
 ```
 
-> A migração **cria o schema `infinitepay` sozinha** (em `env.py`, `CREATE SCHEMA IF NOT EXISTS`, padrão do `asaas`/`address`) — validado em DB novo (`alembic upgrade head` recria tudo até a revision `0002`).
->
-> Pendências conhecidas (Fase 4): PK ainda Integer autoincrement (→ UUID); `models/models.py` monolítico → split em `models/<entidade>.py` (§3); webhook não loga IP de origem (§5).
+> A migração **cria o schema `infinitepay` sozinha** (em `env.py`, `CREATE SCHEMA IF NOT EXISTS`, padrão do `asaas`/`address`) — validado em DB novo (`alembic upgrade head` recria tudo até a revision `0001`).
 
 ## Endpoints
 
@@ -66,17 +64,17 @@ infinitepay/
 
 ## Dados
 
-**Schema Postgres:** `infinitepay`. **PK = Integer autoincrement** (UUID na Fase 4). Colunas de data/hora são **`timestamptz`** (armazenam UTC). Nomes de constraint via `NAMING_CONVENTION` (§4).
+**Schema Postgres:** `infinitepay`. **PK = UUID** (`postgresql.UUID`, gerada na app via `uuid4`). Colunas de data/hora são **`timestamptz`** (armazenam UTC). Nomes de constraint via `NAMING_CONVENTION` (§4).
 
 **Shadow table cross-schema:** `auth.users(external_id UUID PK)` — declarada em `db.py`, **read-only**; o dono do schema `auth` é o app `auth` (§4). Em prod o schema `auth` já existe; na validação em DB novo cria-se um stub mínimo.
 
 | Tabela | PK | Campos-chave | Unique/Index |
 |--------|----|--------------|--------------|
-| `checkouts` | `id` (Integer) | `external_id` UUID (FK→auth.users RESTRICT), `checkout_url`, `is_paid`, `receipt_url`, `installments`, `invoice_slug`, `capture_method`, `transaction_nsu`, `request_payload` JSON, `response_payload` JSON | UNIQUE+idx: external_id |
-| `webhook_logs` | `id` (Integer) | `external_id` UUID (FK→auth.users SET NULL), `direction`, `kind`, `status_code`, `payload` JSON, `response` JSON | idx: external_id |
-| `outbound_jobs` | `id` (Integer) | `url`, `payload` JSON, `external_id` (FK→auth.users SET NULL), `attempts`, `max_attempts`, `next_attempt_at`, `delivered_at`, `last_error` | idx: external_id, next_attempt_at |
+| `checkouts` | `id` (UUID) | `external_id` UUID (FK→auth.users RESTRICT), `checkout_url`, `is_paid`, `receipt_url`, `installments`, `invoice_slug`, `capture_method`, `transaction_nsu`, `request_payload` JSON, `response_payload` JSON | UNIQUE+idx: external_id |
+| `webhook_logs` | `id` (UUID) | `external_id` UUID (FK→auth.users SET NULL), `direction`, `kind`, `status_code`, `payload` JSON, `response` JSON, `source_ip`, `user_agent` | idx: external_id |
+| `outbound_jobs` | `id` (UUID) | `url`, `payload` JSON, `external_id` (FK→auth.users SET NULL), `attempts`, `max_attempts`, `next_attempt_at`, `delivered_at`, `last_error` | idx: external_id, next_attempt_at |
 
-**Migrações Alembic:** `0001` schema inicial, `0002` widen url columns para TEXT.
+**Migrações Alembic:** `0001` schema inicial (PK UUID, colunas de URL em TEXT, `webhook_logs.source_ip`/`user_agent`).
 
 ### Fluxo de pagamento
 
@@ -104,7 +102,7 @@ O worker async (`workers/outbound_queue.py::run_worker_loop`, no lifespan) roda 
 
 ## Segurança do webhook
 
-Sem HMAC, mas robusto: o `external_id` chega **cifrado (Fernet)** na query (`?external_id=`) e é decriptado em `api/webhooks.py` (token inválido → 422); a confirmação do pagamento é feita **out-of-band** via `payment_check` na InfinitePay antes de marcar pago. Pendência (§5, Fase 4): logar IP/origem.
+Sem HMAC, mas robusto: o `external_id` chega **cifrado (Fernet)** na query (`?external_id=`) e é decriptado em `api/webhooks.py` (token inválido → 422); a confirmação do pagamento é feita **out-of-band** via `payment_check` na InfinitePay antes de marcar pago. A auditoria (`webhook_logs`) grava `source_ip` (resolve X-Forwarded-For/X-Real-IP atrás do proxy) e `user_agent` da origem (§5).
 
 ## Tipos de endpoint (§5)
 

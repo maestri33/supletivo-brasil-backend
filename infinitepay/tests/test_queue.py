@@ -1,5 +1,5 @@
 from app.db import async_session_maker
-from app.models.models import OutboundJob
+from app.models import OutboundJob
 from app.workers import outbound_queue as q
 
 

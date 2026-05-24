@@ -26,7 +26,7 @@ from app.integrations.infinitepay_client import (
     create_checkout_link,
     payment_check,
 )
-from app.models.models import Checkout, WebhookLog
+from app.models import Checkout, WebhookLog
 from app.services import monitor as ai_monitor
 from app.services import receipt as ai_receipt
 from app.utils import validators as v
@@ -59,6 +59,8 @@ async def _log_event(
     response=None,
     status_code=None,
     external_id=None,
+    source_ip=None,
+    user_agent=None,
     durable: bool = False,
 ) -> None:
     """Audita um evento de webhook na sessao da request.
@@ -66,6 +68,8 @@ async def _log_event(
     durable=True commita de imediato (o log sobrevive a um rollback posterior) e e
     best-effort (§12): uma falha de auditoria nunca derruba o caminho do dinheiro.
     durable=False apenas adiciona — commita junto com a transacao de negocio (rota).
+
+    source_ip/user_agent: origem do webhook publico (§5); so preenchidos no log inbound.
     """
     db.add(
         WebhookLog(
@@ -75,6 +79,8 @@ async def _log_event(
             response=response,
             status_code=status_code,
             external_id=external_id,
+            source_ip=source_ip,
+            user_agent=user_agent,
         )
     )
     if not durable:
@@ -231,9 +237,7 @@ async def create_checkout(db: AsyncSession, body: dict[str, Any]) -> dict:
 
 
 async def list_checkouts(db: AsyncSession) -> list[dict]:
-    rows = (
-        (await db.execute(select(Checkout).order_by(Checkout.created_at.desc()))).scalars().all()
-    )
+    rows = (await db.execute(select(Checkout).order_by(Checkout.created_at.desc()))).scalars().all()
     return [_serialize(c) for c in rows]
 
 
@@ -265,7 +269,14 @@ def _serialize(c: Checkout) -> dict:
     }
 
 
-async def handle_infinitepay_webhook(db: AsyncSession, external_id: str, payload: dict) -> dict:
+async def handle_infinitepay_webhook(
+    db: AsyncSession,
+    external_id: str,
+    payload: dict,
+    *,
+    source_ip: str | None = None,
+    user_agent: str | None = None,
+) -> dict:
     external_id = v.normalize_external_id(external_id)
     cfg = _store_config()
     handle = cfg.get("handle")
@@ -277,6 +288,8 @@ async def handle_infinitepay_webhook(db: AsyncSession, external_id: str, payload
         kind="infinitepay_webhook",
         payload=payload,
         external_id=external_id,
+        source_ip=source_ip,
+        user_agent=user_agent,
         durable=True,
     )
 

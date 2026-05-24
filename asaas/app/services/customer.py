@@ -144,7 +144,7 @@ async def list_all(db: AsyncSession, limit: int = 200, offset: int = 0) -> list[
     return list(
         (
             await db.execute(
-                select(Customer).order_by(Customer.id.desc()).offset(offset).limit(limit)
+                select(Customer).order_by(Customer.created_at.desc()).offset(offset).limit(limit)
             )
         )
         .scalars()

@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import select
 
 from app.integrations.infinitepay_client import InfinitePayError
-from app.models.models import Checkout, OutboundJob
+from app.models import Checkout, OutboundJob
 from app.services import checkout_service
 
 EID = "a1b2c3d4-0000-4000-8000-000000000001"

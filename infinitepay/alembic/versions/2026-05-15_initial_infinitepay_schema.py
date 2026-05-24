@@ -5,6 +5,10 @@ Tabelas:
 - infinitepay.webhook_logs (FK external_id -> auth.users SET NULL)
 - infinitepay.outbound_jobs (FK external_id -> auth.users SET NULL)
 
+PK = UUID (gerada na app, default uuid4). Colunas de URL ja nascem TEXT (a antiga
+revision 0002 widen_url foi fundida aqui). webhook_logs guarda source_ip/user_agent
+da origem do webhook publico (§5). O schema `infinitepay` e criado no env.py.
+
 Revision ID: 0001
 Revises:
 Create Date: 2026-05-15
@@ -29,11 +33,11 @@ SCHEMA = "infinitepay"
 def upgrade() -> None:
     op.create_table(
         "checkouts",
-        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("external_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column("checkout_url", sa.String(length=500), nullable=False),
+        sa.Column("checkout_url", sa.Text(), nullable=False),
         sa.Column("is_paid", sa.Boolean(), nullable=False),
-        sa.Column("receipt_url", sa.String(length=500), nullable=True),
+        sa.Column("receipt_url", sa.Text(), nullable=True),
         sa.Column("installments", sa.Integer(), nullable=True),
         sa.Column("invoice_slug", sa.String(length=128), nullable=True),
         sa.Column("capture_method", sa.String(length=32), nullable=True),
@@ -55,13 +59,15 @@ def upgrade() -> None:
 
     op.create_table(
         "webhook_logs",
-        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("external_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("direction", sa.String(length=16), nullable=False),
         sa.Column("kind", sa.String(length=64), nullable=False),
         sa.Column("status_code", sa.Integer(), nullable=True),
         sa.Column("payload", postgresql.JSON(astext_type=sa.Text()), nullable=False),
         sa.Column("response", postgresql.JSON(astext_type=sa.Text()), nullable=True),
+        sa.Column("source_ip", sa.String(length=64), nullable=True),
+        sa.Column("user_agent", sa.Text(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(
@@ -75,8 +81,8 @@ def upgrade() -> None:
 
     op.create_table(
         "outbound_jobs",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("url", sa.String(length=500), nullable=False),
+        sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("url", sa.Text(), nullable=False),
         sa.Column("payload", postgresql.JSON(astext_type=sa.Text()), nullable=False),
         sa.Column("external_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("attempts", sa.Integer(), nullable=False),

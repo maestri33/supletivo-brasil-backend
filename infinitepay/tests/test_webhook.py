@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy import select
 
-from app.models.models import OutboundJob
+from app.models import OutboundJob
 from app.services import checkout_service
 
 EID = "b2c3d4e5-0000-4000-8000-000000000002"
@@ -44,7 +44,7 @@ async def test_webhook_pays_and_enqueues_backend(db, monkeypatch):
     assert got["is_paid"] is True
     assert got["receipt_url"] == "https://recibo.infinitepay.io/abc"
 
-    jobs = (await db.execute(select(OutboundJob).order_by(OutboundJob.id))).scalars().all()
+    jobs = (await db.execute(select(OutboundJob).order_by(OutboundJob.created_at))).scalars().all()
     paid_jobs = [j for j in jobs if j.payload.get("paid") is True]
     assert len(paid_jobs) == 1
     assert paid_jobs[0].payload["receipt_url"] == "https://recibo.infinitepay.io/abc"

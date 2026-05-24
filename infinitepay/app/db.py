@@ -1,6 +1,7 @@
 """Camada de banco — SQLAlchemy async + Base com schema `infinitepay`."""
 
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 from sqlalchemy import Column, MetaData, Table
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -28,6 +29,11 @@ metadata = MetaData(naming_convention=NAMING_CONVENTION, schema=settings.databas
 
 class Base(DeclarativeBase):
     metadata = metadata
+
+
+def utcnow() -> datetime:
+    """Timestamp aware em UTC — default das colunas timestamptz."""
+    return datetime.now(UTC)
 
 
 # Shadow auth.users — necessario pro SQLAlchemy resolver FK cross-schema.
