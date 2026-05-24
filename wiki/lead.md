@@ -29,7 +29,7 @@ lead/
 │   ├── db.py
 │   ├── dependencies.py
 │   ├── api/
-│   │   ├── public/          (auth.py, docs.py, health.py)
+│   │   ├── public/          (auth.py, health.py)
 │   │   ├── authenticated/   (captured.py, waiting.py, checkout.py, completed.py)
 │   │   └── demilitarized/   (leads.py, checkouts.py, webhooks.py)
 │   ├── models/              (lead.py, checkout.py, message.py, _mixins.py)
@@ -57,12 +57,6 @@ lead/
 | POST | `/api/v1/public/register` | Cadastra novo lead, cria registro em `leads` com status `captured`, dispara notificações BG |
 | POST | `/api/v1/public/login` | Valida OTP e retorna tokens JWT + status atual do lead |
 | POST | `/api/v1/public/refresh` | Renova access/refresh tokens via JWT service |
-
-### `api/public/docs.py` — público
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | (não lido em detalhe) | Serve documentação pública |
 
 ### `api/authenticated/*.py` — autenticado (JWT + status verificado via `require_<status>()`)
 
