@@ -75,4 +75,46 @@ Cada serviço novo segue seu `<app>/TODO` (spec), §11 (notify nos status), §12
 ---
 
 ## Execução
-Incremental — fase a fase (Parte A) / serviço a serviço (Parte B), com checkpoint. Início sugerido: **Fase 1 — `otp` (segredo)** em sessão nova.
+
+**Regra de ouro:** 1 sessão = 1 app/serviço, escopo fechado, **1 commit no fim**.
+Sessão nova para cada um — zera contexto e custo, e mantém "1 app = 1 PR".
+
+### Ordem recomendada (do que falta)
+1. **Infra: `docker-compose`** (Postgres + Redis) — pequeno, mas é o pré-requisito
+   prático p/ rodar a plataforma junta; habilita a Parte B.
+2. **Parte B (criar, na ordem de dependência):** `hub` → `staff` → `coordinator`
+   → `promoter` → `training` → `student` → `fees` → `commissions`. Comece por `hub`.
+3. **Parte A restante (débito de conformidade, oportunista):** `candidate` +
+   `documents` (Tortoise+SQLite → SQLAlchemy async) e os itens transversais da
+   Fase 4 nos demais apps (auth, roles, ai, lead, notify…).
+
+### Receita por sessão (a que fechou asaas/infinitepay)
+1. Reler `../CONVENTION.md` + `wiki/<app>.md` (Parte A) **ou** o `<app>/TODO`
+   (Parte B — é a **spec** do serviço). **Inventariar TODOs** dos dois tipos
+   (abaixo) e tratá-los.
+2. `cd <app>` e trabalhar **só nesse diretório**.
+3. Implementar espelhando `lead`/`enrollment` (estrutura) e `asaas`/`infinitepay`
+   (stack canônica).
+4. `ruff` limpo + `pytest` (sqlite) + `alembic upgrade head`.
+5. Checklist **§15** item a item → atualizar `wiki/<app>.md` (fonte de verdade) +
+   criar `.claude/` do serviço.
+6. **1 commit** no fim, push, encerrar a sessão.
+
+### Disciplina de TODOs (§1 + §15.1 + §9 — não pular)
+Dois tipos, ambos no **início** de cada sessão:
+- **Arquivos `TODO` (spec):** na Parte B o `<app>/TODO` é o requisito do serviço
+  (modelo: `enrollment/TODO`); ler inteiro e cumprir. Inventário:
+  `find . -name TODO -not -path '*/.venv/*'`.
+- **TODOs inline (`# TODO`/`# FIXME`/`# XXX`):** são dívida; ritual §1
+  **entender → confirmar com o usuário → resolver → apagar** (sem TODO órfão, §9).
+  Inventário: `grep -rn "TODO\|FIXME\|XXX" <app>/app`.
+- O **§15 só fecha** com o item 1 ✅ (nenhum inline órfão; `TODO`-spec cumprido).
+
+### Prompt inicial sugerido (copiar na sessão nova)
+> `Sessão dedicada: criar o serviço hub (Parte B do wiki/PLANO_ADEQUACAO.md). Leia`
+> `../CONVENTION.md + hub/TODO, inventarie TODOs (find -name TODO + grep TODO/FIXME),`
+> `espelhe lead/enrollment (estrutura) e asaas (stack). Implemente, deixe ruff+pytest`
+> `verdes, aplique o §15, atualize wiki/hub.md e crie .claude/. 1 commit no fim. Não`
+> `toque em outros apps.`
+
+Ou planeje antes com `/ecc:plan criar o serviço hub …` e aprove o plano antes de codar.
