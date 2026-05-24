@@ -3,6 +3,10 @@
 > Base: `wiki/<app>.md` (14 apps mapeados, 2026-05-23). Convenção: `../CONVENTION.md`.
 > **Duas frentes distintas:** A) ADEQUAR os 14 apps existentes · B) CRIAR 8 serviços novos.
 > Nota: `wiki/` é documentação (fonte de verdade §15), **não** um microsserviço.
+>
+> **Atualizado 2026-05-24:** `asaas` e `infinitepay` concluídos até a Fase 5
+> (split models + PK UUID + webhook §5 + desempate `order_by` + docs `.claude/`).
+> Handoff `infinitepay/MIGRACAO_F3.md` removido (cumprido).
 
 ## Princípios
 - **Antes de tocar/criar cada serviço:** reler a `../CONVENTION.md` (atualizada) + o `wiki/<app>.md` correspondente — alinhar à convenção *antes* de codar.
@@ -30,19 +34,21 @@
 - ✅ `asaas` — **código async feito (2026-05-23)**: spine (db.py async espelhando `address`, alembic/env.py async espelhando `enrollment`, config_store, main lifespan+worker, structlog, pyproject: -psycopg2 +asyncpg +structlog +hatchling +pytest-asyncio, `pytest.ini` removido) + `AsaasClient` httpx→`AsyncClient` + 10 services + 5 routers (config/payment/pixkey/webhook). `database_url` obrigatório (D1, sem default `v7m:v7m`). `ruff` limpo + `import app.main` OK; caminho do dinheiro (`submit_one`/`tick`/`worker_loop`/`reconcile`) revisado. Plano em `asaas/MIGRACAO_F3.md`. Achado: HEAD era sync e o `MIGRACAO_F3` superestimou o trabalho — services/api já tinham sido convertidos junto da spine; sobravam só 4 routers.
   - ✅ **Testes async (2026-05-23):** suíte migrada (conftest `sqlite+aiosqlite` async, `httpx.AsyncClient`/ASGITransport, `fake_asaas` AsyncMock) — **183 passed**, `ruff` limpo. §15 essencialmente fechado.
   - ✅ **Validado contra Postgres real (2026-05-23):** `alembic upgrade head` 0001→0003 OK + smoke de escrita OK. **Fix necessário (migração `0003`):** todas as colunas `DateTime`→`timestamptz` (models `DateTime(timezone=True)`) — bug latente que o sqlite escondia: código usa `datetime.now(UTC)` (aware); psycopg2 tolerava, **asyncpg recusa aware em coluna naive** → quebrava TODA escrita. `183 passed` (sqlite) seguem verdes.
-  - ⏳ **Pendências asaas:** a migração inicial **não cria o schema** `asaas` → deploy precisa de `CREATE SCHEMA asaas` antes (via infra/compose-init, ou adicionar no `0001`); reescrever `wiki/asaas.md` (desatualizada); TODO de produção (onboarding security key). **PK→UUID** → Fase 4.
+  - ✅ **Pendências asaas resolvidas (2026-05-24):** `alembic/env.py` cria o schema (`CREATE SCHEMA IF NOT EXISTS`); `wiki/asaas.md` reescrita; **PK→UUID + timestamptz** na F4 (migração `0001` squashada, fundiu `charge_support`/`timestamptz`). Remanesce só o TODO de produção (onboarding security key).
+- ✅ `infinitepay` — **F3 async (2026-05-24, `cb87af6`):** psycopg2→asyncpg, `httpx.Client`→`AsyncClient`, structlog, config 100% via `.env` (tabela/rotas `config` removidas), IA direta (DeepSeek SDK) removida — recibo/triagem passam pelo app `ai`. **F4 (`827b0dd`):** split `models/`, PK→UUID + timestamptz, webhook §5 (`source_ip`/`user_agent`). Validado: ruff + 20 testes + `alembic upgrade head` contra Postgres real. `wiki/infinitepay.md` reescrita; docs `.claude/` criados.
 
 ### Fase 4 — Conformidade transversal
-- PK → UUID (§4): address, asaas, documents, enrollment, infinitepay, notify, otp. (asaas confirmado Integer autoincrement na análise F3 — migrar com cuidado de dados.)
-- logging cru → structlog (§2): asaas, auth, infinitepay, roles.
+- PK → UUID (§4): ✅ asaas, ✅ infinitepay (2026-05-24). Pendentes: address, documents, enrollment, notify, otp.
+- logging cru → structlog (§2): ✅ asaas, ✅ infinitepay. Pendentes: auth, roles.
 - `niquests` → `httpx` (§2): auth.
-- I/O síncrono → async: ai (OCR), infinitepay (httpx.Client), lead (time.sleep), asaas.
+- I/O síncrono → async: ✅ infinitepay, ✅ asaas. Pendentes: ai (OCR), lead (time.sleep).
 - Dedup identidade: remover tabela `auth.user_roles` (roles é dono); CPF duplicado (auth delega a profiles); remover `_validate_entry_role`; rever `/atomic` (§6).
-- IA central no `ai`: finalizar migração órfã do `notify`; remover toda IA do `infinitepay`; gap `/image/vision` (prompt+language) no `ai`.
+- IA central no `ai`: ✅ remover toda IA do `infinitepay` (F3). Pendentes: migração órfã do `notify`; gap `/image/vision` (prompt+language) no `ai`.
 - `roles`: lista de papéis → `.env`; regras de transição no DB.
 
 ### Fase 5 — Testes + wiki
 - Cobertura de comportamento por app; `ruff` limpo; atualizar `wiki/<app>.md`.
+- ✅ `asaas` (191 testes, `wiki/asaas.md`, `.claude/`) e ✅ `infinitepay` (20 testes, `wiki/infinitepay.md`, `.claude/`) — 2026-05-24. Demais apps pendentes.
 
 ---
 
