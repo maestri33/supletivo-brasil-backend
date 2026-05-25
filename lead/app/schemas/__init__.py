@@ -1,5 +1,13 @@
 """Schemas Pydantic do serviço lead."""
 
-from app.schemas.base import APIModel
+from pydantic import BaseModel, ConfigDict
+
+
+class APIModel(BaseModel):
+    model_config = ConfigDict(
+        extra="ignore",
+        str_strip_whitespace=True,
+    )
+
 
 __all__ = ["APIModel"]
