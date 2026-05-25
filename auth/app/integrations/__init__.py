@@ -1,1 +1,1 @@
-"""Wrappers para servicos externos (Notify, Data)."""
+"""Clients HTTP para servicos internos da plataforma."""

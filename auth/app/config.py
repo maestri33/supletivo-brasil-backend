@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     ROLES_SERVICE_URL: str = ""
     NOTIFY_SERVICE_URL: str = ""
     LEAD_SERVICE_URL: str = ""
+    DOCUMENTS_SERVICE_URL: str = ""
+    ADDRESS_SERVICE_URL: str = ""
 
 
 @lru_cache
