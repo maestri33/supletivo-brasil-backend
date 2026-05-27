@@ -1,6 +1,8 @@
 """Endpoint de consulta de logs."""
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
+
+from app.api.auth_guard import require_admin
 
 from app.schemas.log import LogQuery, LogEntry
 from app.utils import logging as logs_tool
@@ -15,6 +17,7 @@ router = APIRouter(prefix="/log", tags=["log"])
 )
 async def query_logs(
     request: Request,
+    _admin: dict = Depends(require_admin),
     direction: str | None = Query(default=None, description="in | out"),
     service: str | None = Query(default=None, description="auth | notify | data"),
     method: str | None = Query(default=None, description="GET | POST | PUT | DELETE"),
@@ -35,5 +38,8 @@ async def query_logs(
 
 
 @router.delete("", status_code=204, summary="Limpar todos os logs")
-async def clear_logs(request: Request) -> None:
+async def clear_logs(
+    request: Request,
+    _admin: dict = Depends(require_admin),
+) -> None:
     await logs_tool.clear_logs(getattr(request.app.state, "redis", None))

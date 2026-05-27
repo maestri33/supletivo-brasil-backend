@@ -5,7 +5,9 @@ from __future__ import annotations
 import uuid
 
 import niquests
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
+
+from app.api.auth_guard import require_admin
 
 from app.config import get_settings
 
@@ -26,7 +28,10 @@ SERVICES = [
 
 
 @router.post("", status_code=201, summary="Gera token de limpeza atomica (valido por 60s)")
-async def atomic_create(request: Request) -> dict:
+async def atomic_create(
+    request: Request,
+    _admin: dict = Depends(require_admin),
+) -> dict:
     """Cria um token unico para confirmacao da limpeza total."""
     redis = getattr(request.app.state, "redis", None)
     if redis is None:
@@ -42,7 +47,11 @@ async def atomic_create(request: Request) -> dict:
 
 
 @router.delete("/{atomic_id}", summary="Executa limpeza total do ecossistema")
-async def atomic_execute(atomic_id: str, request: Request) -> dict:
+async def atomic_execute(
+    atomic_id: str,
+    request: Request,
+    _admin: dict = Depends(require_admin),
+) -> dict:
     """Confirma o token e apaga todos os dados de todos os servicos."""
     redis = getattr(request.app.state, "redis", None)
     if redis is None:
