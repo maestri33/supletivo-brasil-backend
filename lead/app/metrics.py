@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+from starlette.requests import Request
 
 try:
     from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Histogram, generate_latest
@@ -60,7 +61,7 @@ def setup_metrics(app) -> None:
             pass
 
     # /metrics endpoint
-    def _metrics_endpoint(request):
+    def _metrics_endpoint(request: Request):
         from starlette.responses import Response
 
         try:

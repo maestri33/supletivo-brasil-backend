@@ -186,6 +186,7 @@ async def make_checkout():
         payment_method: str = "pix",
         provider: str = "asaas",
         is_paid: bool = False,
+        **kwargs,
     ) -> UUID:
         external_id = external_id or uuid4()
         async with async_session_maker() as session:
@@ -195,6 +196,7 @@ async def make_checkout():
                     payment_method=payment_method,
                     provider=provider,
                     is_paid=is_paid,
+                    **kwargs,
                 )
             )
             await session.commit()
