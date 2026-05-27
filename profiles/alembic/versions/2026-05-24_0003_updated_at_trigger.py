@@ -47,7 +47,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(
-        f"DROP TRIGGER IF EXISTS profiles_set_updated_at ON {SCHEMA}.profiles"
-    )
+    op.execute(f"DROP TRIGGER IF EXISTS profiles_set_updated_at ON {SCHEMA}.profiles")
     op.execute(f"DROP FUNCTION IF EXISTS {SCHEMA}.set_updated_at()")

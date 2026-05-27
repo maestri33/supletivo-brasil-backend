@@ -27,10 +27,10 @@ router.include_router(v1_router, prefix="/api/v1")
 
 # ── Legacy aliases (backward compat) ──────────────────────────────────
 
-router.include_router(health_router)                     # / , /health , /ready
-router.include_router(text_router, prefix="/text")       # /text/
-router.include_router(image_router, prefix="/image")     # /image/ , /image/vision
-router.include_router(tts_router, prefix="/tts")         # /tts/
-router.include_router(json_router, prefix="/json")       # /json/
-router.include_router(ocr_router, prefix="/ocr")         # /ocr/
-router.include_router(v1_router, prefix="/v1")           # /v1/text/chat , etc.
+router.include_router(health_router)  # / , /health , /ready
+router.include_router(text_router, prefix="/text")  # /text/
+router.include_router(image_router, prefix="/image")  # /image/ , /image/vision
+router.include_router(tts_router, prefix="/tts")  # /tts/
+router.include_router(json_router, prefix="/json")  # /json/
+router.include_router(ocr_router, prefix="/ocr")  # /ocr/
+router.include_router(v1_router, prefix="/v1")  # /v1/text/chat , etc.

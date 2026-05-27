@@ -45,7 +45,17 @@ async def refresh_token(refresh_token_str: str) -> dict:
         payload = jwt.decode(
             refresh_token_str,
             options={"verify_signature": False},
-            algorithms=["RS256","RS384","RS512","HS256","HS384","HS512","ES256","ES384","ES512"],
+            algorithms=[
+                "RS256",
+                "RS384",
+                "RS512",
+                "HS256",
+                "HS384",
+                "HS512",
+                "ES256",
+                "ES384",
+                "ES512",
+            ],
         )
     except Exception:
         log.warning("token.refresh.payload_invalido")

@@ -60,9 +60,7 @@ async def normalize_and_validate(phone: str) -> str:
 
     # Se 11 digitos, terceiro digito DEVE ser 9
     if len(raw) == 11 and raw[2] != "9":
-        raise ValueError(
-            "Telefone celular (11 digitos) deve ter 9 como terceiro digito"
-        )
+        raise ValueError("Telefone celular (11 digitos) deve ter 9 como terceiro digito")
 
     # Valida via WhatsApp com fallback
     full = f"55{raw}"

@@ -39,13 +39,21 @@ async def request_with_retry(
         try:
             resp = await client.request(method, url, **kwargs)
             if resp.status_code in RETRYABLE_STATUS and attempt < max_attempts:
-                log.warning("http.retry", method=method, url=url, status=resp.status_code, attempt=attempt)
+                log.warning(
+                    "http.retry",
+                    method=method,
+                    url=url,
+                    status=resp.status_code,
+                    attempt=attempt,
+                )
                 await asyncio.sleep(backoff_base * 2 ** (attempt - 1))
                 continue
             return resp
         except (httpx.TransportError, httpx.TimeoutException) as exc:
             last_exc = exc
-            log.warning("http.transport_error", url=url, attempt=attempt, error=str(exc))
+            log.warning(
+                "http.transport_error", url=url, attempt=attempt, error=str(exc)
+            )
             if attempt == max_attempts:
                 raise IntegrationError(f"Falha ao chamar {url}: {exc}") from exc
             await asyncio.sleep(backoff_base * 2 ** (attempt - 1))

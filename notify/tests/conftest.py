@@ -33,6 +33,13 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
+# Override DATABASE_URL antes de importar app.db: o .env pode conter URL
+# SQLite invalida (sqlite://data/app.db), e db.py tenta criar engine Postgres
+# no momento do import.  O engine real de teste e' criado no fixture `engine`.
+os.environ.setdefault(
+    "DATABASE_URL", "postgresql+asyncpg://skip:skip@localhost:5432/skip"
+)
+
 from app.db import Base, get_session
 from app.main import app
 from app.models.template import DEFAULT_SLUG
@@ -113,11 +120,7 @@ async def engine() -> AsyncIterator[Any]:
                 await conn.execute(text("CREATE SCHEMA IF NOT EXISTS auth"))
                 await conn.execute(text("CREATE SCHEMA IF NOT EXISTS notify"))
                 await conn.execute(
-                    text(
-                        "CREATE TABLE IF NOT EXISTS auth.users ("
-                        "external_id UUID PRIMARY KEY"
-                        ")"
-                    )
+                    text("CREATE TABLE IF NOT EXISTS auth.users (external_id UUID PRIMARY KEY)")
                 )
                 await conn.run_sync(Base.metadata.create_all)
                 await conn.execute(
@@ -157,13 +160,19 @@ async def session_factory(engine, monkeypatch) -> async_sessionmaker[AsyncSessio
     # main.py importa async_session_maker no nivel de modulo para /ready
     monkeypatch.setattr("app.main.async_session_maker", sm, raising=False)
     monkeypatch.setattr(
-        "app.services.message_service.async_session_maker", sm, raising=False,
+        "app.services.message_service.async_session_maker",
+        sm,
+        raising=False,
     )
     monkeypatch.setattr(
-        "app.services.template_service.async_session_maker", sm, raising=False,
+        "app.services.template_service.async_session_maker",
+        sm,
+        raising=False,
     )
     monkeypatch.setattr(
-        "app.services.metrics_service.async_session_maker", sm, raising=False,
+        "app.services.metrics_service.async_session_maker",
+        sm,
+        raising=False,
     )
     return sm
 
@@ -269,11 +278,13 @@ def _isolate_external_io(monkeypatch):
 
     monkeypatch.setattr(phone_mod, "normalize_and_validate", fake_normalize)
     monkeypatch.setattr(
-        "app.services.contact_service.normalize_and_validate", fake_normalize,
+        "app.services.contact_service.normalize_and_validate",
+        fake_normalize,
     )
     monkeypatch.setattr(ev_mod, "validate_email", fake_validate_email)
     monkeypatch.setattr(
-        "app.services.contact_service.validate_email_full", fake_validate_email,
+        "app.services.contact_service.validate_email_full",
+        fake_validate_email,
     )
 
     # SMTPClient (envio direto): no-op — testes nao tocam SMTP real
@@ -297,6 +308,7 @@ def _isolate_external_io(monkeypatch):
     async def fake_ai_json(self, prompt: str, *, instruction=None, schema_description=None):
         # Retorna o html atual sem alteracoes para simular edicao via IA
         import re
+
         match = re.search(r"HTML atual:\n(.+)", prompt, re.DOTALL)
         html = match.group(1).strip() if match else prompt
         return {"html": html + "\n<!-- edited by AI -->"}

@@ -28,9 +28,11 @@ async def list_instructions():
     items: list[InstructionItem] = []
     if DOCS_DIR.exists():
         for f in sorted(DOCS_DIR.glob("*.md")):
-            items.append(InstructionItem(
-                name=f.stem,
-                filename=f.name,
-                url=f"/media/instructions/{f.name}",
-            ))
+            items.append(
+                InstructionItem(
+                    name=f.stem,
+                    filename=f.name,
+                    url=f"/media/instructions/{f.name}",
+                )
+            )
     return InstructionList(count=len(items), items=items)

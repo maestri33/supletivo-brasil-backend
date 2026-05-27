@@ -20,9 +20,7 @@ async def test_register_creates_candidate(client, mocks):
     assert resp.json()["external_id"] == str(ext)
 
     async with async_session_maker() as session:
-        candidate = await session.scalar(
-            select(Candidate).where(Candidate.external_id == str(ext))
-        )
+        candidate = await session.scalar(select(Candidate).where(Candidate.external_id == str(ext)))
     assert candidate is not None
     assert candidate.status == "captured"
 
@@ -135,9 +133,7 @@ async def test_full_funnel_until_completed(client, make_candidate, login_as, moc
     mocks.roles.promote.assert_awaited()
 
     async with async_session_maker() as session:
-        candidate = await session.scalar(
-            select(Candidate).where(Candidate.external_id == str(ext))
-        )
+        candidate = await session.scalar(select(Candidate).where(Candidate.external_id == str(ext)))
     assert candidate.status == "completed"
 
 

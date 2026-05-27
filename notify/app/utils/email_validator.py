@@ -53,7 +53,12 @@ def _check_mx(domain: str) -> tuple[bool, list[str]]:
             ),
         )
         return bool(mx_hosts), mx_hosts
-    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.exception.Timeout) as exc:
+    except (
+        dns.resolver.NoAnswer,
+        dns.resolver.NXDOMAIN,
+        dns.resolver.NoNameservers,
+        dns.exception.Timeout,
+    ) as exc:
         log.info("email.mx_not_found", domain=domain, error=str(exc))
         return False, []
 

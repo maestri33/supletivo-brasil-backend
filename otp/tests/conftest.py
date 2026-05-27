@@ -14,17 +14,15 @@ Quando alguém for reescrever:
 3. Re-escrever os asserts em `test_otp.py` usando `select(OTPLog)`.
 """
 
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.main import app as fastapi_app
 
-
 SKIP_REASON = (
-    "Suíte legada pré-migração SQLAlchemy. "
-    "Aguardando reescrita com testcontainers-postgres."
+    "Suíte legada pré-migração SQLAlchemy. Aguardando reescrita com testcontainers-postgres."
 )
 
 

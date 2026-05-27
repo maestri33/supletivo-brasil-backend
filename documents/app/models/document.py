@@ -11,8 +11,12 @@ class Document(Model):
 
     rg = fields.ForeignKeyField("models.RG", null=True, on_delete=fields.SET_NULL)
     cnh = fields.ForeignKeyField("models.CNH", null=True, on_delete=fields.SET_NULL)
-    carteira_trabalho = fields.ForeignKeyField("models.CarteiraTrabalho", null=True, on_delete=fields.SET_NULL)
-    passaporte = fields.ForeignKeyField("models.Passaporte", null=True, on_delete=fields.SET_NULL)
+    carteira_trabalho = fields.ForeignKeyField(
+        "models.CarteiraTrabalho", null=True, on_delete=fields.SET_NULL
+    )
+    passaporte = fields.ForeignKeyField(
+        "models.Passaporte", null=True, on_delete=fields.SET_NULL
+    )
 
     # Certidão (nascimento / casamento / óbito)
     certidao_tipo = fields.CharField(max_length=20, null=True)

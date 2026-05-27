@@ -5,8 +5,8 @@ Run with: uvicorn app.main:app --host 0.0.0.0 --port 8000
 """
 
 import asyncio
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 import httpx
 from fastapi import FastAPI, Request

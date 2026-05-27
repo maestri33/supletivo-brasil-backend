@@ -23,13 +23,19 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, primary_key=True, default=_new_uuid,
+        Uuid,
+        primary_key=True,
+        default=_new_uuid,
     )
     external_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, nullable=False, unique=True, default=_new_uuid,
+        Uuid,
+        nullable=False,
+        unique=True,
+        default=_new_uuid,
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow,
+        DateTime(timezone=True),
+        default=_utcnow,
     )
 
     roles = relationship("UserRole", back_populates="user")
@@ -39,18 +45,24 @@ class UserRole(Base):
     __tablename__ = "user_roles"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        Uuid, primary_key=True, default=_new_uuid,
+        Uuid,
+        primary_key=True,
+        default=_new_uuid,
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         "user_id",
-        Uuid, ForeignKey("users.external_id", ondelete="CASCADE"), nullable=False,
+        Uuid,
+        ForeignKey("users.external_id", ondelete="CASCADE"),
+        nullable=False,
     )
     role: Mapped[str] = mapped_column(nullable=False)
     assigned_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow,
+        DateTime(timezone=True),
+        default=_utcnow,
     )
     revoked_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True,
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     user = relationship("User", back_populates="roles")

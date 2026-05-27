@@ -46,10 +46,14 @@ class ElevenLabsClient:
         effective_voice_id = voice_id or self._voice_id
         voice_settings = VoiceSettings(
             stability=stability if stability is not None else self._stability,
-            similarity_boost=similarity_boost if similarity_boost is not None else self._similarity_boost,
+            similarity_boost=similarity_boost
+            if similarity_boost is not None
+            else self._similarity_boost,
             speed=speed if speed is not None else self._speed,
             style=style if style is not None else self._style,
-            use_speaker_boost=speaker_boost if speaker_boost is not None else self._speaker_boost,
+            use_speaker_boost=speaker_boost
+            if speaker_boost is not None
+            else self._speaker_boost,
         )
 
         chunks: list[bytes] = []

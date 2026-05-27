@@ -27,14 +27,18 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com"
     deepseek_default_model: str = "deepseek-v4-pro"
     deepseek_default_temperature: float = 0.3
-    deepseek_max_tokens: int = 0  # 0 = nao envia max_tokens (API decide). Defina um valor para limitar.
+    deepseek_max_tokens: int = (
+        0  # 0 = nao envia max_tokens (API decide). Defina um valor para limitar.
+    )
 
     # ElevenLabs TTS
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = "JBFqnCBsd6RMkjVDRZzb"
     elevenlabs_model_id: str = "eleven_v3"
     elevenlabs_output_format: str = "mp3_44100_128"
-    elevenlabs_stability: float = 0.5  # 0-1, consistencia na entrega (maior = mais estavel)
+    elevenlabs_stability: float = (
+        0.5  # 0-1, consistencia na entrega (maior = mais estavel)
+    )
     elevenlabs_similarity_boost: float = 0.75  # 0-1, fidelidade ao sample original
     elevenlabs_speed: float = 1.0  # 0.25-4.0, velocidade de playback
     elevenlabs_style: float = 0.0  # 0-1, exagera caracteristicas da voz (0=desligado)

@@ -71,6 +71,6 @@ def absolute_qr_url(relative_url: str) -> str:
     Reescrevemos pro prefixo publico atual antes de montar a URL.
     """
     if relative_url.startswith(f"{_LEGACY_PREFIX}/"):
-        relative_url = _PUBLIC_PREFIX + relative_url[len(_LEGACY_PREFIX):]
+        relative_url = _PUBLIC_PREFIX + relative_url[len(_LEGACY_PREFIX) :]
     base = settings.LEAD_PUBLIC_BASE_URL.rstrip("/")
     return f"{base}{relative_url}"

@@ -1,0 +1,154 @@
+# =============================================================================
+# CI — Backend Supletivo (Sprint 0)
+# =============================================================================
+# Gatilhos: push/PR em main. Roda lint + testes + import smoke + alembic check.
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ── Lint (ruff) — todas as services em paralelo ──────────────────────────
+
+  lint:
+    name: "lint / ${{ matrix.service }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - address
+          - ai
+          - asaas
+          - auth
+          - candidate
+          - documents
+          - enrollment
+          - fees
+          - hub
+          - infinitepay
+          - jwt
+          - lead
+          - notify
+          - otp
+          - profiles
+          - promoter
+          - roles
+          - student
+          - training
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install deps
+        working-directory: ${{ matrix.service }}
+        run: uv sync --frozen 2>/dev/null || uv sync
+
+      - name: ruff check
+        working-directory: ${{ matrix.service }}
+        run: uv run ruff check .
+
+      - name: ruff format check
+        working-directory: ${{ matrix.service }}
+        run: uv run ruff format --check .
+
+      - name: Import smoke
+        working-directory: ${{ matrix.service }}
+        run: uv run python -c "import app; print('import OK')"
+
+  # ── Testes + alembic check (precisa de Postgres) ─────────────────────────
+
+  test:
+    name: "test / ${{ matrix.service }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - address
+          - ai
+          - asaas
+          - auth
+          - candidate
+          - documents
+          - enrollment
+          - fees
+          - hub
+          - infinitepay
+          - jwt
+          - lead
+          - notify
+          - otp
+          - profiles
+          - promoter
+          - roles
+          - student
+          - training
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: supletivo
+          POSTGRES_USER: supletivo
+          POSTGRES_PASSWORD: supletivo_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U supletivo -d supletivo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_ci@localhost:5432/supletivo
+      DATABASE_SCHEMA: ${{ matrix.service }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install deps
+        working-directory: ${{ matrix.service }}
+        run: uv sync --frozen 2>/dev/null || uv sync
+
+      - name: Run pytest
+        working-directory: ${{ matrix.service }}
+        run: uv run pytest -v --tb=short
+
+      - name: Alembic upgrade head
+        working-directory: ${{ matrix.service }}
+        run: uv run alembic upgrade head
+
+  # ── Gate — todos os checks precisam passar ───────────────────────────────
+
+  ci-gate:
+    name: CI Gate
+    needs: [lint, test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.test.result }}" != "success" ]; then
+            echo "CI FAILED — lint=${{ needs.lint.result }} test=${{ needs.test.result }}"
+            exit 1
+          fi
+          echo "CI PASSED"

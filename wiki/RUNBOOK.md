@@ -18,23 +18,23 @@
 | candidate | 80 | candidate | ativo | ✅ | ✅ |
 | commissions | — | commissions | **não criado** (Parte B) | ❌ | ✅ |
 | coordinator | — | coordinator | **não criado** (Parte B) | ❌ | ✅ |
-| documents | 80 | documents | ativo | ❌ | ✅ |
-| enrollment | 80 | enrollment | ativo | ❌ | ✅ |
+| documents | 80 | documents | ativo | ✅ | ✅ |
+| enrollment | 80 | enrollment | ativo | ✅ | ✅ |
 | fees | 80 | fees | ativo | ✅ | ✅ |
 | hub | — | hub | **não criado** (Parte B) | ❌ | ✅ |
 | infinitepay | 80 | infinitepay | ativo (F5 concluída) | ✅ | ✅ |
-| jwt | — | jwt | ativo | ❌ | ✅ |
-| lead | 80 | lead | ativo (modelo de referência) | ❌ | ✅ |
+| jwt | — | jwt | ativo | ✅ | ✅ |
+| lead | 80 | lead | ativo (modelo de referência) | ✅ | ✅ |
 | notify | 80 | notify | ativo | ✅ | ✅ |
 | otp | 80 | otp | ativo | ✅ | ✅ |
 | profiles | 80 | profiles | ativo | ✅ | ✅ |
 | promoter | 80 | promoter | ativo | ✅ | ✅ |
-| roles | 80 | roles | ativo | ❌ | ✅ |
+| roles | 80 | roles | ativo | ✅ | ✅ |
 | staff | — | staff | **não criado** (Parte B) | ❌ | ❌ |
 | student | — | student | **não criado** (Parte B) | ❌ | ❌ |
-| training | 80 | training | ativo | ✅ | ❌ |
+| training | 80 | training | ativo | ✅ | ✅ |
 
-**CLAUDE.md:** 12/22 (faltam 10) | **wiki.md:** 20/22 (faltam staff, student, training)
+**CLAUDE.md:** 17/22 (faltam 5 — todos Parte B) | **wiki.md:** 20/22 (faltam staff, student)
 
 **Infraestrutura compartilhada:**
 - Postgres central (todas as services usam schemas distintos no mesmo DB)

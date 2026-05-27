@@ -17,9 +17,7 @@ async def generate_receipt_message(
     price_reais = price_cents / 100
 
     fallback = (
-        f"Oi {customer_name}! "
-        f"Seu pagamento de R$ {price_reais:.2f} "
-        f"pelo {product} foi confirmado."
+        f"Oi {customer_name}! Seu pagamento de R$ {price_reais:.2f} pelo {product} foi confirmado."
     )
 
     if not ai_enabled():

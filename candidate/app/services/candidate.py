@@ -9,9 +9,7 @@ from app.models import Candidate, CandidateStatus
 
 
 async def get(session: AsyncSession, external_id: UUID | str) -> Candidate | None:
-    return await session.scalar(
-        select(Candidate).where(Candidate.external_id == str(external_id))
-    )
+    return await session.scalar(select(Candidate).where(Candidate.external_id == str(external_id)))
 
 
 async def get_or_create(

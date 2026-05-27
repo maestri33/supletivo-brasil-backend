@@ -24,7 +24,10 @@ async def list_templates(
     session: AsyncSession = Depends(get_session),
 ) -> list[TemplateSummary]:
     templates = await template_service.list_templates(
-        session, only_active=only_active, limit=limit, offset=offset,
+        session,
+        only_active=only_active,
+        limit=limit,
+        offset=offset,
     )
     return [TemplateSummary.model_validate(t, from_attributes=True) for t in templates]
 
@@ -36,7 +39,8 @@ async def list_templates(
     summary="Criar template",
 )
 async def create_template(
-    payload: TemplateCreate, session: AsyncSession = Depends(get_session),
+    payload: TemplateCreate,
+    session: AsyncSession = Depends(get_session),
 ) -> TemplateRead:
     if payload.html and payload.instruction:
         raise DomainError("Informe apenas html OU instruction, nao ambos")
@@ -45,18 +49,25 @@ async def create_template(
 
     if payload.instruction:
         template = await template_service.create_from_default_with_ai(
-            session, slug=payload.slug, name=payload.name, instruction=payload.instruction,
+            session,
+            slug=payload.slug,
+            name=payload.name,
+            instruction=payload.instruction,
         )
     else:
         template = await template_service.create_template(
-            session, slug=payload.slug, name=payload.name, html=payload.html or "",
+            session,
+            slug=payload.slug,
+            name=payload.name,
+            html=payload.html or "",
         )
     return TemplateRead.model_validate(template, from_attributes=True)
 
 
 @router.get("/{slug}", response_model=TemplateRead, summary="Obter template por slug")
 async def get_template(
-    slug: str, session: AsyncSession = Depends(get_session),
+    slug: str,
+    session: AsyncSession = Depends(get_session),
 ) -> TemplateRead:
     template = await template_service.get_active_or_default(session, slug)
     return TemplateRead.model_validate(template, from_attributes=True)
@@ -75,7 +86,10 @@ async def update_template(
         template = await template_service.edit_with_ai(session, slug, payload.instruction)
         if payload.name is not None or payload.is_active is not None:
             template = await template_service.update_template(
-                session, slug, name=payload.name, is_active=payload.is_active,
+                session,
+                slug,
+                name=payload.name,
+                is_active=payload.is_active,
             )
     else:
         template = await template_service.update_template(
@@ -94,7 +108,8 @@ async def update_template(
     summary="Deletar template (slug != 'default')",
 )
 async def delete_template(
-    slug: str, session: AsyncSession = Depends(get_session),
+    slug: str,
+    session: AsyncSession = Depends(get_session),
 ) -> None:
     await template_service.delete_template(session, slug)
 

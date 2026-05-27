@@ -24,7 +24,8 @@ async def check_contact(
 
 @router.post("", response_model=ContactRead, status_code=status.HTTP_201_CREATED, summary="Criar")
 async def create_contact(
-    payload: ContactCreate, session: AsyncSession = Depends(get_session),
+    payload: ContactCreate,
+    session: AsyncSession = Depends(get_session),
 ) -> ContactRead:
     contact = await contact_service.create_contact(session, payload)
     return ContactRead.model_validate(contact, from_attributes=True)
@@ -42,7 +43,8 @@ async def list_contacts(
 
 @router.get("/{external_id}", response_model=ContactRead, summary="Obter contacto")
 async def get_contact(
-    external_id: UUID, session: AsyncSession = Depends(get_session),
+    external_id: UUID,
+    session: AsyncSession = Depends(get_session),
 ) -> ContactRead:
     contact = await contact_service.get_contact_by_external_id(session, external_id)
     return ContactRead.model_validate(contact, from_attributes=True)
@@ -68,6 +70,7 @@ async def update_email(
     summary="Deletar contacto",
 )
 async def delete_contact(
-    external_id: UUID, session: AsyncSession = Depends(get_session),
+    external_id: UUID,
+    session: AsyncSession = Depends(get_session),
 ) -> None:
     await contact_service.delete_contact(session, external_id)

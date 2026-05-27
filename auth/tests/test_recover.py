@@ -152,7 +152,8 @@ async def test_recover_phone_found_dispatches_otp(client: AsyncClient, patched_l
 
 @pytest.mark.asyncio
 async def test_recover_rate_limits_second_dispatch(
-    client_with_redis: AsyncClient, patched_lookups,
+    client_with_redis: AsyncClient,
+    patched_lookups,
 ):
     # 1a chamada: dispara OTP
     resp1 = await client_with_redis.post("/api/v1/recover", json={"cpf": VALID_CPF})
@@ -174,7 +175,8 @@ async def test_recover_rate_limits_second_dispatch(
 
 @pytest.mark.asyncio
 async def test_recover_cpf_and_phone_share_rate_limit(
-    client_with_redis: AsyncClient, patched_lookups,
+    client_with_redis: AsyncClient,
+    patched_lookups,
 ):
     # Achar via cpf dispara OTP
     resp1 = await client_with_redis.post("/api/v1/recover", json={"cpf": VALID_CPF})

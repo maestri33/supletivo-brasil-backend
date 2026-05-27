@@ -56,20 +56,24 @@ async def _fire_webhook(event: str, payload: dict):
         return
     try:
         async with httpx.AsyncClient(timeout=5) as client:
-            await client.post(settings.webhook_url, json={"event": event, "payload": payload})
+            await client.post(
+                settings.webhook_url, json={"event": event, "payload": payload}
+            )
     except Exception:
         logger.warning("webhook_falhou", webhook_event=event)
 
 
 async def get_or_create(external_id: str) -> Document:
-    doc = await Document.get_or_none(external_id=external_id) \
-        .prefetch_related("rg", "cnh", "carteira_trabalho", "passaporte")
+    doc = await Document.get_or_none(external_id=external_id).prefetch_related(
+        "rg", "cnh", "carteira_trabalho", "passaporte"
+    )
     if doc is None:
         doc = await Document.create(external_id=external_id)
         logger.info("documento_criado", external_id=external_id)
         await _fire_webhook("documento.criado", {"external_id": external_id})
-        doc = await Document.get_or_none(external_id=external_id) \
-            .prefetch_related("rg", "cnh", "carteira_trabalho", "passaporte")
+        doc = await Document.get_or_none(external_id=external_id).prefetch_related(
+            "rg", "cnh", "carteira_trabalho", "passaporte"
+        )
     return doc
 
 
@@ -91,9 +95,21 @@ async def update_document(external_id: str, data: DocumentUpdate) -> Document:
 
     sub_updates = {
         "rg": (RG, data.rg, ["numero", "orgao_emissor", "data_emissao"]),
-        "cnh": (CNH, data.cnh, ["numero", "categoria", "data_nascimento", "validade", "registro_nacional"]),
-        "carteira_trabalho": (CarteiraTrabalho, data.carteira_trabalho, ["numero", "serie", "uf", "data_emissao"]),
-        "passaporte": (Passaporte, data.passaporte, ["numero", "validade", "data_emissao"]),
+        "cnh": (
+            CNH,
+            data.cnh,
+            ["numero", "categoria", "data_nascimento", "validade", "registro_nacional"],
+        ),
+        "carteira_trabalho": (
+            CarteiraTrabalho,
+            data.carteira_trabalho,
+            ["numero", "serie", "uf", "data_emissao"],
+        ),
+        "passaporte": (
+            Passaporte,
+            data.passaporte,
+            ["numero", "validade", "data_emissao"],
+        ),
     }
 
     for fk_field, (model_class, update_data, fields) in sub_updates.items():
@@ -146,7 +162,9 @@ async def update_document(external_id: str, data: DocumentUpdate) -> Document:
 
     await doc.save()
     logger.info("documento_atualizado", external_id=external_id, changes=changes)
-    await _fire_webhook("documento.atualizado", {"external_id": external_id, "changes": changes})
+    await _fire_webhook(
+        "documento.atualizado", {"external_id": external_id, "changes": changes}
+    )
 
     return await get_or_create(external_id)
 
@@ -159,7 +177,9 @@ SUBS_FOR_SLOT = {
 }
 
 
-async def upload_image(external_id: str, slot: str, content: bytes, original_name: str, mime_type: str) -> Document:
+async def upload_image(
+    external_id: str, slot: str, content: bytes, original_name: str, mime_type: str
+) -> Document:
     if slot not in IMAGE_SLOTS:
         raise InvalidSlotError(f"slot inválido: {slot}")
     if mime_type not in ALLOWED_MIME_IMG:
@@ -187,7 +207,9 @@ async def upload_image(external_id: str, slot: str, content: bytes, original_nam
         _delete_file(old_path)
 
     logger.info("imagem_uploaded", external_id=external_id, slot=slot)
-    await _fire_webhook("documento.imagem_uploaded", {"external_id": external_id, "slot": slot})
+    await _fire_webhook(
+        "documento.imagem_uploaded", {"external_id": external_id, "slot": slot}
+    )
 
     return await get_or_create(external_id)
 
@@ -248,6 +270,8 @@ async def delete_image(external_id: str, slot: str) -> Document:
         await doc.save(update_fields=["updated_at"])
 
     logger.info("imagem_deleted", external_id=external_id, slot=slot)
-    await _fire_webhook("documento.imagem_deleted", {"external_id": external_id, "slot": slot})
+    await _fire_webhook(
+        "documento.imagem_deleted", {"external_id": external_id, "slot": slot}
+    )
 
     return await get_or_create(external_id)

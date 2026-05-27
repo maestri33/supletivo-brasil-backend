@@ -36,7 +36,9 @@ async def atualizar(external_id: UUID, body: DocumentUpdate):
         raise HTTPException(status_code=422, detail=str(e))
 
 
-@router.post("/{external_id}/imagens/{slot}", response_model=DocumentOut, status_code=201)
+@router.post(
+    "/{external_id}/imagens/{slot}", response_model=DocumentOut, status_code=201
+)
 async def upload_imagem(external_id: UUID, slot: str, file: UploadFile = File(...)):
     try:
         content = await file.read()

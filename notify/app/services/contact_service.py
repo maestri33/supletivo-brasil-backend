@@ -40,9 +40,7 @@ async def create_contact(session: AsyncSession, payload: ContactCreate) -> Conta
     if payload.phone:
         dup = await session.scalar(select(Contact).where(Contact.phone == payload.phone))
         if dup:
-            raise Conflict(
-                f"Telefone {payload.phone} ja pertence ao contacto {dup.external_id}"
-            )
+            raise Conflict(f"Telefone {payload.phone} ja pertence ao contacto {dup.external_id}")
 
         try:
             normalized_phone = await normalize_and_validate(payload.phone)
@@ -96,9 +94,7 @@ async def create_contact(session: AsyncSession, payload: ContactCreate) -> Conta
 
 
 async def get_contact_by_external_id(session: AsyncSession, external_id: UUID) -> Contact:
-    contact = await session.scalar(
-        select(Contact).where(Contact.external_id == external_id)
-    )
+    contact = await session.scalar(select(Contact).where(Contact.external_id == external_id))
     if contact is None:
         raise NotFound(f"Contacto {external_id} nao encontrado")
     return contact
@@ -150,7 +146,9 @@ async def delete_contact(session: AsyncSession, external_id: UUID) -> None:
 
 
 async def list_contacts(
-    session: AsyncSession, limit: int = 50, offset: int = 0,
+    session: AsyncSession,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[Contact]:
     result = await session.scalars(select(Contact).offset(offset).limit(limit))
     return list(result.all())
@@ -172,9 +170,7 @@ async def check_contact(
         if not contact:
             try:
                 normalized = await normalize_and_validate(phone)
-                contact = await session.scalar(
-                    select(Contact).where(Contact.phone == normalized)
-                )
+                contact = await session.scalar(select(Contact).where(Contact.phone == normalized))
             except ValueError:
                 pass
 

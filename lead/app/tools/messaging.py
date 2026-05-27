@@ -63,7 +63,8 @@ async def notify_and_track(
     # SEM retry aqui — POST /messages/send nao e idempotente; retry duplica
     # entregas no WhatsApp. O notify se vira via webhook callback.
     async with httpx.AsyncClient(
-        base_url=settings.NOTIFY_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+        base_url=settings.NOTIFY_BASE_URL,
+        timeout=settings.HTTP_TIMEOUT,
     ) as http:
         notify = NotifyClient(http)
         try:

@@ -94,7 +94,9 @@ class WhatsAppClient:
         """POST /chat/<endpoint>/<instance>"""
         return f"/chat/{endpoint}/{self._instance}"
 
-    async def _post(self, path: str, json: dict[str, Any], *, timeout: float | None = None) -> dict[str, Any]:
+    async def _post(
+        self, path: str, json: dict[str, Any], *, timeout: float | None = None
+    ) -> dict[str, Any]:
         kwargs: dict[str, Any] = {}
         if timeout is not None:
             kwargs["timeout"] = httpx.Timeout(timeout, connect=5.0)
@@ -107,9 +109,7 @@ class WhatsAppClient:
             **kwargs,
         )
         if resp.status_code >= 400:
-            raise IntegrationError(
-                f"WhatsApp API {path} falhou ({resp.status_code}): {resp.text}"
-            )
+            raise IntegrationError(f"WhatsApp API {path} falhou ({resp.status_code}): {resp.text}")
         return resp.json()
 
     async def _get(self, path: str) -> dict[str, Any]:
@@ -120,9 +120,7 @@ class WhatsAppClient:
             headers=self._headers(),
         )
         if resp.status_code >= 400:
-            raise IntegrationError(
-                f"WhatsApp API {path} falhou ({resp.status_code}): {resp.text}"
-            )
+            raise IntegrationError(f"WhatsApp API {path} falhou ({resp.status_code}): {resp.text}")
         return resp.json()
 
     def _build_quoted(
@@ -830,5 +828,3 @@ class WhatsAppClient:
             type=status_type,
         )
         return result
-
- 

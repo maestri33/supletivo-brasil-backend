@@ -16,7 +16,7 @@ log = get_logger(__name__)
 async def notify_callback(
     message_id: int,
     request: Request,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> dict:
     """Callback do notify com o status final da mensagem."""
     data = await request.json()
@@ -37,5 +37,7 @@ async def notify_callback(
         otp_log.error_detail = f"Notify reportou {notify_status}"
 
     await session.commit()
-    log.info("webhook.updated", message_id=message_id, otp_log_id=otp_log.id, new_status=otp_log.status)
+    log.info(
+        "webhook.updated", message_id=message_id, otp_log_id=otp_log.id, new_status=otp_log.status
+    )
     return {"ok": True}

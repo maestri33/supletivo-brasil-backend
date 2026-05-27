@@ -53,9 +53,7 @@ async def test_idempotent_same_event(client: AsyncClient, make_auth_user) -> Non
     assert len(listing.json()) == 1  # não duplicou
 
 
-async def test_different_event_creates_new_row(
-    client: AsyncClient, make_auth_user
-) -> None:
+async def test_different_event_creates_new_row(client: AsyncClient, make_auth_user) -> None:
     eid = await make_auth_user()
     await client.post(f"/api/v1/webhook/new/{eid}", json={"event": "lead.completed"})
     await client.post(f"/api/v1/webhook/new/{eid}", json={"event": "lead.reopened"})
@@ -66,9 +64,7 @@ async def test_different_event_creates_new_row(
 
 async def test_unknown_user_returns_409(client: AsyncClient) -> None:
     ghost = str(uuid4())  # não existe em auth.users
-    resp = await client.post(
-        f"/api/v1/webhook/new/{ghost}", json={"event": "lead.completed"}
-    )
+    resp = await client.post(f"/api/v1/webhook/new/{ghost}", json={"event": "lead.completed"})
     assert resp.status_code == 409
     assert resp.json()["code"] == "UNKNOWN_EXTERNAL_ID"
 
@@ -78,9 +74,7 @@ async def test_unknown_user_returns_409(client: AsyncClient) -> None:
 
 async def test_get_event_by_id_and_404(client: AsyncClient, make_auth_user) -> None:
     eid = await make_auth_user()
-    created = await client.post(
-        f"/api/v1/webhook/new/{eid}", json={"event": "lead.completed"}
-    )
+    created = await client.post(f"/api/v1/webhook/new/{eid}", json={"event": "lead.completed"})
     new_id = created.json()["id"]
 
     got = await client.get(f"/api/v1/events/{new_id}")

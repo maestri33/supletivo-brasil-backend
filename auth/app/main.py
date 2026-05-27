@@ -74,6 +74,7 @@ app.add_middleware(
 
 # ── Global exception handler ───────────────────────────────────
 
+
 @app.exception_handler(DomainError)
 async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
     return JSONResponse(
@@ -85,8 +86,14 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
 # ── Redis log storage middleware ───────────────────────────────
 
 SENSITIVE_FIELDS = {
-    "otp_code", "refresh_token", "access_token", "password",
-    "secret", "token", "code", "key",
+    "otp_code",
+    "refresh_token",
+    "access_token",
+    "password",
+    "secret",
+    "token",
+    "code",
+    "key",
 }
 
 
@@ -130,6 +137,7 @@ async def store_log_in_redis(request: Request, call_next):
 
 
 # ── Health / Ready ─────────────────────────────────────────
+
 
 @app.get("/health")
 async def health():

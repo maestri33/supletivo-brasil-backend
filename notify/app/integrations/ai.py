@@ -44,8 +44,11 @@ class AIClient:
         if instruction:
             body["instruction"] = instruction
         resp = await request_with_retry(
-            self._client, "POST", f"{self._base}/text/",
-            json=body, timeout=60.0,
+            self._client,
+            "POST",
+            f"{self._base}/text/",
+            json=body,
+            timeout=60.0,
         )
         if resp.status_code >= 400:
             raise IntegrationError(f"AI /text falhou ({resp.status_code}): {resp.text}")
@@ -66,8 +69,11 @@ class AIClient:
         if reference_url:
             body["reference_url"] = reference_url
         resp = await request_with_retry(
-            self._client, "POST", f"{self._base}/image/",
-            json=body, timeout=120.0,
+            self._client,
+            "POST",
+            f"{self._base}/image/",
+            json=body,
+            timeout=120.0,
         )
         if resp.status_code >= 400:
             raise IntegrationError(f"AI /image falhou ({resp.status_code}): {resp.text}")
@@ -107,7 +113,9 @@ class AIClient:
         if voice_id:
             body["voice_id"] = voice_id
         resp = await request_with_retry(
-            self._client, "POST", f"{self._base}/tts/",
+            self._client,
+            "POST",
+            f"{self._base}/tts/",
             json=body,
             timeout=120.0,
         )
@@ -145,7 +153,9 @@ class AIClient:
     ) -> dict[str, Any]:
         """Gera JSON estruturado. Retorna {data: {...}}."""
         resp = await request_with_retry(
-            self._client, "POST", f"{self._base}/json/",
+            self._client,
+            "POST",
+            f"{self._base}/json/",
             json={
                 "prompt": prompt,
                 "instruction": instruction,

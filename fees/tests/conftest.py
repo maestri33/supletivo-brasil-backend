@@ -18,6 +18,8 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 from uuid import UUID, uuid4
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 # precisa rodar ANTES de qualquer 'from app...'
 _TMP_DB = Path(tempfile.mkdtemp(prefix="fees-tests-")) / "test.db"
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DB}"
@@ -28,7 +30,7 @@ import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 
 from app import models  # noqa: E402,F401  (popula o metadata)
-from app.db import Base, engine  # noqa: E402
+from app.db import Base, async_session_maker, engine  # noqa: E402
 from app.integrations import IntegrationError  # noqa: E402
 from app.main import app  # noqa: E402
 
@@ -103,6 +105,13 @@ def notifications(monkeypatch) -> list[tuple]:
     monkeypatch.setattr(wh, "notify_student_fully_paid", _full)
     monkeypatch.setattr(wh, "notify_coordinator_payment_failed", _failed)
     return calls
+
+
+@pytest_asyncio.fixture
+async def db_session() -> AsyncIterator[AsyncSession]:
+    """Sessão de banco isolada (SQLite) para testes unitários de service."""
+    async with async_session_maker() as session:
+        yield session
 
 
 @pytest_asyncio.fixture

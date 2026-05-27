@@ -41,9 +41,7 @@ class Settings(BaseSettings):
     backend_webhook: str | None = Field(
         default=None, validation_alias="INFINITEPAY_BACKEND_WEBHOOK"
     )
-    public_api_url: str | None = Field(
-        default=None, validation_alias="INFINITEPAY_PUBLIC_API_URL"
-    )
+    public_api_url: str | None = Field(default=None, validation_alias="INFINITEPAY_PUBLIC_API_URL")
 
     # ── Integracao com o app `ai` central (usado por receipt + monitor) ────────
     # receipt/monitor chamam o app `ai` em {ai_base_url}/api/v1/text/chat — nunca

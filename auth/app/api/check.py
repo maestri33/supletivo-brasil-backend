@@ -99,7 +99,10 @@ async def try_acquire_otp_slot(redis, external_id: str) -> int | None:
 
 
 async def lookup_external_id(external_id: str) -> dict:
-    """Busca dados completos: Profiles (cpf) + Notify (phone). Retorna {found, external_id, cpf?, phone?}."""
+    """Busca dados completos: Profiles (cpf) + Notify (phone).
+
+    Retorna {found, external_id, cpf?, phone?}.
+    """
     result: dict = {"external_id": external_id}
     try:
         async with ProfilesClient() as profiles:

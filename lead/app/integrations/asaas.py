@@ -70,13 +70,9 @@ class AsaasClient(BaseClient):
 
     async def create_charge_pix(self, payload: AsaasChargeCreate) -> AsaasChargeOut:
         body = payload.model_dump(exclude_none=True)
-        resp = await request_with_retry(
-            self.client, "POST", "/api/v1/charge/pix", json=body
-        )
+        resp = await request_with_retry(self.client, "POST", "/api/v1/charge/pix", json=body)
         return AsaasChargeOut(**resp.json())
 
     async def get_charge(self, payment_id: str) -> AsaasChargeOut:
-        resp = await request_with_retry(
-            self.client, "GET", f"/api/v1/charge/{payment_id}"
-        )
+        resp = await request_with_retry(self.client, "GET", f"/api/v1/charge/{payment_id}")
         return AsaasChargeOut(**resp.json())

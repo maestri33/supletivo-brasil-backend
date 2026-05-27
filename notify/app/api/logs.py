@@ -21,7 +21,10 @@ async def list_logs(
 ) -> list[LogRead]:
     if message_id is not None:
         records = await log_service.list_logs_by_message(
-            session, message_id, limit=limit, offset=offset,
+            session,
+            message_id,
+            limit=limit,
+            offset=offset,
         )
     else:
         records = await log_service.list_logs(session, limit=limit, offset=offset)
@@ -45,7 +48,10 @@ async def list_logs_by_external_id(
     Ordenacao por created_at desc (mais recente primeiro).
     """
     records = await log_service.list_logs_by_external_id(
-        session, external_id, limit=limit, offset=offset,
+        session,
+        external_id,
+        limit=limit,
+        offset=offset,
     )
     return [LogRead.model_validate(r, from_attributes=True) for r in records]
 

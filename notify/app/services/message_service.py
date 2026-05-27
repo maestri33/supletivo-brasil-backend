@@ -47,11 +47,18 @@ from app.utils.logging import get_logger
 log = get_logger(__name__)
 
 _MIME_MAP = {
-    "image/jpeg": "image", "image/jpg": "image", "image/png": "image",
-    "image/webp": "image", "image/gif": "image",
-    "video/mp4": "video", "video/quicktime": "video",
-    "audio/mpeg": "audio", "audio/mp3": "audio", "audio/ogg": "audio",
-    "audio/opus": "audio", "audio/wav": "audio",
+    "image/jpeg": "image",
+    "image/jpg": "image",
+    "image/png": "image",
+    "image/webp": "image",
+    "image/gif": "image",
+    "video/mp4": "video",
+    "video/quicktime": "video",
+    "audio/mpeg": "audio",
+    "audio/mp3": "audio",
+    "audio/ogg": "audio",
+    "audio/opus": "audio",
+    "audio/wav": "audio",
 }
 _IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 _VIDEO_EXT = {".mp4", ".mov", ".avi", ".mkv"}
@@ -108,11 +115,18 @@ def _handle_base64_media(data_uri: str) -> tuple[str, str, str, str]:
 
     media_type = _MIME_MAP.get(mime, "document")
     ext_map = {
-        "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png",
-        "image/webp": ".webp", "image/gif": ".gif",
-        "video/mp4": ".mp4", "video/quicktime": ".mov",
-        "audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/ogg": ".ogg",
-        "audio/opus": ".opus", "audio/wav": ".wav",
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/gif": ".gif",
+        "video/mp4": ".mp4",
+        "video/quicktime": ".mov",
+        "audio/mpeg": ".mp3",
+        "audio/mp3": ".mp3",
+        "audio/ogg": ".ogg",
+        "audio/opus": ".opus",
+        "audio/wav": ".wav",
         "application/pdf": ".pdf",
     }
     ext = ext_map.get(mime, mimetypes.guess_extension(mime) or ".bin")
@@ -124,7 +138,10 @@ def _handle_base64_media(data_uri: str) -> tuple[str, str, str, str]:
     public_url = _public_url(relative)
     dmz_url = _dmz_url(relative)
     log.info(
-        "media.base64_decoded", mime=mime, relative=relative, bytes=len(raw),
+        "media.base64_decoded",
+        mime=mime,
+        relative=relative,
+        bytes=len(raw),
     )
     return public_url, dmz_url, media_type, pure_b64
 
@@ -139,8 +156,8 @@ def _email_media_html(media_url: str, media_type: str, caption: str) -> str:
             f'<img src="{safe_url}" alt="{safe_caption}" '
             f'style="max-width:100%;height:auto;border-radius:4px">'
             f'<p style="margin:8px 0 0;color:#666;font-size:14px;font-family:Arial,sans-serif">'
-            f'{safe_caption}</p>'
-            f'</div>'
+            f"{safe_caption}</p>"
+            f"</div>"
         )
     if media_type == "video":
         return (
@@ -149,7 +166,7 @@ def _email_media_html(media_url: str, media_type: str, caption: str) -> str:
             f'<p style="margin:8px 0;font-family:Arial,sans-serif;font-size:15px;color:#333">{safe_caption}</p>'
             f'<a href="{safe_url}" target="_blank" '
             f'style="color:#1a73e8;font-family:Arial,sans-serif;font-size:14px">Assistir v&iacute;deo</a>'
-            f'</div>'
+            f"</div>"
         )
     if media_type == "audio":
         return (
@@ -158,7 +175,7 @@ def _email_media_html(media_url: str, media_type: str, caption: str) -> str:
             f'<p style="margin:8px 0;font-family:Arial,sans-serif;font-size:15px;color:#333">{safe_caption}</p>'
             f'<a href="{safe_url}" target="_blank" '
             f'style="color:#1a73e8;font-family:Arial,sans-serif;font-size:14px">Ouvir &aacute;udio</a>'
-            f'</div>'
+            f"</div>"
         )
     safe_name = _html.escape(media_url.rsplit("/", 1)[-1] if "/" in media_url else "arquivo")
     return (
@@ -168,7 +185,7 @@ def _email_media_html(media_url: str, media_type: str, caption: str) -> str:
         f'<p style="margin:8px 0;font-family:Arial,sans-serif;font-size:15px;color:#333">{safe_caption}</p>'
         f'<a href="{safe_url}" target="_blank" '
         f'style="color:#1a73e8;font-family:Arial,sans-serif;font-size:14px">Baixar arquivo</a>'
-        f'</div>'
+        f"</div>"
     )
 
 
@@ -259,9 +276,7 @@ def _render_html(
         # Escape primeiro (XSS-safe), depois aplica markdown bold sobre o
         # texto ja escapado. '**texto**' sobrevive ao escape e vira tag
         # <strong> de forma segura. Newlines em <br> mantem layout.
-        safe_content = _md_bold_to_html_after_escape(
-            _html.escape(content)
-        ).replace("\n", "<br>")
+        safe_content = _md_bold_to_html_after_escape(_html.escape(content)).replace("\n", "<br>")
     return (
         template.replace("{{title}}", safe_title)
         .replace("{{content}}", safe_content)
@@ -313,14 +328,19 @@ async def _retry(
             last_exc = exc
             if not _is_retryable(exc):
                 log.warning(
-                    f"{label}.non_retryable", attempt=attempt, error=str(exc)[:200],
+                    f"{label}.non_retryable",
+                    attempt=attempt,
+                    error=str(exc)[:200],
                 )
                 return None, attempt, str(exc)
             if attempt > max_retries:
                 break
             sleep_s = backoff_base_s * (3 ** (attempt - 1))
             log.info(
-                f"{label}.retry", attempt=attempt, sleep_s=sleep_s, error=str(exc)[:200],
+                f"{label}.retry",
+                attempt=attempt,
+                sleep_s=sleep_s,
+                error=str(exc)[:200],
             )
             await asyncio.sleep(sleep_s)
     return None, attempt, str(last_exc) if last_exc else "unknown"
@@ -423,6 +443,7 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                     # caption, sem a imagem que o usuario espera.
                     if media_type == "image":
                         import base64 as _b64
+
                         try:
                             img_bytes = _b64.b64decode(_wa_b64, validate=True)
                             # Detecta subtype do data URI header (default jpeg).
@@ -469,8 +490,7 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                     # publicas tipo `ai.m33.live`. notify baixa via URL
                     # interna docker e passa base64 puro pro Evolution.
                     internal_url = (
-                        f"{settings.ai_base_url.rstrip('/')}"
-                        f"/media/image/{result['filename']}"
+                        f"{settings.ai_base_url.rstrip('/')}/media/image/{result['filename']}"
                     )
                     dl = await http.get(internal_url, timeout=30.0)
                     dl.raise_for_status()
@@ -491,7 +511,8 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                     tts_enabled = False
                     log.info(
                         "img.generated",
-                        bytes=len(dl.content), mime=mime,
+                        bytes=len(dl.content),
+                        mime=mime,
                         public_url=result["url"],
                     )
                 except Exception as exc:  # noqa: BLE001
@@ -514,17 +535,18 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
             body = _md_bold_to_whatsapp(stripped)
 
             template = await template_service.get_active_or_default(
-                session, payload.template_slug,
+                session,
+                payload.template_slug,
             )
             _email_url = email_media_url if img_used or email_media_url else media_url
             has_media_html = bool(media_type and _email_url)
             email_body = (
-                _email_media_html(_email_url, media_type, stripped)
-                if has_media_html
-                else stripped
+                _email_media_html(_email_url, media_type, stripped) if has_media_html else stripped
             )
             html = _render_html(
-                template.html, title, email_body,
+                template.html,
+                title,
+                email_body,
                 content_is_html=has_media_html,
             )
 
@@ -550,7 +572,10 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                         _, whatsapp_attempts, whatsapp_error = await _retry(
                             "whatsapp.send_media",
                             lambda: whatsapp.send_media(
-                                wa_number, _wa_url, media_type, caption=body,
+                                wa_number,
+                                _wa_url,
+                                media_type,
+                                caption=body,
                             ),
                             max_retries=settings.whatsapp_max_retries,
                             backoff_base_s=settings.whatsapp_retry_backoff_base_s,
@@ -569,7 +594,8 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                     if whatsapp_error:
                         log.error(
                             "whatsapp.send_failed",
-                            attempts=whatsapp_attempts, error=whatsapp_error[:200],
+                            attempts=whatsapp_attempts,
+                            error=whatsapp_error[:200],
                         )
 
                 if tts_enabled:
@@ -586,9 +612,7 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                     # (profile 404, gender None, profiles down) -> voice_id
                     # = None -> AI usa elevenlabs_voice_id default.
                     profiles_client = ProfilesClient(http)
-                    gender = await profiles_client.get_gender(
-                        str(payload.external_id)
-                    )
+                    gender = await profiles_client.get_gender(str(payload.external_id))
                     tts_voice_id: str | None = None
                     if gender == "M":
                         tts_voice_id = settings.elevenlabs_voice_male
@@ -615,17 +639,15 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                         tts_text = f"{title.rstrip('.!? ')}. {clean_body}"
                         result = await ai.tts(tts_text, voice_id=tts_voice_id)
                         filename = result["filename"]
-                        internal_url = (
-                            f"{settings.ai_base_url.rstrip('/')}"
-                            f"/media/audio/{filename}"
-                        )
+                        internal_url = f"{settings.ai_base_url.rstrip('/')}/media/audio/{filename}"
                         dl = await http.get(internal_url, timeout=30.0)
                         dl.raise_for_status()
                         wa_audio_b64 = _b64.b64encode(dl.content).decode("ascii")
                         message.tts_audio_url = result["url"]  # publica p/ audit
                         log.info(
                             "tts.audio_ready",
-                            filename=filename, bytes=len(dl.content),
+                            filename=filename,
+                            bytes=len(dl.content),
                         )
                     except Exception as exc:  # noqa: BLE001
                         log.error("tts.generation_failed", error=str(exc)[:200])
@@ -636,7 +658,8 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                         _, whatsapp_attempts, whatsapp_error = await _retry(
                             "whatsapp.send_audio",
                             lambda: whatsapp.send_whatsapp_audio(
-                                wa_number, wa_audio_b64,
+                                wa_number,
+                                wa_audio_b64,
                             ),
                             max_retries=settings.whatsapp_max_retries,
                             backoff_base_s=settings.whatsapp_retry_backoff_base_s,
@@ -655,9 +678,7 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                                 error=whatsapp_error[:200],
                             )
                             tts_failed = True
-                            tts_fallback_reason = (
-                                f"send_audio: {whatsapp_error[:80]}"
-                            )
+                            tts_fallback_reason = f"send_audio: {whatsapp_error[:80]}"
 
                     if tts_failed:
                         # Fallback: envia texto normal no WhatsApp.
@@ -674,9 +695,7 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                             backoff_base_s=settings.whatsapp_retry_backoff_base_s,
                         )
                         message.whatsapp_status = (
-                            STATUS_SENT
-                            if whatsapp_error is None
-                            else STATUS_FAILED
+                            STATUS_SENT if whatsapp_error is None else STATUS_FAILED
                         )
                         if whatsapp_error:
                             log.error(
@@ -719,9 +738,13 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                 action="message.sent",
                 details={
                     "contact_external_id": str(payload.external_id),
-                    "type": msg_type, "media": media_type,
-                    "whatsapp": message.whatsapp_status, "email": message.email_status,
-                    "tts": tts_enabled, "ai": ai_used, "img": img_used,
+                    "type": msg_type,
+                    "media": media_type,
+                    "whatsapp": message.whatsapp_status,
+                    "email": message.email_status,
+                    "tts": tts_enabled,
+                    "ai": ai_used,
+                    "img": img_used,
                     "template_slug": template.slug,
                     "template_version": template.version,
                     "whatsapp_attempts": whatsapp_attempts or None,
@@ -733,25 +756,32 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
         )
         await session.commit()
         log.info(
-            "message.processed", id=message.id, type=msg_type,
-            whatsapp=message.whatsapp_status, email=message.email_status,
+            "message.processed",
+            id=message.id,
+            type=msg_type,
+            whatsapp=message.whatsapp_status,
+            email=message.email_status,
         )
 
     if payload.webhook_url:
         wh_url = f"{payload.webhook_url.rstrip('/')}/{message_id}"
         try:
             async with httpx.AsyncClient() as http:
-                wh_resp = await http.post(wh_url, json={
-                    "event": "message.processed",
-                    "message_id": message_id,
-                    "contact_id": contact.id,
-                    "external_id": str(payload.external_id),
-                    "type": msg_type,
-                    "whatsapp_status": message.whatsapp_status,
-                    "email_status": message.email_status,
-                    "email_subject": title,
-                    "tts_audio_url": message.tts_audio_url,
-                }, timeout=10.0)
+                wh_resp = await http.post(
+                    wh_url,
+                    json={
+                        "event": "message.processed",
+                        "message_id": message_id,
+                        "contact_id": contact.id,
+                        "external_id": str(payload.external_id),
+                        "type": msg_type,
+                        "whatsapp_status": message.whatsapp_status,
+                        "email_status": message.email_status,
+                        "email_subject": title,
+                        "tts_audio_url": message.tts_audio_url,
+                    },
+                    timeout=10.0,
+                )
                 log.info("webhook.sent", url=wh_url, status=wh_resp.status_code)
         except Exception as exc:
             log.error("webhook.failed", url=wh_url, error=str(exc))
@@ -761,7 +791,8 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
 
 
 async def send_test_email(
-    session: AsyncSession, payload: TestEmailRequest,
+    session: AsyncSession,
+    payload: TestEmailRequest,
 ) -> TestEmailResult:
     """Dispara um email de diagnostico sem criar Contact/Message.
 

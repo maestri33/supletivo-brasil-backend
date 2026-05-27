@@ -39,7 +39,10 @@ class OTPLog(Base):
     # Tentativas inválidas de verificação. Quando atinge otp_max_attempts,
     # o status vira "failed" com failure_reason="invalid_code".
     attempts: Mapped[int] = mapped_column(
-        Integer, default=0, server_default="0", nullable=False,
+        Integer,
+        default=0,
+        server_default="0",
+        nullable=False,
     )
 
     # Categoriza falha pra observabilidade. Preenchido quando status in
@@ -52,5 +55,7 @@ class OTPLog(Base):
 
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False,
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )

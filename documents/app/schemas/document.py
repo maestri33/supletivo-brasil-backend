@@ -4,19 +4,26 @@ from uuid import UUID
 
 
 ALLOWED_MIME_IMG = {"image/jpeg", "image/png", "image/webp"}
-IMAGE_SLOTS = frozenset({
-    "rg_foto_frente", "rg_foto_verso",
-    "cnh_foto_frente", "cnh_foto_verso",
-    "carteira_trabalho_foto_frente", "carteira_trabalho_foto_verso",
-    "passaporte_foto_frente", "passaporte_foto_verso",
-    "certidao_foto",
-    "reservista_foto",
-    "comprovante_residencia_foto",
-    "foto",
-})
+IMAGE_SLOTS = frozenset(
+    {
+        "rg_foto_frente",
+        "rg_foto_verso",
+        "cnh_foto_frente",
+        "cnh_foto_verso",
+        "carteira_trabalho_foto_frente",
+        "carteira_trabalho_foto_verso",
+        "passaporte_foto_frente",
+        "passaporte_foto_verso",
+        "certidao_foto",
+        "reservista_foto",
+        "comprovante_residencia_foto",
+        "foto",
+    }
+)
 
 
 # --- sub-documentos ---
+
 
 class RGUpdate(BaseModel):
     numero: str | None = None
@@ -107,6 +114,7 @@ class CertidaoUpdate(BaseModel):
 
 
 # --- documento principal ---
+
 
 class DocumentUpdate(BaseModel):
     rg: RGUpdate | None = None

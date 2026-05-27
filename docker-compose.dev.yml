@@ -1,0 +1,336 @@
+# =============================================================================
+# docker-compose.dev.yml — Ambiente de desenvolvimento completo
+# =============================================================================
+# Uso:
+#   docker compose -f docker-compose.dev.yml up -d           # tudo
+#   docker compose -f docker-compose.dev.yml up -d <servico> # um só
+#   docker compose -f docker-compose.dev.yml ps               # status
+#   docker compose -f docker-compose.dev.yml down             # derruba tudo
+#
+# Serviços: 17 (address, ai, asaas, auth, enrollment, fees, hub, infinitepay, jwt, lead, notify, otp, profiles, promoter, roles, student, training)
+# =============================================================================
+
+services:
+
+  # -- Infraestrutura compartilhada --
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: supletivo
+      POSTGRES_USER: supletivo
+      POSTGRES_PASSWORD: supletivo_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supletivo -d supletivo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # -- Microsservicos (1 container por servico) --
+
+  address:
+    build:
+      context: ./address
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: address
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./address/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  ai:
+    build:
+      context: ./ai
+    ports:
+      - "8002:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: ai
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./ai/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  asaas:
+    build:
+      context: ./asaas
+    ports:
+      - "8003:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: asaas
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./asaas/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  auth:
+    build:
+      context: ./auth
+    ports:
+      - "8004:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: auth
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./auth/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  enrollment:
+    build:
+      context: ./enrollment
+    ports:
+      - "8005:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: enrollment
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./enrollment/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  fees:
+    build:
+      context: ./fees
+    ports:
+      - "8006:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: fees
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./fees/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  hub:
+    build:
+      context: ./hub
+    ports:
+      - "8007:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: hub
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./hub/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  infinitepay:
+    build:
+      context: ./infinitepay
+    ports:
+      - "8008:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: infinitepay
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./infinitepay/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  jwt:
+    build:
+      context: ./jwt
+    ports:
+      - "8009:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: jwt
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./jwt/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  lead:
+    build:
+      context: ./lead
+    ports:
+      - "8010:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: lead
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./lead/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  notify:
+    build:
+      context: ./notify
+    ports:
+      - "8011:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: notify
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./notify/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  otp:
+    build:
+      context: ./otp
+    ports:
+      - "8012:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: otp
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./otp/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  profiles:
+    build:
+      context: ./profiles
+    ports:
+      - "8013:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: profiles
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./profiles/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  promoter:
+    build:
+      context: ./promoter
+    ports:
+      - "8014:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: promoter
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./promoter/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  roles:
+    build:
+      context: ./roles
+    ports:
+      - "8015:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: roles
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./roles/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  student:
+    build:
+      context: ./student
+    ports:
+      - "8016:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: student
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./student/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  training:
+    build:
+      context: ./training
+    ports:
+      - "8017:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: training
+      REDIS_URL: redis://redis:6379/0
+    env_file:
+      - ./training/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+volumes:
+  pgdata:

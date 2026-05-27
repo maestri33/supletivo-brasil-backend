@@ -3,7 +3,7 @@
 import hashlib
 import secrets
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -114,7 +114,7 @@ async def generate_and_send(
             content=content,
             otp_log_id=otp_log.id,
             attempts=1,
-            next_retry_at=datetime.now(timezone.utc),
+            next_retry_at=datetime.now(UTC),
             error_detail=str(exc),
         )
         session.add(pending)
@@ -170,7 +170,8 @@ async def verify_code(
             await session.commit()
             log.info(
                 "otp.check.max_attempts",
-                id=otp_log.id, attempts=otp_log.attempts,
+                id=otp_log.id,
+                attempts=otp_log.attempts,
             )
             return {
                 "valid": False,
@@ -181,7 +182,7 @@ async def verify_code(
         return {"valid": False, "detail": "Código inválido"}
 
     otp_log.status = "verified"
-    otp_log.verified_at = datetime.now(timezone.utc)
+    otp_log.verified_at = datetime.now(UTC)
     await session.commit()
     log.info("otp.check.verified", id=otp_log.id, external_id=str(external_id))
     return {"valid": True, "detail": "ok"}

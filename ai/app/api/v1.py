@@ -5,7 +5,7 @@ Endpoints v1 — contratos novos com envelope APIResponse.
 import json
 import time
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from app.api.schemas import (
@@ -26,7 +26,14 @@ from app.integrations.http_client import get_http_client
 router = APIRouter(tags=["v1"])
 
 
-def _envelope(provider: str, model: str, latency_ms: float, usage: UsageStats, finish_reason: str | None, data):
+def _envelope(
+    provider: str,
+    model: str,
+    latency_ms: float,
+    usage: UsageStats,
+    finish_reason: str | None,
+    data,
+):
     return APIResponse(
         provider=provider,
         model=model,
@@ -40,6 +47,7 @@ def _envelope(provider: str, model: str, latency_ms: float, usage: UsageStats, f
 # ---------------------------------------------------------------------------
 # POST /v1/text/chat
 # ---------------------------------------------------------------------------
+
 
 @router.post("/text/chat")
 async def chat(body: ChatRequest, client=Depends(get_http_client)):
@@ -58,7 +66,9 @@ async def chat(body: ChatRequest, client=Depends(get_http_client)):
         )
         latency = (time.monotonic() - t0) * 1000
         return _envelope(
-            provider="deepseek", model=model, latency_ms=latency,
+            provider="deepseek",
+            model=model,
+            latency_ms=latency,
             usage=UsageStats(
                 prompt_tokens=result.prompt_tokens,
                 completion_tokens=result.completion_tokens,
@@ -66,7 +76,9 @@ async def chat(body: ChatRequest, client=Depends(get_http_client)):
                 cache_miss_tokens=result.cache_miss_tokens,
             ),
             finish_reason=result.finish_reason,
-            data=ChatData(message=ChatMessage(role="assistant", content=result.content)),
+            data=ChatData(
+                message=ChatMessage(role="assistant", content=result.content)
+            ),
         )
 
     # --- Stream SSE ---
@@ -104,6 +116,7 @@ async def chat(body: ChatRequest, client=Depends(get_http_client)):
 # POST /v1/text/summarize
 # ---------------------------------------------------------------------------
 
+
 @router.post("/text/summarize")
 async def summarize(body: SummarizeRequest, client=Depends(get_http_client)):
     settings = get_settings()
@@ -119,7 +132,9 @@ async def summarize(body: SummarizeRequest, client=Depends(get_http_client)):
     )
     latency = (time.monotonic() - t0) * 1000
     return _envelope(
-        provider="deepseek", model=model, latency_ms=latency,
+        provider="deepseek",
+        model=model,
+        latency_ms=latency,
         usage=UsageStats(
             prompt_tokens=result.prompt_tokens,
             completion_tokens=result.completion_tokens,
@@ -134,6 +149,7 @@ async def summarize(body: SummarizeRequest, client=Depends(get_http_client)):
 # ---------------------------------------------------------------------------
 # POST /v1/text/extract
 # ---------------------------------------------------------------------------
+
 
 @router.post("/text/extract")
 async def extract(body: ExtractRequest, client=Depends(get_http_client)):
@@ -154,10 +170,13 @@ async def extract(body: ExtractRequest, client=Depends(get_http_client)):
         extracted = json.loads(result.content)
     except json.JSONDecodeError:
         from app.integrations.http_client import IntegrationError
+
         raise IntegrationError("Falha ao parsear JSON da extracao")
 
     return _envelope(
-        provider="deepseek", model=model, latency_ms=latency,
+        provider="deepseek",
+        model=model,
+        latency_ms=latency,
         usage=UsageStats(
             prompt_tokens=result.prompt_tokens,
             completion_tokens=result.completion_tokens,

@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app.api.hubs import router as hubs_router
 from app.config import get_settings
 from app.db import async_session_maker, engine
 from app.exceptions import DomainError
@@ -47,6 +48,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(hubs_router)
 
 
 @app.exception_handler(DomainError)

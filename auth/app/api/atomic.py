@@ -34,7 +34,11 @@ async def atomic_create(request: Request) -> dict:
 
     token = str(uuid.uuid4())
     await redis.setex(ATOMIC_KEY, ATOMIC_TTL, token)
-    return {"atomic_id": token, "ttl": ATOMIC_TTL, "message": f"DELETE /api/v1/atomic/{token} para confirmar"}
+    return {
+        "atomic_id": token,
+        "ttl": ATOMIC_TTL,
+        "message": f"DELETE /api/v1/atomic/{token} para confirmar",
+    }
 
 
 @router.delete("/{atomic_id}", summary="Executa limpeza total do ecossistema")
@@ -46,7 +50,10 @@ async def atomic_execute(atomic_id: str, request: Request) -> dict:
 
     stored = await redis.get(ATOMIC_KEY)
     if stored is None:
-        return {"detail": "Nenhum token ativo. Crie um com POST /atomic primeiro.", "code": "NO_TOKEN"}
+        return {
+            "detail": "Nenhum token ativo. Crie um com POST /atomic primeiro.",
+            "code": "NO_TOKEN",
+        }
     if stored != atomic_id:
         return {"detail": "Token invalido.", "code": "BAD_TOKEN"}
 
@@ -89,7 +96,10 @@ async def atomic_execute(atomic_id: str, request: Request) -> dict:
                             deleted += 1
                 results["profiles"] = {"status": "ok", "deleted": deleted}
             else:
-                results["profiles"] = {"status": "no_list_endpoint", "detail": f"HTTP {resp.status_code}"}
+                results["profiles"] = {
+                    "status": "no_list_endpoint",
+                    "detail": f"HTTP {resp.status_code}",
+                }
     except Exception as exc:
         results["profiles"] = {"status": "error", "detail": str(exc)}
 
@@ -139,7 +149,10 @@ async def atomic_execute(atomic_id: str, request: Request) -> dict:
                             deleted += 1
                 results["notify"] = {"status": "ok", "deleted": deleted}
             else:
-                results["notify"] = {"status": "no_list_endpoint", "detail": f"HTTP {resp.status_code}"}
+                results["notify"] = {
+                    "status": "no_list_endpoint",
+                    "detail": f"HTTP {resp.status_code}",
+                }
     except Exception as exc:
         results["notify"] = {"status": "error", "detail": str(exc)}
 
@@ -175,7 +188,10 @@ async def atomic_execute(atomic_id: str, request: Request) -> dict:
                             deleted_co += 1
                 results["lead_checkouts"] = {"status": "ok", "deleted": deleted_co}
             else:
-                results["lead_checkouts"] = {"status": "error", "detail": f"HTTP {resp.status_code}"}
+                results["lead_checkouts"] = {
+                    "status": "error",
+                    "detail": f"HTTP {resp.status_code}",
+                }
     except Exception as exc:
         results["lead"] = {"status": "error", "detail": str(exc)}
 

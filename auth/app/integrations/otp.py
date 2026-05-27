@@ -34,19 +34,28 @@ class OTPClient:
     async def check(self, external_id: str, code: str) -> dict:
         """POST /api/v1/otp/check — valida codigo OTP."""
         resp = await self._request(
-            "POST", "/api/v1/otp/check",
+            "POST",
+            "/api/v1/otp/check",
             json={"external_id": external_id, "code": code},
         )
         return resp.json()
 
     async def _request(
-        self, method: str, path: str, *,
-        json: dict | None = None, params: dict | None = None,
+        self,
+        method: str,
+        path: str,
+        *,
+        json: dict | None = None,
+        params: dict | None = None,
     ) -> niquests.Response:
         url = f"{self._base}{path}"
         logger.debug(f"[otp] {method} {url}" + (f" body={json}" if json else ""))
         resp = await self._session.request(
-            method, url, json=json, params=params, timeout=self._timeout,
+            method,
+            url,
+            json=json,
+            params=params,
+            timeout=self._timeout,
         )
         logger.debug(f"[otp] ← {resp.status_code}")
         if resp.status_code >= 400:
@@ -54,7 +63,10 @@ class OTPClient:
             try:
                 body = resp.json()
                 if isinstance(body, dict):
-                    detail = f"{body.get('code', '')}: {body.get('message', body.get('detail', str(body)))}"
+                    detail = (
+                        f"{body.get('code', '')}: "
+                        f"{body.get('message', body.get('detail', str(body)))}"
+                    )
             except Exception:
                 detail = resp.text or detail
             raise OTPError(resp.status_code, detail)

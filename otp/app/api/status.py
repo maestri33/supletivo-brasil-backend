@@ -1,7 +1,7 @@
 """Status endpoint — GET /status (SQLAlchemy 2)."""
 
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from fastapi import APIRouter, Depends
@@ -48,8 +48,7 @@ async def _avg_verification_ms(session: AsyncSession) -> float | None:
     avg_seconds = await session.scalar(
         select(
             func.avg(
-                func.extract("epoch", OTPLog.verified_at)
-                - func.extract("epoch", OTPLog.created_at)
+                func.extract("epoch", OTPLog.verified_at) - func.extract("epoch", OTPLog.created_at)
             )
         ).where(OTPLog.status == "verified", OTPLog.verified_at.is_not(None))
     )
@@ -86,7 +85,7 @@ async def _top_failed_external_ids(session: AsyncSession, limit: int = 10) -> li
 
 async def _rate_limit_active(session: AsyncSession) -> int:
     """Quantos external_ids tiveram OTP nos últimos 60s (estão em janela curta)."""
-    cutoff = datetime.now(timezone.utc) - timedelta(seconds=settings.otp_ratelimit_window_s)
+    cutoff = datetime.now(UTC) - timedelta(seconds=settings.otp_ratelimit_window_s)
     result = await session.scalar(
         select(func.count(RateLimit.external_id)).where(RateLimit.last_created_at >= cutoff)
     )
@@ -94,7 +93,7 @@ async def _rate_limit_active(session: AsyncSession) -> int:
 
 
 @router.get("/status")
-async def status(session: AsyncSession = Depends(get_session)) -> dict:
+async def status(session: AsyncSession = Depends(get_session)) -> dict:  # noqa: B008
     db = await _db_status(session)
 
     async with httpx.AsyncClient(timeout=5) as http:
@@ -115,9 +114,7 @@ async def status(session: AsyncSession = Depends(get_session)) -> dict:
     top_failed = await _top_failed_external_ids(session)
     rl_active = await _rate_limit_active(session)
 
-    recent = await session.scalars(
-        select(OTPLog).order_by(OTPLog.created_at.desc()).limit(10)
-    )
+    recent = await session.scalars(select(OTPLog).order_by(OTPLog.created_at.desc()).limit(10))
 
     return {
         "service": settings.service_name,
@@ -156,5 +153,5 @@ async def status(session: AsyncSession = Depends(get_session)) -> dict:
             }
             for r in recent.all()
         ],
-        "queried_at": datetime.now(timezone.utc).isoformat(),
+        "queried_at": datetime.now(UTC).isoformat(),
     }
