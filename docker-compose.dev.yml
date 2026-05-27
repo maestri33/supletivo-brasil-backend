@@ -7,7 +7,7 @@
 #   docker compose -f docker-compose.dev.yml ps               # status
 #   docker compose -f docker-compose.dev.yml down             # derruba tudo
 #
-# Serviços: 20 microsserviços + postgres + redis
+# Serviços: 22 microsserviços + postgres + redis + prometheus + loki + grafana
 # =============================================================================
 
 services:
@@ -21,7 +21,7 @@ services:
       POSTGRES_USER: supletivo
       POSTGRES_PASSWORD: supletivo_dev
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -51,11 +51,13 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: address
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./address/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      auth:
         condition: service_healthy
 
   ai:
@@ -64,11 +66,14 @@ services:
     ports:
       - "8002:8000"
     environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: ai
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./ai/.env.example
-    depends_on: {}
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   asaas:
     build:
@@ -78,12 +83,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: asaas
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./asaas/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   auth:
     build:
@@ -93,9 +98,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: auth
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./auth/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
@@ -110,12 +113,57 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: candidate
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./candidate/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
+
+  commissions:
+    build:
+      context: ./commissions
+    ports:
+      - "8006:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: commissions
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  coordinator:
+    build:
+      context: ./coordinator
+    ports:
+      - "8007:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: coordinator
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  documents:
+    build:
+      context: ./documents
+    ports:
+      - "8008:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: documents
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   enrollment:
     build:
@@ -125,12 +173,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: enrollment
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./enrollment/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   fees:
     build:
@@ -146,6 +194,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   hub:
     build:
@@ -155,12 +205,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: hub
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./hub/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   infinitepay:
     build:
@@ -170,12 +220,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: infinitepay
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./infinitepay/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   jwt:
     build:
@@ -183,11 +233,14 @@ services:
     ports:
       - "8013:8000"
     environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: jwt
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./jwt/.env.example
-    depends_on: {}
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   lead:
     build:
@@ -197,12 +250,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: lead
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./lead/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   notify:
     build:
@@ -212,12 +265,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: notify
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./notify/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   otp:
     build:
@@ -227,12 +280,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: otp
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./otp/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   profiles:
     build:
@@ -242,12 +295,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: profiles
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./profiles/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   promoter:
     build:
@@ -257,12 +310,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: promoter
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./promoter/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   roles:
     build:
@@ -272,12 +325,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: roles
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./roles/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   staff:
     build:
@@ -287,12 +340,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: staff
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./staff/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   student:
     build:
@@ -302,12 +355,12 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: student
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./student/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
   training:
     build:
@@ -317,25 +370,73 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: training
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./training/.env.example
+      REDIS_URL: redis://redis:***@postgres:5432/supletivo
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_started
 
-  documents:
-    build:
-      context: ./documents
+  # -- Observabilidade (Grafana + Loki + Prometheus) --
+  # Sprint 3 (§7 Q4): self-hosted stack
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
     ports:
-      - "8008:8000"
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:9090/-/healthy", "-O", "/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  loki:
+    image: grafana/loki:3.0.0
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    command:
+      - "-config.file=/etc/loki/loki-config.yml"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:3100/ready", "-O", "/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
     environment:
-      DATABASE_URL: sqlite:///documents.db
-      DATABASE_SCHEMA: documents
-      REDIS_URL: redis://redis:6379/0
-    env_file:
-      - ./documents/.env.example
-    depends_on: {}
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: ""
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:3000/api/health", "-O", "/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   pgdata:
+  prometheus_data:
+  loki_data:
+  grafana_data:
