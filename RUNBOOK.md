@@ -63,6 +63,23 @@ Each service exposes `GET /health`. Response format:
 {"status": "healthy", "service": "address", "timestamp": "2026-05-27T..."}
 ```
 
+**Smoke test script** (post-deploy health + money-path verification):
+```bash
+# Health check only (safe, no side effects)
+./scripts/smoke-test.sh
+
+# Full money-path end-to-end test (creates test data)
+./scripts/smoke-test.sh --full
+
+# Single service health check
+./scripts/smoke-test.sh --service lead
+```
+
+**Init-dbs script** (create DB schemas for all services):
+```bash
+./scripts/init-dbs.sh
+```
+
 **Prometheus alert rules** (prometheus/alert-rules.yml):
 - **ServiceDown**: `up == 0` for 45s → critical
 - **ServiceFlapping**: `changes(up[5m]) > 3` → warning

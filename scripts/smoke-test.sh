@@ -33,7 +33,8 @@ warn() { echo -e "  ${YELLOW}WARN${NC} $1 — $2"; }
 
 declare -A PORTS=(
     [address]=8001    [ai]=8002        [asaas]=8003      [auth]=8004
-    [candidate]=8005  [documents]=8008 [enrollment]=8009 [fees]=8010
+    [candidate]=8005  [commissions]=8006                 [coordinator]=8007
+    [documents]=8008  [enrollment]=8009 [fees]=8010
     [hub]=8011        [infinitepay]=8012                 [jwt]=8013
     [lead]=8014       [notify]=8015    [otp]=8016        [profiles]=8017
     [promoter]=8018   [roles]=8019     [staff]=8020      [student]=8021
