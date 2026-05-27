@@ -15,8 +15,10 @@ T = TypeVar("T")
 # Envelope padrao
 # ---------------------------------------------------------------------------
 
+
 class UsageStats(BaseModel):
     """Metricas de uso de tokens e cache."""
+
     prompt_tokens: int = 0
     completion_tokens: int = 0
     cache_hit_tokens: int = 0
@@ -25,6 +27,7 @@ class UsageStats(BaseModel):
 
 class APIResponse(BaseModel, Generic[T]):
     """Envelope padrao para todas as respostas v1."""
+
     provider: str
     model: str
     latency_ms: float
@@ -36,6 +39,7 @@ class APIResponse(BaseModel, Generic[T]):
 # ---------------------------------------------------------------------------
 # /v1/text/chat
 # ---------------------------------------------------------------------------
+
 
 class ChatMessage(BaseModel):
     role: Literal["system", "user", "assistant"]
@@ -65,6 +69,7 @@ class ChatData(BaseModel):
 # /v1/text/summarize
 # ---------------------------------------------------------------------------
 
+
 class SummarizeFormat(str, Enum):
     PARAGRAPH = "paragraph"
     BULLETS = "bullets"
@@ -86,9 +91,12 @@ class SummarizeData(BaseModel):
 # /v1/text/extract
 # ---------------------------------------------------------------------------
 
+
 class ExtractRequest(BaseModel):
     text: str = Field(min_length=1)
-    json_schema: dict = Field(description="JSON Schema que define a estrutura da extracao")
+    json_schema: dict = Field(
+        description="JSON Schema que define a estrutura da extracao"
+    )
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     max_tokens: int | None = Field(default=None)
 

@@ -1,0 +1,10 @@
+# System & environment
+.env
+.venv
+venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

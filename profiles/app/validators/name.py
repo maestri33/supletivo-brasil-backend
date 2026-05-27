@@ -15,24 +15,43 @@ from app.exceptions import ValidationError
 
 _CONECTORES = frozenset({"da", "de", "do", "das", "dos", "e"})
 
-_BLACKLIST = frozenset({
-    "admin", "administrador", "suporte", "support",
-    "system", "sistema", "root", "null", "undefined",
-    "test", "teste", "user", "usuario", "usuário",
-    "ninguem", "ninguém", "anonimo", "anônimo", "anonymous",
-    "cliente", "cliente1", "visitante",
-})
+_BLACKLIST = frozenset(
+    {
+        "admin",
+        "administrador",
+        "suporte",
+        "support",
+        "system",
+        "sistema",
+        "root",
+        "null",
+        "undefined",
+        "test",
+        "teste",
+        "user",
+        "usuario",
+        "usuário",
+        "ninguem",
+        "ninguém",
+        "anonimo",
+        "anônimo",
+        "anonymous",
+        "cliente",
+        "cliente1",
+        "visitante",
+    }
+)
 
 # Caracteres invisíveis ou perigosos que devem ser removidos
 _INVISIBLE_RE = re.compile(
-    "[​-‏"   # zero-width space, ZW non-joiner, ZW joiner, LRM, RLM
-    " - "    # line/paragraph separator
-    "‪-‮"    # bidirectional overrides
-    "⁠-⁩"    # word joiner, invisible operators, directional isolates
-    "﻿"           # BOM / ZW no-break space
-    "­"           # soft hyphen
-    "᠎"           # mongolian vowel separator
-    "͏"           # combining grapheme joiner
+    "[​-‏"  # zero-width space, ZW non-joiner, ZW joiner, LRM, RLM
+    " - "  # line/paragraph separator
+    "‪-‮"  # bidirectional overrides
+    "⁠-⁩"  # word joiner, invisible operators, directional isolates
+    "﻿"  # BOM / ZW no-break space
+    "­"  # soft hyphen
+    "᠎"  # mongolian vowel separator
+    "͏"  # combining grapheme joiner
     "]"
 )
 
@@ -44,9 +63,9 @@ _MULTI_SEP_RE = re.compile(r"[-']{2,}")
 
 # Símbolos suspeitos: emojis, markup, SQL-ish, excesso de pontuação
 _SUSPICIOUS_RE = re.compile(
-    "[<>{}\\[\\]\\\\;`]"   # markup / SQL-ish
-    "|"                     # OR
-    "[\U0001f300-\U0001f9ff"   # emojis diversos
+    "[<>{}\\[\\]\\\\;`]"  # markup / SQL-ish
+    "|"  # OR
+    "[\U0001f300-\U0001f9ff"  # emojis diversos
     "\U0001fa00-\U0001fa6f"
     "\U0001fa70-\U0001fa7c"
     "\U0001fa80-\U0001faaf"
@@ -55,15 +74,16 @@ _SUSPICIOUS_RE = re.compile(
     "\U0001fad0-\U0001fadf"
     "\U0001fae0-\U0001faef"
     "\U0001faf0-\U0001faff"
-    "\U00002600-\U000027bf"   # misc symbols
-    "\U0001f600-\U0001f64f"   # emoticons
-    "\U0001f680-\U0001f6ff"   # transport
-    "\U0001f900-\U0001f9ff"   # supplemental symbols
+    "\U00002600-\U000027bf"  # misc symbols
+    "\U0001f600-\U0001f64f"  # emoticons
+    "\U0001f680-\U0001f6ff"  # transport
+    "\U0001f900-\U0001f9ff"  # supplemental symbols
     "]"
 )
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────
+
 
 def _tem_letras_suficientes(nome: str, minimo: int = 2) -> bool:
     """Pelo menos N caracteres classificados como letra (qualquer alfabeto)."""
@@ -105,6 +125,7 @@ def _capitalizar_palavra(palavra: str) -> str:
 
 # ── Normalização ────────────────────────────────────────────────────────
 
+
 def normalize_name(nome: str) -> str:
     """Pipeline completo de normalização de nome próprio.
 
@@ -145,10 +166,7 @@ def normalize_name(nome: str) -> str:
         # Ex: D'Ávila, Ana-Clara, O'Connor
         if "'" in parte or "-" in parte:
             sub = re.split(r"(['-])", parte)
-            parte = "".join(
-                seg if seg in ("'", "-") else _capitalizar_palavra(seg)
-                for seg in sub
-            )
+            parte = "".join(seg if seg in ("'", "-") else _capitalizar_palavra(seg) for seg in sub)
         else:
             parte = _capitalizar_palavra(parte)
 
@@ -162,6 +180,7 @@ def normalize_name(nome: str) -> str:
 
 
 # ── Validação ───────────────────────────────────────────────────────────
+
 
 def validate_name(nome: str | None) -> str | None:
     """Valida e normaliza nome. Levanta ValidationError se inválido.
@@ -211,7 +230,7 @@ def validate_name(nome: str | None) -> str | None:
     # Blacklist contextual
     normalized_lower = nome.strip().lower()
     if normalized_lower in _BLACKLIST:
-        raise ValidationError(f"Nome \"{nome}\" não é permitido")
+        raise ValidationError(f'Nome "{nome}" não é permitido')
 
     # Nonsense / baixa entropia
     if _entropia_baixa(nome):
@@ -221,6 +240,7 @@ def validate_name(nome: str | None) -> str | None:
 
 
 # ── Canonicalização ─────────────────────────────────────────────────────
+
 
 def canonicalize_name(nome: str) -> str:
     """Representação canônica para deduplicação, busca e matching.

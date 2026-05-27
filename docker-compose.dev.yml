@@ -1,0 +1,635 @@
+# =============================================================================
+# docker-compose.dev.yml — Ambiente de desenvolvimento completo
+# =============================================================================
+# Uso:
+#   docker compose -f docker-compose.dev.yml up -d           # tudo
+#   docker compose -f docker-compose.dev.yml up -d <servico> # um só
+#   docker compose -f docker-compose.dev.yml ps               # status
+#   docker compose -f docker-compose.dev.yml down             # derruba tudo
+#
+# Serviços: 22 microsserviços + postgres + redis + prometheus + loki + grafana
+# =============================================================================
+
+services:
+
+  # -- Infraestrutura compartilhada --
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: supletivo
+      POSTGRES_USER: supletivo
+      POSTGRES_PASSWORD: supletivo_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supletivo -d supletivo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # -- Microsserviços (1 container por serviço, porta interna 8000) --
+
+  address:
+    build:
+      context: ./address
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: address
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      auth:
+        condition: service_healthy
+
+  ai:
+    build:
+      context: ./ai
+    ports:
+      - "8002:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: ai
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  asaas:
+    build:
+      context: ./asaas
+    ports:
+      - "8003:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: asaas
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  auth:
+    build:
+      context: ./auth
+    ports:
+      - "8004:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: auth
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  candidate:
+    build:
+      context: ./candidate
+    ports:
+      - "8005:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: candidate
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  commissions:
+    build:
+      context: ./commissions
+    ports:
+      - "8006:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: commissions
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  coordinator:
+    build:
+      context: ./coordinator
+    ports:
+      - "8007:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: coordinator
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  documents:
+    build:
+      context: ./documents
+    ports:
+      - "8008:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: documents
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  enrollment:
+    build:
+      context: ./enrollment
+    ports:
+      - "8009:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: enrollment
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  fees:
+    build:
+      context: ./fees
+    ports:
+      - "8010:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: fees
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    env_file:
+      - ./fees/.env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  hub:
+    build:
+      context: ./hub
+    ports:
+      - "8011:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: hub
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  infinitepay:
+    build:
+      context: ./infinitepay
+    ports:
+      - "8012:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: infinitepay
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  jwt:
+    build:
+      context: ./jwt
+    ports:
+      - "8013:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: jwt
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  lead:
+    build:
+      context: ./lead
+    ports:
+      - "8014:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: lead
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  notify:
+    build:
+      context: ./notify
+    ports:
+      - "8015:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: notify
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  otp:
+    build:
+      context: ./otp
+    ports:
+      - "8016:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: otp
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  profiles:
+    build:
+      context: ./profiles
+    ports:
+      - "8017:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: profiles
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  promoter:
+    build:
+      context: ./promoter
+    ports:
+      - "8018:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: promoter
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  roles:
+    build:
+      context: ./roles
+    ports:
+      - "8019:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: roles
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  staff:
+    build:
+      context: ./staff
+    ports:
+      - "8020:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: staff
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  student:
+    build:
+      context: ./student
+    ports:
+      - "8021:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: student
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  training:
+    build:
+      context: ./training
+    ports:
+      - "8022:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+      DATABASE_SCHEMA: training
+      REDIS_URL: redis://redis:6379/0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # -- Observabilidade (Grafana + Loki + Prometheus) --
+  # Sprint 3 (§7 Q4): self-hosted stack
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:9090/-/healthy", "-O", "/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  loki:
+    image: grafana/loki:3.0.0
+    ports:
+      - "3101:3100"
+      - "9097:9096"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    command:
+      - "-config.file=/etc/loki/loki-config.yml"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:3100/ready", "-O", "/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: ""
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:3000/api/health", "-O", "/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # -- Log shipping (Promtail → Loki) --
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    volumes:
+      - ./promtail:/promtail:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command:
+      - "-config.file=/promtail/promtail-config.yml"
+    depends_on:
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:9080/ready", "-O", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  # -- Secret manager (Infisical, §7 Q3) --
+
+  infisical-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: infisical
+      POSTGRES_USER: infisical
+      POSTGRES_PASSWORD: infisical_dev
+    volumes:
+      - infisical_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infisical -d infisical"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles: ["infisical"]
+
+  infisical:
+    image: infisical/infisical:latest
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      DB_CONNECTION_URI: "postgresql://infisical:***@infisical-db:5432/infisical"
+      AUTH_SECRET: "72d2111d72d33b57a5c48e430c65a0aa55d26edaa990a15d805d4eb0d8406181"
+      ENCRYPTION_KEY: "516c259954b28524af8e961159556d57dee53136c64cfdf85a3845fc511bbf49"
+      SITE_URL: "http://localhost:8080"
+      TELEMETRY_ENABLED: "false"
+    depends_on:
+      infisical-db:
+        condition: service_healthy
+    profiles: ["infisical"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:8080/api/status", "-O", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  pgdata:
+  prometheus_data:
+  loki_data:
+  grafana_data:
+  infisical_pgdata:

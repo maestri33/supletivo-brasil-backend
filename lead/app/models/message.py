@@ -19,7 +19,9 @@ class Message(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
     message_id: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, index=True,
+        Integer,
+        nullable=True,
+        index=True,
         comment="ID retornado pelo notify no send_message",
     )
 
@@ -36,29 +38,36 @@ class Message(Base, TimestampMixin):
     )
 
     direction: Mapped[str] = mapped_column(
-        String(10), default="out", nullable=False,
+        String(10),
+        default="out",
+        nullable=False,
         comment="out (envio) | in (webhook)",
     )
 
     channel: Mapped[str | None] = mapped_column(
-        String(20), nullable=True,
+        String(20),
+        nullable=True,
         comment="whatsapp | email | tts",
     )
 
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     status: Mapped[str | None] = mapped_column(
-        String(30), nullable=True, index=True,
+        String(30),
+        nullable=True,
+        index=True,
         comment="sent | delivered | read | failed",
     )
 
     event: Mapped[str | None] = mapped_column(
-        String(50), nullable=True,
+        String(50),
+        nullable=True,
         comment="message.sent | message.delivered | message.failed",
     )
 
     meta: Mapped[dict[str, Any] | None] = mapped_column(
-        JSONB, nullable=True,
+        JSONB,
+        nullable=True,
         comment="Dados extras do webhook",
     )
 

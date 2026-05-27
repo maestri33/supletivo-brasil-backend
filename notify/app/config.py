@@ -35,24 +35,17 @@ class Settings(BaseSettings):
     # RabbitMQ (mensageria entre microservices)
     amqp_url: str = ""
 
-    # SMTP API externa (mail merge — DEPRECATED, mantido p/ compat)
-    smtp_api_base_url: str = "http://mail:8000"
-    smtp_host: str = "smtp.gmail.com"
-    smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_pass: str = ""
-
-    # Mailcow direto (sem service intermediario `mail`).
-    # SMTP STARTTLS na porta 587. API admin REST opcional p/ gerenciar
-    # app-passwords e mailboxes.
-    mailcow_smtp_host: str = "mail.v7m.org"
+    # Envio de email: SMTP direto STARTTLS na porta 587 + API admin Mailcow
+    # opcional (gerenciar app-passwords/mailboxes). Sem default de host/url —
+    # dados de infra vêm do .env (§12 da convenção); ver .env.example.
+    mailcow_smtp_host: str = ""  # ex: mail.v7m.org
     mailcow_smtp_port: int = 587
-    mailcow_smtp_user: str = ""              # ex: noreply@v7m.org
-    mailcow_smtp_pass: str = ""              # app-password (Mailcow API admin)
-    mailcow_from_email: str = ""             # default: mailcow_smtp_user
-    mailcow_from_name: str = ""              # default: service_name
+    mailcow_smtp_user: str = ""  # ex: noreply@v7m.org
+    mailcow_smtp_pass: str = ""  # app-password (Mailcow API admin)
+    mailcow_from_email: str = ""  # default: mailcow_smtp_user
+    mailcow_from_name: str = ""  # default: service_name
     mailcow_timeout_s: int = 30
-    mailcow_api_url: str = "https://mail.v7m.org"
+    mailcow_api_url: str = ""  # ex: https://mail.v7m.org
     mailcow_api_key: str = ""
 
     # WhatsApp API (Evolution GO / whatsmeow)
@@ -64,12 +57,6 @@ class Settings(BaseSettings):
     # backoff_base_s * 2^(n-1) segundos: 1s, 3s, 9s, 27s (default cap em 3).
     whatsapp_max_retries: int = 3
     whatsapp_retry_backoff_base_s: float = 1.0
-
-    # DeepSeek AI (geracao de titulos, edicao de templates, mensagens)
-    deepseek_api_key: str = ""
-    deepseek_base_url: str = "https://api.deepseek.com"
-    deepseek_default_model: str = "deepseek-v4-pro"
-    deepseek_default_temperature: float = 0.3
 
     # ElevenLabs TTS (text-to-speech)
     elevenlabs_api_key: str = ""

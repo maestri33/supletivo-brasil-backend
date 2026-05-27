@@ -1,5 +1,11 @@
+from collections.abc import AsyncIterator
+
 from sqlalchemy import MetaData
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from app.config import get_settings
 
@@ -18,6 +24,16 @@ metadata = MetaData(naming_convention=NAMING_CONVENTION, schema=settings.DB_SCHE
 engine = create_async_engine(settings.DATABASE_URL)
 
 async_session = async_sessionmaker(engine, expire_on_commit=False)
+
+
+async def get_session() -> AsyncIterator[AsyncSession]:
+    """FastAPI dependency: uma session por request."""
+    async with async_session() as session:
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
 
 
 async def init_db() -> None:

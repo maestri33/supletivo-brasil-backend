@@ -3,6 +3,7 @@
 import asyncio
 from logging.config import fileConfig
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
@@ -41,6 +42,8 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection):
+    # Garante o schema antes do Alembic criar a alembic_version dentro dele.
+    connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{SCHEMA}"'))
     context.configure(
         connection=connection,
         target_metadata=target_metadata,

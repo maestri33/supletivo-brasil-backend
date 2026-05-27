@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     jwt_issuer: str = "jwt"
     jwt_audience: str = ""
 
+    # -- Database --
+    database_url: str = "postgresql+asyncpg://v7m:v7m@postgres:5432/v7m"
+    database_schema: str = "jwt"
+
     # -- Chaves RSA —
     jwt_private_key_file: str = "private.pem"
     jwt_public_key_file: str = "public.pem"

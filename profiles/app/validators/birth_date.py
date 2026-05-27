@@ -13,7 +13,7 @@ def normalize_birth_date(value: str) -> date | None:
         return date.fromisoformat(value.strip())
     except (ValueError, TypeError):
         raise ValidationError(
-            f"Data de nascimento inválida \"{value}\". Use o formato ISO 8601 (YYYY-MM-DD)"
+            f'Data de nascimento inválida "{value}". Use o formato ISO 8601 (YYYY-MM-DD)'
         )
 
 

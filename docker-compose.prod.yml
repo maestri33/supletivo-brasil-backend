@@ -1,0 +1,687 @@
+# =============================================================================
+# docker-compose.prod.yml — Ambiente de produção Supletivo
+# =============================================================================
+# Uso:
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml ps
+#
+# DIFERENÇAS da versão dev:
+#   - Sem bind-mount (imagens construídas via Dockerfile)
+#   - Restart: always (auto-recuperação)
+#   - Secrets via variáveis de ambiente (.env ou Infisical)
+#   - Log json-file com rotação para Loki
+#   - Resource limits
+#   - Init script para schemas PostgreSQL
+#
+# Antes de usar:
+#   1. cp .env.example.prod .env && edite as senhas
+#   2. docker compose -f docker-compose.prod.yml build
+#   3. docker compose -f docker-compose.prod.yml up -d
+# =============================================================================
+
+name: supletivo-prod
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-dbs.sh:/docker-entrypoint-initdb.d/init-dbs.sh:ro
+    environment:
+      POSTGRES_DB: supletivo
+      POSTGRES_USER: supletivo
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?PG_PASSWORD required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supletivo -d supletivo"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy:
+      resources: { limits: { memory: 2G }, reservations: { memory: 1G } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "50m", max-file: "3" }
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources: { limits: { memory: 512M }, reservations: { memory: 256M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "50m", max-file: "3" }
+
+  # Template YAML para serviços (expandido via script de build)
+  # Cada serviço: image: supletivo/<nome>:${TAG:-latest}
+  # Portas: apenas serviços com API externa expõem porta
+  # Variáveis comuns injetadas via env_file compartilhado
+
+  address:
+    image: supletivo/address:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: address
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  ai:
+    image: supletivo/ai:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: ai
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 512M }, reservations: { memory: 256M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  asaas:
+    image: supletivo/asaas:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: asaas
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  auth:
+    image: supletivo/auth:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: auth
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  candidate:
+    image: supletivo/candidate:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: candidate
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  commissions:
+    image: supletivo/commissions:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: commissions
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  coordinator:
+    image: supletivo/coordinator:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: coordinator
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  documents:
+    image: supletivo/documents:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: documents
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  enrollment:
+    image: supletivo/enrollment:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: enrollment
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  fees:
+    image: supletivo/fees:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: fees
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  hub:
+    image: supletivo/hub:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: hub
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  infinitepay:
+    image: supletivo/infinitepay:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: infinitepay
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  jwt:
+    image: supletivo/jwt:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: jwt
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  lead:
+    image: supletivo/lead:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: lead
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  notify:
+    image: supletivo/notify:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: notify
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  otp:
+    image: supletivo/otp:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: otp
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  profiles:
+    image: supletivo/profiles:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: profiles
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  promoter:
+    image: supletivo/promoter:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: promoter
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  roles:
+    image: supletivo/roles:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: roles
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  staff:
+    image: supletivo/staff:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: staff
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  student:
+    image: supletivo/student:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: student
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  training:
+    image: supletivo/training:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: training
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  # -- Observabilidade (Prometheus + Loki + Grafana) --
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:9090/-/healthy", "-O", "/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources: { limits: { memory: 1G }, reservations: { memory: 512M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  loki:
+    image: grafana/loki:3.0.0
+    restart: always
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+    command:
+      - "-config.file=/etc/loki/loki-config.yml"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:3100/ready", "-O", "/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources: { limits: { memory: 1G }, reservations: { memory: 512M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: ""
+    depends_on:
+      prometheus: { condition: service_healthy }
+      loki: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:3000/api/health", "-O", "/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources: { limits: { memory: 512M }, reservations: { memory: 256M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  # -- Secret manager (Infisical) --
+  # Ativar com: --profile infisical
+
+  infisical-db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: infisical
+      POSTGRES_USER: infisical
+      POSTGRES_PASSWORD: ${INFISICAL_PG_PASSWORD:?INFISICAL_PG_PASSWORD required}
+    volumes:
+      - infisical_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infisical -d infisical"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles: ["infisical"]
+    deploy:
+      resources: { limits: { memory: 512M }, reservations: { memory: 256M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  infisical:
+    image: infisical/infisical:latest
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      DB_CONNECTION_URI: postgresql://infisical:***@infisical-db:5432/infisical
+      AUTH_SECRET: ${INFISICAL_AUTH_SECRET:?INFISICAL_AUTH_SECRET required}
+      ENCRYPTION_KEY: ${INFISICAL_ENCRYPTION_KEY:?INFISICAL_ENCRYPTION_KEY required}
+      SITE_URL: http://localhost:8080
+      TELEMETRY_ENABLED: false
+    depends_on:
+      infisical-db: { condition: service_healthy }
+    profiles: ["infisical"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:8080/api/status", "-O", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources: { limits: { memory: 1G }, reservations: { memory: 512M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  # -- Log shipping (Promtail → Loki) --
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    volumes:
+      - ./promtail:/promtail:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: ["-config.file=/promtail/promtail-config.yml"]
+    depends_on:
+      loki: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:9080/ready", "-O", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits: { memory: 128M }
+        reservations: { memory: 64M }
+    logging:
+      driver: "json-file"
+      options: { max-size: "10m", max-file: "2" }
+
+volumes:
+  pgdata:
+  prometheus_data:
+  loki_data:
+  grafana_data:
+  infisical_pgdata:

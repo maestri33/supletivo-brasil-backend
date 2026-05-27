@@ -1,0 +1,68 @@
+"""Orquestracao das rotas publicas de autenticacao.
+
+O candidate delega identidade ao `auth` e tokens ao `jwt`; localmente so' cria o
+registro de Candidate no register e le o status no login.
+"""
+
+import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import get_settings
+from app.exceptions import IntegrationError
+from app.integrations.auth import AuthClient
+from app.integrations.jwt import JwtClient
+from app.services import candidate as candidate_svc
+
+settings = get_settings()
+
+
+async def check(*, cpf: str | None, phone: str | None, external_id: str | None) -> dict:
+    async with httpx.AsyncClient(
+        base_url=settings.auth_base_url, timeout=settings.http_timeout
+    ) as client:
+        return await AuthClient(client).check(cpf=cpf, phone=phone, external_id=external_id)
+
+
+async def register(
+    session: AsyncSession,
+    *,
+    phone: str,
+    cpf: str,
+    hub_external_id: str,
+) -> tuple[str, bool]:
+    """Registra o usuario no auth (role=lead) e cria o Candidate local.
+
+    Retorna (external_id, created). Idempotente: re-register do mesmo usuario
+    reaproveita o Candidate existente.
+    """
+    async with httpx.AsyncClient(base_url=settings.auth_base_url, timeout=15) as client:
+        result = await AuthClient(client).register(phone=phone, cpf=cpf)
+
+    external_id = result.get("external_id")
+    if not external_id:
+        raise IntegrationError("Auth nao retornou external_id")
+
+    _, created = await candidate_svc.get_or_create(session, external_id, hub_external_id)
+    return external_id, created
+
+
+async def login(session: AsyncSession, *, external_id: str, otp: str) -> dict:
+    async with httpx.AsyncClient(
+        base_url=settings.auth_base_url, timeout=settings.http_timeout
+    ) as client:
+        tokens = await AuthClient(client).login(external_id=external_id, otp=otp)
+
+    candidate = await candidate_svc.get(session, external_id)
+    return {
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens["refresh_token"],
+        "token_type": "bearer",
+        "status": candidate.status if candidate else "unknown",
+    }
+
+
+async def refresh(*, refresh_token: str) -> dict:
+    async with httpx.AsyncClient(
+        base_url=settings.jwt_base_url, timeout=settings.http_timeout
+    ) as client:
+        return await JwtClient(client).refresh_token(refresh_token)

@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from .charge import router as charge_router
 from .config import router as config_router
+from .health import router as health_router
 from .payment import router as payment_router
 from .pixkey import router as pixkey_router
 from .webhook import router as webhook_router
@@ -16,4 +17,5 @@ api_router.include_router(charge_router)
 
 # Webhook e security-validator ficam na raiz (Asaas chama URLs fixas)
 root_router = APIRouter()
+root_router.include_router(health_router)
 root_router.include_router(webhook_router)

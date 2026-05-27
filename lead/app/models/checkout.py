@@ -40,9 +40,7 @@ class Checkout(Base, TimestampMixin):
     # Multi-provider (migration 0002)
     payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
     provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    provider_payment_id: Mapped[str | None] = mapped_column(
-        String(255), nullable=True, index=True
-    )
+    provider_payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
 
     # PIX (asaas)
     qrcode_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -50,7 +48,10 @@ class Checkout(Base, TimestampMixin):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     is_paid: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False, index=True,
+        Boolean,
+        default=False,
+        nullable=False,
+        index=True,
     )
 
     def __repr__(self) -> str:

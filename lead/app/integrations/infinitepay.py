@@ -38,7 +38,5 @@ class InfinitePayClient(BaseClient):
         return CheckoutOut(**resp.json())
 
     async def get_checkout(self, external_id: str) -> CheckoutOut:
-        resp = await request_with_retry(
-            self.client, "GET", f"/api/v1/checkout/{external_id}/"
-        )
+        resp = await request_with_retry(self.client, "GET", f"/api/v1/checkout/{external_id}/")
         return CheckoutOut(**resp.json())

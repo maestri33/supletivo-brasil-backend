@@ -18,7 +18,7 @@ async def test_test_email_with_default_template(client: AsyncClient) -> None:
     assert body["to_email"] == "test-xxx@srv1.mail-tester.com"
     assert body["template_slug"] == "default"
     assert body["template_version"] >= 1
-    # MailcowSMTPClient.send_email retorna {to, subject, from, refused}
+    # SMTPClient.send_email retorna {to, subject, from, refused}
     assert body["smtp_response"]["refused"] == {}
     assert body["smtp_response"]["to"] == "test-xxx@srv1.mail-tester.com"
 

@@ -10,21 +10,30 @@ de explodir na coleção com `ImportError: tortoise`.
 
 Quando alguém for reescrever:
 1. Remover o `pytest_collection_modifyitems` abaixo.
-2. Substituir a fixture `client` por uma versão SQLAlchemy real.
-3. Re-escrever os asserts em `test_otp.py` usando `select(OTPLog)`.
+2. Remover o hack de DATABASE_URL em conftest (nao sera mais necessario).
+3. Substituir a fixture `client` por uma versao SQLAlchemy real.
+4. Re-escrever os asserts em `test_otp.py` usando `select(OTPLog)`.
 """
 
-from typing import AsyncIterator
+import os
+import tempfile
+from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+# Hack: evita pydantic ValidationError ao importar app.main (database_url required)
+_TMP_DB = Path(tempfile.mkdtemp(prefix="otp-tests-")) / "test.db"
+os.environ.setdefault("DATABASE_URL", f"sqlite+aiosqlite:///{_TMP_DB}")
+os.environ.setdefault("DATABASE_SCHEMA", "")
+os.environ.setdefault("ENV", "dev")
+os.environ.setdefault("ENVIRONMENT", "dev")
+
 from app.main import app as fastapi_app
 
-
 SKIP_REASON = (
-    "Suíte legada pré-migração SQLAlchemy. "
-    "Aguardando reescrita com testcontainers-postgres."
+    "Suíte legada pré-migração SQLAlchemy. Aguardando reescrita com testcontainers-postgres."
 )
 
 

@@ -2,13 +2,25 @@
 
 from __future__ import annotations
 
-import logging
-
 import niquests
 
 from app.config import get_settings
+from app.utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+
+def _sanitize_log_body(body: dict | None, sensitive: set[str]) -> dict | None:
+    """Remove sensitive fields from log output."""
+    if not isinstance(body, dict):
+        return body
+    return {k: ("***" if k in sensitive else v) for k, v in body.items()}
+
+
+def _redact_cpf_from_url(url: str) -> str:
+    """Replace CPF (11 digits) in URL paths with '***'."""
+    import re
+    return re.sub(r"/cpf/\d{11}", "/cpf/***", url)
 
 
 class ProfilesClient:
@@ -31,7 +43,8 @@ class ProfilesClient:
     async def create(self, external_id: str, cpf: str) -> dict:
         """POST /api/v1/profiles — cria perfil minimo (external_id + cpf)."""
         resp = await self._request(
-            "POST", "/api/v1/profiles",
+            "POST",
+            "/api/v1/profiles",
             json={"external_id": external_id, "cpf": cpf},
         )
         return resp.json()
@@ -49,7 +62,8 @@ class ProfilesClient:
     async def patch_field(self, external_id: str, field: str, value: str) -> dict:
         """PATCH /api/v1/profiles/{external_id}/{field}?value= — atualiza campo."""
         resp = await self._request(
-            "PATCH", f"/api/v1/profiles/{external_id}/{field}",
+            "PATCH",
+            f"/api/v1/profiles/{external_id}/{field}",
             params={"value": value},
         )
         return resp.json()
@@ -57,13 +71,23 @@ class ProfilesClient:
     # ── Internal ───────────────────────────────────
 
     async def _request(
-        self, method: str, path: str, *,
-        json: dict | None = None, params: dict | None = None,
+        self,
+        method: str,
+        path: str,
+        *,
+        json: dict | None = None,
+        params: dict | None = None,
     ) -> niquests.Response:
         url = f"{self._base}{path}"
-        logger.debug(f"[profiles] {method} {url}" + (f" body={json}" if json else ""))
+        safe_url = _redact_cpf_from_url(url)
+        safe = _sanitize_log_body(json, {"cpf"})
+        logger.debug(f"[profiles] {method} {safe_url}" + (f" body={safe}" if safe else ""))
         resp = await self._session.request(
-            method, url, json=json, params=params, timeout=self._timeout,
+            method,
+            url,
+            json=json,
+            params=params,
+            timeout=self._timeout,
         )
         logger.debug(f"[profiles] ← {resp.status_code}")
         if resp.status_code >= 400:
@@ -71,7 +95,10 @@ class ProfilesClient:
             try:
                 body = resp.json()
                 if isinstance(body, dict):
-                    detail = f"{body.get('code', '')}: {body.get('message', body.get('detail', str(body)))}"
+                    detail = (
+                        f"{body.get('code', '')}: "
+                        f"{body.get('message', body.get('detail', str(body)))}"
+                    )
             except Exception:
                 detail = resp.text or detail
             raise ProfilesError(resp.status_code, detail)

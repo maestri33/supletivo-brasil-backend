@@ -1,0 +1,15 @@
+# =============================================================================
+# provisioning/dashboards/dashboards.yml — Grafana dashboard auto-provisioning
+# =============================================================================
+
+apiVersion: 1
+
+providers:
+  - name: "default"
+    orgId: 1
+    folder: ""
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /var/lib/grafana/dashboards

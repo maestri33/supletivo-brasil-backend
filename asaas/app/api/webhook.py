@@ -14,8 +14,10 @@ from ..services import charge as charge_service
 from ..services import notifications
 from ..services import payment as payment_service
 from ..services import security_validator as security_validator_svc
+from ..services.webhook_security import verify_hmac, verify_ip_allowlist
 from ..utils.logging import log_event
 from ..utils.net import client_ip, user_agent
+from ..metrics import inc_webhook_event
 
 router = APIRouter(tags=["asaas-inbound"])
 
@@ -38,6 +40,8 @@ async def security_validator(
     request: Request,
     asaas_access_token: str | None = Header(default=None, alias="asaas-access-token"),
     db: AsyncSession = Depends(get_session),
+    _ip: None = Depends(verify_ip_allowlist),
+    _sig: None = Depends(verify_hmac),
 ):
     """Valida saidas (TRANSFER, PIX_QR_CODE) contra nosso DB.
 
@@ -61,6 +65,8 @@ async def receive_webhook(
     request: Request,
     asaas_access_token: str | None = Header(default=None, alias="asaas-access-token"),
     db: AsyncSession = Depends(get_session),
+    _ip: None = Depends(verify_ip_allowlist),
+    _sig: None = Depends(verify_hmac),
 ):
     """Recebe eventos Asaas, persiste e roteia para o bridge correto.
 
@@ -72,6 +78,8 @@ async def receive_webhook(
     await _check_token(db, asaas_access_token)
     body = await request.json()
     event = body.get("event") if isinstance(body, dict) else None
+    if event:
+        inc_webhook_event(event)
 
     row = WebhookEvent(
         event=event,

@@ -90,10 +90,12 @@ def is_blank(value: str | None) -> bool:
 async def fetch_lead_context(external_id: str):
     async with (
         httpx.AsyncClient(
-            base_url=settings.PROFILES_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+            base_url=settings.PROFILES_BASE_URL,
+            timeout=settings.HTTP_TIMEOUT,
         ) as profiles_http,
         httpx.AsyncClient(
-            base_url=settings.NOTIFY_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+            base_url=settings.NOTIFY_BASE_URL,
+            timeout=settings.HTTP_TIMEOUT,
         ) as notify_http,
     ):
         profile_data = await ProfilesClient(profiles_http).first_name(external_id)
@@ -101,7 +103,9 @@ async def fetch_lead_context(external_id: str):
     return profile_data, contact_data
 
 
-@router.get("/captured", response_model=CapturedGetResponse, summary="Busca dados do lead capturado")
+@router.get(
+    "/captured", response_model=CapturedGetResponse, summary="Busca dados do lead capturado"
+)
 async def get_captured(external_id: UUID = require_captured()):
     profile_data, contact_data = await fetch_lead_context(str(external_id))
     # Retorna full_name (canonico, vindo do CPFHub) — primeiro nome derivavel
@@ -158,7 +162,8 @@ async def post_captured(
                 detail={"name": "name_required"},
             )
         async with httpx.AsyncClient(
-            base_url=settings.PROFILES_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+            base_url=settings.PROFILES_BASE_URL,
+            timeout=settings.HTTP_TIMEOUT,
         ) as client:
             try:
                 await ProfilesClient(client).patch(external_id_str, name=submitted_name)
@@ -171,7 +176,8 @@ async def post_captured(
 
     # 3) Email: sempre settable
     async with httpx.AsyncClient(
-        base_url=settings.NOTIFY_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+        base_url=settings.NOTIFY_BASE_URL,
+        timeout=settings.HTTP_TIMEOUT,
     ) as client:
         try:
             await NotifyClient(client).update_email(external_id_str, payload.email)
@@ -239,7 +245,9 @@ async def post_captured(
         lead.status = LeadStatus.WAITING
         await session.commit()
         background_tasks.add_task(
-            create_checkout_for_lead, external_id_str, payload.payment_method,
+            create_checkout_for_lead,
+            external_id_str,
+            payload.payment_method,
         )
 
     return CapturedPostResponse(

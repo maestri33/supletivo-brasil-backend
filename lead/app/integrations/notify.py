@@ -7,9 +7,7 @@ class NotifyClient(BaseClient):
     POST  /api/v1/messages/send — envia mensagem"""
 
     async def get_contact(self, external_id: str) -> dict:
-        resp = await request_with_retry(
-            self.client, "GET", f"/api/v1/contacts/{external_id}"
-        )
+        resp = await request_with_retry(self.client, "GET", f"/api/v1/contacts/{external_id}")
         return resp.json()
 
     async def update_email(self, external_id: str, email: str) -> dict:
@@ -52,8 +50,11 @@ class NotifyClient(BaseClient):
         if webhook_url is not None:
             body["webhook_url"] = webhook_url
         resp = await request_with_retry(
-            self.client, "POST", "/api/v1/messages/send",
-            json=body, max_retries=max_retries,
+            self.client,
+            "POST",
+            "/api/v1/messages/send",
+            json=body,
+            max_retries=max_retries,
         )
         data = resp.json()
         self.last_message_id = data.get("id") or data.get("message_id")

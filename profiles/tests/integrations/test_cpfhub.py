@@ -16,13 +16,18 @@ from app.integrations.cpfhub import CPFHubClient, CPFHubIdentity, _parse_identit
 
 # ── Parser ─────────────────────────────────────────────────────────
 
+
 def test_parse_full_payload() -> None:
-    identity = _parse_identity({
-        "cpf": "12345678900",
-        "name": "Fulano de Tal",
-        "gender": "M",
-        "day": 15, "month": 6, "year": 1990,
-    })
+    identity = _parse_identity(
+        {
+            "cpf": "12345678900",
+            "name": "Fulano de Tal",
+            "gender": "M",
+            "day": 15,
+            "month": 6,
+            "year": 1990,
+        }
+    )
     assert identity is not None
     assert identity.name == "Fulano de Tal"
     assert identity.gender == "M"
@@ -63,6 +68,7 @@ def test_parse_strips_whitespace() -> None:
 
 # ── Client: success ────────────────────────────────────────────────
 
+
 def _ok_payload() -> dict:
     return {
         "success": True,
@@ -72,7 +78,9 @@ def _ok_payload() -> dict:
             "nameUpper": "VICTOR VANDERLEY MAESTRI",
             "gender": "M",
             "birthDate": "31/07/1993",
-            "day": 31, "month": 7, "year": 1993,
+            "day": 31,
+            "month": 7,
+            "year": 1993,
         },
     }
 
@@ -80,10 +88,13 @@ def _ok_payload() -> dict:
 def _make_client_with_handler(handler) -> CPFHubClient:
     transport = httpx.MockTransport(handler)
     client = CPFHubClient(api_key="test-key", base_url="https://api.cpfhub.io")
-    client._client = httpx.AsyncClient(transport=transport, headers={
-        "x-api-key": "test-key",
-        "Accept": "application/json",
-    })
+    client._client = httpx.AsyncClient(
+        transport=transport,
+        headers={
+            "x-api-key": "test-key",
+            "Accept": "application/json",
+        },
+    )
     return client
 
 
@@ -124,12 +135,17 @@ async def test_lookup_strips_cpf_formatting() -> None:
 
 # ── Client: failures (best-effort returns None) ────────────────────
 
+
 async def test_lookup_404_returns_none() -> None:
     def handler(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(404, json={
-            "success": False, "data": None,
-            "error": {"message": "CPF não encontrado"},
-        })
+        return httpx.Response(
+            404,
+            json={
+                "success": False,
+                "data": None,
+                "error": {"message": "CPF não encontrado"},
+            },
+        )
 
     client = _make_client_with_handler(handler)
     try:
@@ -190,6 +206,7 @@ async def test_lookup_success_false_returns_none() -> None:
 
 
 # ── Retry ──────────────────────────────────────────────────────────
+
 
 async def test_lookup_retries_on_429(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = 0
@@ -257,6 +274,7 @@ async def test_lookup_retries_on_network_error(monkeypatch: pytest.MonkeyPatch) 
 
 
 # ── Guard: no API key ──────────────────────────────────────────────
+
 
 async def test_lookup_without_api_key_returns_none() -> None:
     client = CPFHubClient(api_key="", base_url="https://api.cpfhub.io")

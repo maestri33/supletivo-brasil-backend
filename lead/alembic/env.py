@@ -3,6 +3,7 @@
 import asyncio
 from logging.config import fileConfig
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
@@ -53,6 +54,13 @@ def do_run_migrations(connection):
 
 async def run_migrations_online() -> None:
     connectable = create_async_engine(settings.DATABASE_URL)
+    # A tabela alembic_version vive em `version_table_schema=SCHEMA`, então o
+    # schema precisa existir antes do primeiro upgrade num banco novo (em prod
+    # já existe). Cria e commita numa conexão própria — fora da transação das
+    # migrations, senão o autobegin impede o commit do upgrade.
+    async with connectable.connect() as conn:
+        await conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{SCHEMA}"'))
+        await conn.commit()
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

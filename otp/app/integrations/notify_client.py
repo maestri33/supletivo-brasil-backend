@@ -51,17 +51,15 @@ async def send_message(
     if instruction:
         body["instruction"] = instruction
     try:
-        resp = await request_with_retry(client, "POST", _url("/messages/send"), json=body, max_attempts=1, timeout=30.0)
+        resp = await request_with_retry(
+            client, "POST", _url("/messages/send"), json=body, max_attempts=1, timeout=30.0
+        )
     except IntegrationError as exc:
         raise NotifyTransientError(str(exc)) from exc
     if resp.status_code >= 500:
         detail = _safe_json(resp)
-        raise NotifyTransientError(
-            f"Notify send_message failed ({resp.status_code}): {detail}"
-        )
+        raise NotifyTransientError(f"Notify send_message failed ({resp.status_code}): {detail}")
     if resp.status_code >= 400:
         detail = _safe_json(resp)
-        raise NotifyPermanentError(
-            f"Notify send_message failed ({resp.status_code}): {detail}"
-        )
+        raise NotifyPermanentError(f"Notify send_message failed ({resp.status_code}): {detail}")
     return _safe_json(resp)

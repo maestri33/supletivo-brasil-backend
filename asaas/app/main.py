@@ -15,9 +15,14 @@ from . import config_store as cfg
 from .api.router import api_router, root_router
 from .db import async_session_maker, close_db
 from .exceptions import DomainError
+from .metrics import set_hmac_configured, setup_metrics
 from .schemas import ERROR_CODES
 from .services import payment as payment_service
-from .utils.logging import configure_logging, log_event
+from .services.webhook_security import webhook_hmac_configured
+from .utils.logging import configure_logging, log_event, logger
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 configure_logging()
 
@@ -176,6 +181,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await session.rollback()
             log_event("config.seed_from_env.failed", error=str(exc))
 
+    # ── Startup security check: alerta se HMAC estiver desabilitado ──
+    async with async_session_maker() as session:
+        hmac_ok = await webhook_hmac_configured(session)
+    if not hmac_ok:
+        logger.critical(
+            "webhook_hmac_disabled_at_startup",
+            service="asaas",
+            msg=(
+                "ASAAS_WEBHOOK_SECRET nao configurado em producao! "
+                "Webhooks estao aceitando chamadas sem validar assinatura HMAC. "
+                "Configure a env ASAAS_WEBHOOK_SECRET ou cadastre o secret via "
+                "config store (K_ASAAS_WEBHOOK_SECRET)."
+            ),
+        )
+        log_event("webhook_hmac_disabled_at_startup", severity="CRITICAL")
+    set_hmac_configured(hmac_ok)
+
     worker = asyncio.create_task(payment_service.worker_loop(30.0))
     try:
         yield
@@ -193,6 +215,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── Rate limiting (slowapi) ─────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+
+# ── SlowAPI middleware ──────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+from slowapi.middleware import SlowAPIMiddleware
+app.add_middleware(SlowAPIMiddleware)
+
+
 
 @app.exception_handler(DomainError)
 async def _handle_domain_error(request: Request, exc: DomainError) -> JSONResponse:
@@ -205,6 +237,7 @@ async def _handle_domain_error(request: Request, exc: DomainError) -> JSONRespon
 
 app.include_router(api_router)
 app.include_router(root_router)
+setup_metrics(app)
 
 
 @app.get("/healthz", include_in_schema=False)

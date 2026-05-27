@@ -20,13 +20,16 @@ async def create_id(client: AsyncClient, test_engine):
 
         # Atribuir role inicial via API (que delega ao Roles Service)
         resp = await client.post(f"/api/v1/role/{ext_id}/{initial_role}")
-        assert resp.status_code == 200, f"Falha ao atribuir role inicial '{initial_role}': {resp.text}"
+        assert resp.status_code == 200, (
+            f"Falha ao atribuir role inicial '{initial_role}': {resp.text}"
+        )
         return ext_id
 
     return _create
 
 
 # ── Config /roles CRUD ──────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_list_role_rules(client: AsyncClient):
@@ -59,6 +62,7 @@ async def test_create_and_delete_rule(client: AsyncClient):
 
 
 # ── Identities ──────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_get_nonexistent_identity(client: AsyncClient):
@@ -151,6 +155,7 @@ async def test_assign_nonexistent_role_fails(client: AsyncClient, create_id):
 
 # ── forbids_role ────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_forbids_role_blocks_assignment(client: AsyncClient, create_id):
     resp = await client.post(
@@ -208,6 +213,7 @@ async def test_forbids_role_in_promotion(client: AsyncClient, create_id):
 
 
 # ── Multi-role accumulation ─────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_full_accumulation_both_lines(client: AsyncClient, create_id):

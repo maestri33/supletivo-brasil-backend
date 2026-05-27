@@ -35,7 +35,9 @@ async def get_completed(
 
     checkout = await session.scalar(select(Checkout).where(Checkout.external_id == external_id))
     if not checkout:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Pagamento nao processado")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Pagamento nao processado"
+        )
 
     return CompletedGetResponse(
         status=lead.status.value,

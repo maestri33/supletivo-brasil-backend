@@ -6,14 +6,15 @@ Cobre:
 - Canonicalização: representação interna para dedup/busca
 """
 
-import pytest
 from httpx import AsyncClient
 
 VALID_CPF = "52998224725"
 
 
 async def _criar(client: AsyncClient, external_id: str, cpf: str = None) -> None:
-    await client.post("/api/v1/profiles", json={"external_id": external_id, "cpf": cpf or VALID_CPF})
+    await client.post(
+        "/api/v1/profiles", json={"external_id": external_id, "cpf": cpf or VALID_CPF}
+    )
 
 
 async def _patch(client: AsyncClient, external_id: str, field: str, value: str):
@@ -21,6 +22,7 @@ async def _patch(client: AsyncClient, external_id: str, field: str, value: str):
 
 
 # ── Normalização: deve aceitar e transformar ───────────────────────────
+
 
 async def test_normalize_trim_agressivo(client: AsyncClient) -> None:
     """Espaços duplos, tabs, newlines viram espaço simples."""
@@ -88,6 +90,7 @@ async def test_normalize_mother_name(client: AsyncClient) -> None:
 
 # ── Casos que devem ser aceitos ────────────────────────────────────────
 
+
 async def test_aceitar_nome_simples(client: AsyncClient) -> None:
     await _criar(client, "ac1")
     resp = await _patch(client, "ac1", "name", "Victor")
@@ -141,6 +144,7 @@ async def test_aceitar_nome_vazio(client: AsyncClient) -> None:
 
 
 # ── Rejeições ──────────────────────────────────────────────────────────
+
 
 async def test_rejeitar_apenas_numeros(client: AsyncClient) -> None:
     await _criar(client, "rj1")
@@ -256,6 +260,7 @@ async def test_rejeitar_apenas_hifen_com_uma_letra(client: AsyncClient) -> None:
 
 
 # ── Edge cases ──────────────────────────────────────────────────────────
+
 
 async def test_nome_com_hifen_valido(client: AsyncClient) -> None:
     """Hífen é permitido se fizer parte do nome."""

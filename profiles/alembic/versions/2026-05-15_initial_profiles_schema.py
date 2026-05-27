@@ -40,20 +40,26 @@ def upgrade() -> None:
         sa.Column("civil_status", sa.String(length=20), nullable=True),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="profiles_pkey"),
         sa.UniqueConstraint("external_id", name="profiles_external_id_key"),
         sa.UniqueConstraint("cpf", name="profiles_cpf_key"),
         sa.ForeignKeyConstraint(
-            ["external_id"], ["auth.users.external_id"],
+            ["external_id"],
+            ["auth.users.external_id"],
             name="profiles_external_id_fkey",
-            onupdate="CASCADE", ondelete="RESTRICT",
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
         ),
         schema=SCHEMA,
     )
@@ -68,8 +74,10 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name="birth_info_pkey"),
         sa.UniqueConstraint("profile_id", name="birth_info_profile_id_key"),
         sa.ForeignKeyConstraint(
-            ["profile_id"], [f"{SCHEMA}.profiles.id"],
-            name="birth_info_profile_id_fkey", ondelete="CASCADE",
+            ["profile_id"],
+            [f"{SCHEMA}.profiles.id"],
+            name="birth_info_profile_id_fkey",
+            ondelete="CASCADE",
         ),
         schema=SCHEMA,
     )
@@ -87,8 +95,10 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", name="educational_pkey"),
         sa.UniqueConstraint("profile_id", name="educational_profile_id_key"),
         sa.ForeignKeyConstraint(
-            ["profile_id"], [f"{SCHEMA}.profiles.id"],
-            name="educational_profile_id_fkey", ondelete="CASCADE",
+            ["profile_id"],
+            [f"{SCHEMA}.profiles.id"],
+            name="educational_profile_id_fkey",
+            ondelete="CASCADE",
         ),
         schema=SCHEMA,
     )

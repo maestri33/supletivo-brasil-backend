@@ -49,7 +49,9 @@ class Profile(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False,
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -59,10 +61,14 @@ class Profile(Base):
     )
 
     birth_info: Mapped["BirthInfo | None"] = relationship(  # noqa: F821
-        "BirthInfo", uselist=False, back_populates="profile",
+        "BirthInfo",
+        uselist=False,
+        back_populates="profile",
         cascade="all, delete-orphan",
     )
     educational: Mapped["Educational | None"] = relationship(  # noqa: F821
-        "Educational", uselist=False, back_populates="profile",
+        "Educational",
+        uselist=False,
+        back_populates="profile",
         cascade="all, delete-orphan",
     )

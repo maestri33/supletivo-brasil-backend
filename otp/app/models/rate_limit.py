@@ -25,13 +25,15 @@ class RateLimit(Base):
     )
 
     last_created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
     )
 
     hourly_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     hourly_window_start: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
     )
 
     updated_at: Mapped[datetime] = mapped_column(

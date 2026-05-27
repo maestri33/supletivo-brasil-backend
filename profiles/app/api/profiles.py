@@ -39,7 +39,8 @@ async def check_cpf(cpf: str, session: AsyncSession = Depends(get_session)):
 
 @router.get("/first-name/{external_id}", response_model=FirstNameResponse)
 async def get_first_name_endpoint(
-    external_id: UUID, session: AsyncSession = Depends(get_session),
+    external_id: UUID,
+    session: AsyncSession = Depends(get_session),
 ):
     return await get_first_name(session, external_id)
 
@@ -62,7 +63,9 @@ async def get_one(external_id: UUID, session: AsyncSession = Depends(get_session
 
 @router.patch("/{external_id}", response_model=ProfileRead)
 async def patch(
-    external_id: UUID, data: ProfilePatch, session: AsyncSession = Depends(get_session),
+    external_id: UUID,
+    data: ProfilePatch,
+    session: AsyncSession = Depends(get_session),
 ):
     return await patch_profile(session, external_id, data)
 

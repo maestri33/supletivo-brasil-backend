@@ -13,10 +13,12 @@ from app.validators.zipcode import validate_zipcode
 def _validate_required_text(value: str | None, field: str, max_len: int) -> str:
     if value is None or not str(value).strip():
         from app.exceptions import ValidationError
+
         raise ValidationError(f"{field} é obrigatório")
     clean = str(value).strip()
     if len(clean) > max_len:
         from app.exceptions import ValidationError
+
         raise ValidationError(f"{field} deve ter no máximo {max_len} caracteres")
     return clean
 
@@ -29,6 +31,7 @@ def _validate_optional_text(value: str | None, field: str, max_len: int) -> str 
         return None
     if len(clean) > max_len:
         from app.exceptions import ValidationError
+
         raise ValidationError(f"{field} deve ter no máximo {max_len} caracteres")
     return clean
 
@@ -193,7 +196,7 @@ class AddressPatch(BaseModel):
 
 
 class AddressRead(BaseModel):
-    id: int
+    id: UUID
     external_id: UUID
     kind: str
     zipcode: str

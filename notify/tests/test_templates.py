@@ -88,7 +88,8 @@ async def test_update_template_html_increments_version(client: AsyncClient) -> N
         json={"slug": "v1", "name": "V1", "html": "<p>first</p>"},
     )
     resp = await client.put(
-        "/api/v1/templates/v1", json={"html": "<p>second</p>"},
+        "/api/v1/templates/v1",
+        json={"html": "<p>second</p>"},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -102,7 +103,8 @@ async def test_update_template_same_html_does_not_increment(client: AsyncClient)
         json={"slug": "static", "name": "Static", "html": "<p>same</p>"},
     )
     resp = await client.put(
-        "/api/v1/templates/static", json={"html": "<p>same</p>"},
+        "/api/v1/templates/static",
+        json={"html": "<p>same</p>"},
     )
     assert resp.status_code == 200
     assert resp.json()["version"] == 1
@@ -114,7 +116,8 @@ async def test_update_template_is_active_toggle(client: AsyncClient) -> None:
         json={"slug": "toggle", "name": "Toggle", "html": "<p>x</p>"},
     )
     resp = await client.put(
-        "/api/v1/templates/toggle", json={"is_active": False},
+        "/api/v1/templates/toggle",
+        json={"is_active": False},
     )
     assert resp.status_code == 200
     assert resp.json()["is_active"] is False
@@ -156,7 +159,8 @@ async def test_only_active_filter(client: AsyncClient) -> None:
         json={"slug": "inactive-1", "name": "Inativo", "html": "<p>x</p>"},
     )
     await client.put(
-        "/api/v1/templates/inactive-1", json={"is_active": False},
+        "/api/v1/templates/inactive-1",
+        json={"is_active": False},
     )
 
     resp = await client.get("/api/v1/templates?only_active=true")

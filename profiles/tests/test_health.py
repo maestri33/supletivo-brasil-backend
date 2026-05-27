@@ -1,6 +1,5 @@
 """Testes /, /health e /ready."""
 
-import pytest
 from httpx import AsyncClient
 
 

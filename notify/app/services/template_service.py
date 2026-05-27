@@ -42,14 +42,16 @@ async def get_active_or_default(session: AsyncSession, slug: str | None) -> Temp
     resolved_slug = slug or DEFAULT_SLUG
     template = await session.scalar(
         select(Template).where(
-            Template.slug == resolved_slug, Template.is_active.is_(True),
+            Template.slug == resolved_slug,
+            Template.is_active.is_(True),
         )
     )
     if template is None and resolved_slug != DEFAULT_SLUG:
         log.warning("template.fallback_to_default", requested_slug=resolved_slug)
         template = await session.scalar(
             select(Template).where(
-                Template.slug == DEFAULT_SLUG, Template.is_active.is_(True),
+                Template.slug == DEFAULT_SLUG,
+                Template.is_active.is_(True),
             )
         )
     if template is None:
@@ -58,7 +60,10 @@ async def get_active_or_default(session: AsyncSession, slug: str | None) -> Temp
 
 
 async def list_templates(
-    session: AsyncSession, only_active: bool = False, limit: int = 100, offset: int = 0,
+    session: AsyncSession,
+    only_active: bool = False,
+    limit: int = 100,
+    offset: int = 0,
 ) -> list[Template]:
     stmt = select(Template)
     if only_active:
@@ -68,7 +73,10 @@ async def list_templates(
 
 
 async def create_template(
-    session: AsyncSession, slug: str, name: str, html: str,
+    session: AsyncSession,
+    slug: str,
+    name: str,
+    html: str,
 ) -> Template:
     existing = await session.scalar(select(Template).where(Template.slug == slug))
     if existing:
@@ -119,7 +127,9 @@ async def update_template(
 
 async def delete_template(session: AsyncSession, slug: str) -> None:
     if slug == DEFAULT_SLUG:
-        raise DomainError("Template 'default' nao pode ser deletado (use is_active=false para desativar)")
+        raise DomainError(
+            "Template 'default' nao pode ser deletado (use is_active=false para desativar)"
+        )
     template = await get_by_slug(session, slug)
     if template is None:
         raise NotFound(f"Template '{slug}' nao encontrado")
@@ -132,7 +142,9 @@ async def delete_template(session: AsyncSession, slug: str) -> None:
 
 
 async def edit_with_ai(
-    session: AsyncSession, slug: str, instruction: str,
+    session: AsyncSession,
+    slug: str,
+    instruction: str,
 ) -> Template:
     """Edita o HTML de um template via servico AI e persiste."""
     import httpx
@@ -162,7 +174,10 @@ async def edit_with_ai(
 
 
 async def create_from_default_with_ai(
-    session: AsyncSession, slug: str, name: str, instruction: str,
+    session: AsyncSession,
+    slug: str,
+    name: str,
+    instruction: str,
 ) -> Template:
     """Cria um novo template a partir do `default` editado via servico AI."""
     import httpx
@@ -243,7 +258,10 @@ async def count_templates() -> dict[str, int]:
     """Contagem de templates (total / ativos)."""
     async with async_session_maker() as session:
         total = await session.scalar(select(func.count()).select_from(Template)) or 0
-        active = await session.scalar(
-            select(func.count()).select_from(Template).where(Template.is_active.is_(True))
-        ) or 0
+        active = (
+            await session.scalar(
+                select(func.count()).select_from(Template).where(Template.is_active.is_(True))
+            )
+            or 0
+        )
     return {"total": int(total), "active": int(active)}

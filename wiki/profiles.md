@@ -5,11 +5,11 @@ Gerencia perfis de usuário (dados pessoais, nascimento e escolaridade), vincula
 
 ## Status
 - **Endpoints:** completos (CRUD + busca CPF + first-name).
-- **Migrações:** 2 revisões aplicadas (0001 schema inicial, 0002 índices de busca). Sem pendências de migração.
+- **Migrações:** 3 revisões (0001 schema inicial, 0002 índices de busca, 0003 trigger `updated_at`). Sem pendências de migração.
 - **Testes:** existem (`tests/test_profiles.py`, `test_health.py`, `test_*_validation.py`, `tests/integrations/test_cpfhub.py`); cobertura não auditada.
 
 ## Estrutura
-**Aninhada (desvio da convenção):** `profiles/profiles/app/` em vez do canônico `profiles/app/`. O diretório raiz `profiles/` contém apenas um subdiretório `profiles/` com o pacote real.
+**Conforme a convenção:** pacote em `profiles/app/` (achatado na Fase 2; o antigo aninhamento `profiles/profiles/app/` não existe mais). Possui `README.md` e `.claude/` (CLAUDE.md + memory) próprios.
 
 ## Endpoints
 **Arquivo:** `app/api/profiles.py` — todos internos/desmilitarizados (sem autenticação explícita no router).
@@ -47,14 +47,25 @@ Gerencia perfis de usuário (dados pessoais, nascimento e escolaridade), vincula
 - **CPFHub.io** (externa, `app/integrations/cpfhub.py`): lookup de identidade por CPF via `GET /cpf/{cpf}` com header `x-api-key`. Retry automático em status transientes (429/5xx), 3 tentativas, backoff 0.2s/0.8s. Desabilitada quando `cpfhub_api_key` está vazio. Retorna `CPFHubIdentity` (name, gender, birth_date) — best-effort, falhas silenciosas.
 - Sem integrações internas httpx com outros microsserviços.
 
-## Pendências
-**TODO no código:**
-- Nenhum `TODO`/`FIXME`/`HACK` encontrado nos arquivos `app/`.
+## Conformidade (§15 — adequado em 2026-05-24)
+**TODO no código:** nenhum `TODO`/`FIXME`/`HACK` em `app/` (e não há arquivo
+`TODO`-spec — a spec é esta wiki). §15.1 ✅.
 
-**Desvios da CONVENTION:**
-1. **Aninhamento incorreto:** pacote em `profiles/profiles/app/` em vez de `profiles/app/` — viola a regra "sem aninhamento de nome".
-2. **Validação de CPF duplicada com auth:** `app/validators/cpf.py` valida CPF localmente; o serviço `auth` provavelmente faz a mesma validação — risco de divergência de regras.
-3. **`import re` dentro de função** (`list_profiles`): deve ser movido para o topo do arquivo.
-4. **`updated_at` sem trigger no banco:** definido com `onupdate=func.now()` no ORM mas sem `trigger` ou `DEFAULT` equivalente na migração — atualizações diretas no Postgres não atualizam o campo.
-5. **Sem `README.md` no serviço** — exigido pela convenção (`§3`).
-6. **Sem `CLAUDE.md`** — exigido pela convenção para particularidades do serviço.
+**Desvios resolvidos:**
+1. ✅ **Aninhamento** — pacote achatado para `profiles/app/` (Fase 2).
+2. ✅ **Segurança** — `database_url` deixou de ter default hardcoded
+   (`v7m:v7m`); agora **obrigatório** via `.env` (espelha a Fase 1 do `otp`);
+   `.env.example` com placeholder.
+3. ✅ **`import re`** movido para o topo de `profile_service.py` (e `or_` sem
+   uso removido).
+4. ✅ **`updated_at`** — trigger `profiles.set_updated_at()` + `BEFORE UPDATE`
+   em `profiles.profiles` (migração `0003`); cobre UPDATE por SQL direto.
+5. ✅ **`README.md`** criado (§3).
+6. ✅ **`.claude/`** criado (CLAUDE.md + memory/{architecture,conventions,integrations}).
+7. ✅ **`alembic/env.py`** passou a criar o schema (`CREATE SCHEMA IF NOT EXISTS`).
+8. ✅ **Makefile** corrigido — alvos do template Tortoise (`aerich`, `mypy`)
+   trocados por `alembic`/`ruff`.
+
+**Decisão registrada (não é desvio):**
+- **CPF "duplicado" com `auth`:** profiles é o **dono** da identidade/CPF;
+  `auth` delega a profiles (PLANO Fase 4). O `validators/cpf.py` **fica** aqui.

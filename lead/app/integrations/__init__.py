@@ -1,4 +1,4 @@
-import time
+import asyncio
 
 import httpx
 import structlog
@@ -44,10 +44,8 @@ async def request_with_retry(
                 error=str(exc),
             )
         if attempt < max_retries:
-            time.sleep(2**attempt * 0.1)
-    raise IntegrationError(
-        f"{method} {url} failed after {max_retries} attempts"
-    ) from last_exc
+            await asyncio.sleep(2**attempt * 0.1)
+    raise IntegrationError(f"{method} {url} failed after {max_retries} attempts") from last_exc
 
 
 class BaseClient:

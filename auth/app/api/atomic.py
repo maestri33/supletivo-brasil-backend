@@ -5,9 +5,13 @@ from __future__ import annotations
 import uuid
 
 import niquests
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
+from app.api.auth_guard import require_admin
 from app.config import get_settings
+from app.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/atomic", tags=["atomic"])
 
@@ -26,7 +30,10 @@ SERVICES = [
 
 
 @router.post("", status_code=201, summary="Gera token de limpeza atomica (valido por 60s)")
-async def atomic_create(request: Request) -> dict:
+async def atomic_create(
+    request: Request,
+    _admin: dict = Depends(require_admin),
+) -> dict:
     """Cria um token unico para confirmacao da limpeza total."""
     redis = getattr(request.app.state, "redis", None)
     if redis is None:
@@ -34,11 +41,20 @@ async def atomic_create(request: Request) -> dict:
 
     token = str(uuid.uuid4())
     await redis.setex(ATOMIC_KEY, ATOMIC_TTL, token)
-    return {"atomic_id": token, "ttl": ATOMIC_TTL, "message": f"DELETE /api/v1/atomic/{token} para confirmar"}
+    logger.warning("atomic_token_created", token_hash=hash(token) & 0xFFFFFF)
+    return {
+        "atomic_id": token,
+        "ttl": ATOMIC_TTL,
+        "message": f"DELETE /api/v1/atomic/{token} para confirmar",
+    }
 
 
 @router.delete("/{atomic_id}", summary="Executa limpeza total do ecossistema")
-async def atomic_execute(atomic_id: str, request: Request) -> dict:
+async def atomic_execute(
+    atomic_id: str,
+    request: Request,
+    _admin: dict = Depends(require_admin),
+) -> dict:
     """Confirma o token e apaga todos os dados de todos os servicos."""
     redis = getattr(request.app.state, "redis", None)
     if redis is None:
@@ -46,12 +62,17 @@ async def atomic_execute(atomic_id: str, request: Request) -> dict:
 
     stored = await redis.get(ATOMIC_KEY)
     if stored is None:
-        return {"detail": "Nenhum token ativo. Crie um com POST /atomic primeiro.", "code": "NO_TOKEN"}
+        return {
+            "detail": "Nenhum token ativo. Crie um com POST /atomic primeiro.",
+            "code": "NO_TOKEN",
+        }
     if stored != atomic_id:
         return {"detail": "Token invalido.", "code": "BAD_TOKEN"}
 
     # Token valido — remove imediatamente para evitar reentrada
     await redis.delete(ATOMIC_KEY)
+
+    logger.warning("atomic_wipe_executed", atomic_id_hash=hash(atomic_id) & 0xFFFFFF)
 
     results: dict[str, dict] = {}
 
@@ -89,7 +110,10 @@ async def atomic_execute(atomic_id: str, request: Request) -> dict:
                             deleted += 1
                 results["profiles"] = {"status": "ok", "deleted": deleted}
             else:
-                results["profiles"] = {"status": "no_list_endpoint", "detail": f"HTTP {resp.status_code}"}
+                results["profiles"] = {
+                    "status": "no_list_endpoint",
+                    "detail": f"HTTP {resp.status_code}",
+                }
     except Exception as exc:
         results["profiles"] = {"status": "error", "detail": str(exc)}
 
@@ -139,7 +163,10 @@ async def atomic_execute(atomic_id: str, request: Request) -> dict:
                             deleted += 1
                 results["notify"] = {"status": "ok", "deleted": deleted}
             else:
-                results["notify"] = {"status": "no_list_endpoint", "detail": f"HTTP {resp.status_code}"}
+                results["notify"] = {
+                    "status": "no_list_endpoint",
+                    "detail": f"HTTP {resp.status_code}",
+                }
     except Exception as exc:
         results["notify"] = {"status": "error", "detail": str(exc)}
 
@@ -175,7 +202,10 @@ async def atomic_execute(atomic_id: str, request: Request) -> dict:
                             deleted_co += 1
                 results["lead_checkouts"] = {"status": "ok", "deleted": deleted_co}
             else:
-                results["lead_checkouts"] = {"status": "error", "detail": f"HTTP {resp.status_code}"}
+                results["lead_checkouts"] = {
+                    "status": "error",
+                    "detail": f"HTTP {resp.status_code}",
+                }
     except Exception as exc:
         results["lead"] = {"status": "error", "detail": str(exc)}
 

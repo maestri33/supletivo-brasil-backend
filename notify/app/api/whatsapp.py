@@ -18,7 +18,8 @@ router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
     summary="Perfil WhatsApp do contacto",
 )
 async def get_profile(
-    external_id: UUID, session: AsyncSession = Depends(get_session),
+    external_id: UUID,
+    session: AsyncSession = Depends(get_session),
 ) -> WhatsAppProfile:
     return await whatsapp_profile_service.fetch_contact_profile(session, external_id)
 

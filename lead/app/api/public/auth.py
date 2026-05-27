@@ -26,9 +26,10 @@ class CheckRequest(APIModel):
 
 
 class CheckResponse(APIModel):
-    found: bool
-    external_id: UUID | None = None
-    valid: bool | None = None
+    # COD-32: Resposta uniformizada — nunca diferencia found=true/false.
+    # Auth service retorna {"otp_sent": true} ou {"otp_wait": N},
+    # nunca expoe external_id nem found.
+    otp_sent: bool | None = None
     otp_wait: int | None = None
 
 

@@ -24,15 +24,19 @@ async def _count_by(session: AsyncSession, column) -> dict[str, int]:
 
 
 async def messages_summary(
-    session: AsyncSession, window_hours: int = 24,
+    session: AsyncSession,
+    window_hours: int = 24,
 ) -> dict[str, Any]:
     """Resumo agregado das mensagens — total all-time + last N horas."""
     since = datetime.now(tz=timezone.utc) - timedelta(hours=window_hours)
 
     total_all = await session.scalar(select(func.count()).select_from(Message)) or 0
-    total_window = await session.scalar(
-        select(func.count()).select_from(Message).where(Message.created_at >= since)
-    ) or 0
+    total_window = (
+        await session.scalar(
+            select(func.count()).select_from(Message).where(Message.created_at >= since)
+        )
+        or 0
+    )
 
     by_whatsapp = await _count_by(session, Message.whatsapp_status)
     by_email = await _count_by(session, Message.email_status)
@@ -46,7 +50,9 @@ async def messages_summary(
 
 
 async def top_errors(
-    session: AsyncSession, window_hours: int = 24, limit: int = 5,
+    session: AsyncSession,
+    window_hours: int = 24,
+    limit: int = 5,
 ) -> list[dict[str, Any]]:
     """Top acoes que contem 'failed' nas ultimas N horas.
 
@@ -73,14 +79,13 @@ async def status_snapshot(window_hours: int = 24) -> dict[str, Any]:
     """
     try:
         async with async_session_maker() as session:
-            contacts_total = await session.scalar(
-                select(func.count()).select_from(Contact)
-            ) or 0
-            templates_active = await session.scalar(
-                select(func.count())
-                .select_from(Template)
-                .where(Template.is_active.is_(True))
-            ) or 0
+            contacts_total = await session.scalar(select(func.count()).select_from(Contact)) or 0
+            templates_active = (
+                await session.scalar(
+                    select(func.count()).select_from(Template).where(Template.is_active.is_(True))
+                )
+                or 0
+            )
             msgs = await messages_summary(session, window_hours=window_hours)
             errs = await top_errors(session, window_hours=window_hours, limit=5)
 

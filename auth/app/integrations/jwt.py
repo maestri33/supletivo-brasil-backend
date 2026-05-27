@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-import logging
-
 import niquests
 
 from app.config import get_settings
+from app.utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+
+def _sanitize_log_body(body: dict | None, sensitive: set[str]) -> dict | None:
+    """Remove sensitive fields from log output."""
+    if not isinstance(body, dict):
+        return body
+    return {k: ("***" if k in sensitive else v) for k, v in body.items()}
 
 
 class JWTClient:
@@ -31,7 +37,8 @@ class JWTClient:
     async def issue(self, external_id: str, roles: list[str]) -> dict:
         """POST /api/v1/tokens/issue — emite access + refresh token."""
         resp = await self._request(
-            "POST", "/api/v1/tokens/issue",
+            "POST",
+            "/api/v1/tokens/issue",
             json={"external_id": external_id, "roles": roles},
         )
         return resp.json()
@@ -39,7 +46,8 @@ class JWTClient:
     async def refresh(self, refresh_token: str) -> dict:
         """POST /api/v1/tokens/refresh — renova par de tokens."""
         resp = await self._request(
-            "POST", "/api/v1/tokens/refresh",
+            "POST",
+            "/api/v1/tokens/refresh",
             json={"refresh_token": refresh_token},
         )
         return resp.json()
@@ -54,13 +62,22 @@ class JWTClient:
     # ── Internal ────────────────────────────────────
 
     async def _request(
-        self, method: str, path: str, *,
-        json: dict | None = None, params: dict | None = None,
+        self,
+        method: str,
+        path: str,
+        *,
+        json: dict | None = None,
+        params: dict | None = None,
     ) -> niquests.Response:
         url = f"{self._base}{path}"
-        logger.debug(f"[jwt] {method} {url}" + (f" body={json}" if json else ""))
+        safe = _sanitize_log_body(json, {"refresh_token", "access_token", "token"})
+        logger.debug(f"[jwt] {method} {url}" + (f" body={safe}" if safe else ""))
         resp = await self._session.request(
-            method, url, json=json, params=params, timeout=self._timeout,
+            method,
+            url,
+            json=json,
+            params=params,
+            timeout=self._timeout,
         )
         logger.debug(f"[jwt] ← {resp.status_code}")
         if resp.status_code >= 400:
@@ -68,7 +85,10 @@ class JWTClient:
             try:
                 body = resp.json()
                 if isinstance(body, dict):
-                    detail = f"{body.get('code', '')}: {body.get('message', body.get('detail', str(body)))}"
+                    detail = (
+                        f"{body.get('code', '')}: "
+                        f"{body.get('message', body.get('detail', str(body)))}"
+                    )
             except Exception:
                 detail = resp.text or detail
             raise JWTError(resp.status_code, detail)

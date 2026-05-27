@@ -5,8 +5,8 @@ Run with: uvicorn app.main:app --host 0.0.0.0 --port 8000
 """
 
 import asyncio
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 import httpx
 from fastapi import FastAPI, Request
@@ -21,6 +21,23 @@ from app.exceptions import DomainError, RateLimitExceeded
 from app.services.cleanup import cleanup_loop
 from app.services.queue import queue_loop
 from app.utils.logging import configure_logging, get_logger
+from app.metrics import setup_metrics
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+
+def _cors_origins() -> list[str]:
+    """CORS origins: dev/staging permite *, prod exige CORS_ORIGINS (COD-18 P0.2)."""
+    import os as _os
+    env = _os.getenv("ENV", _os.getenv("ENVIRONMENT", "development"))
+    if env in ("development", "dev", "staging"):
+        return ["*"]
+    raw = _os.getenv("CORS_ORIGINS", "")
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return []
+
 
 settings = get_settings()
 configure_logging(settings.log_level, settings.env)
@@ -71,11 +88,22 @@ O contacto deve existir previamente no notify.
 """,
 )
 
-# DMZ: CORS wide open for now. Lock down when the user requests "trava isso".
+# ── Rate limiting (slowapi) ─────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+
+# ── SlowAPI middleware ──────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+from slowapi.middleware import SlowAPIMiddleware
+app.add_middleware(SlowAPIMiddleware)
+
+
+# DMZ: CORS origins driven by env. Dev/staging = *, prod = CORS_ORIGINS (COD-18 P0.2).
+_origins = _cors_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_origins,
+    allow_credentials=bool(_origins and _origins != ["*"]),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -109,3 +137,5 @@ async def _handle_domain_error(request: Request, exc: DomainError) -> JSONRespon
 
 app.include_router(status_router)
 app.include_router(api_router)
+setup_metrics(app)
+

@@ -8,14 +8,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.whatsapp import WhatsAppClient
 from app.models.contact import Contact
+from app.utils.logging import get_logger
+from app.utils.pii import mask_phone as _mask_phone
 from app.schemas.whatsapp import WhatsAppProfile
 from app.utils.logging import get_logger
 
 log = get_logger(__name__)
 
 ALL_FIELDS = {
-    "name", "picture", "status", "description", "website",
-    "email", "address", "category", "business_hours",
+    "name",
+    "picture",
+    "status",
+    "description",
+    "website",
+    "email",
+    "address",
+    "category",
+    "business_hours",
 }
 
 
@@ -36,9 +45,7 @@ async def _fetch_profile(phone: str, external_id: UUID) -> WhatsAppProfile:
             profile.status = st.get("status", "") or ""
             profile.description = data.get("description", "") or ""
             site = data.get("website", "")
-            profile.website = (
-                (site[0] if isinstance(site, list) and site else site) if site else ""
-            )
+            profile.website = (site[0] if isinstance(site, list) and site else site) if site else ""
 
             if profile.is_business:
                 try:
@@ -54,31 +61,33 @@ async def _fetch_profile(phone: str, external_id: UUID) -> WhatsAppProfile:
                     if profile.description:
                         profile.description = biz.get("description") or profile.description
                 except Exception as exc:
-                    log.warning("business_profile_failed", phone=phone, error=str(exc))
+                    log.warning("business_profile_failed", phone=_mask_phone(phone), error=str(exc))
 
             log.info(
                 "whatsapp.profile_fetched",
-                external_id=str(external_id), is_business=profile.is_business,
+                external_id=str(external_id),
+                is_business=profile.is_business,
             )
 
         except Exception as exc:
-            log.error("profile_fetch_failed", phone=phone, error=str(exc))
+            log.error("profile_fetch_failed", phone=_mask_phone(phone), error=str(exc))
             profile.error = str(exc)
 
     return profile
 
 
 async def fetch_contact_profile(
-    session: AsyncSession, external_id: UUID,
+    session: AsyncSession,
+    external_id: UUID,
 ) -> WhatsAppProfile:
-    contact = await session.scalar(
-        select(Contact).where(Contact.external_id == external_id)
-    )
+    contact = await session.scalar(select(Contact).where(Contact.external_id == external_id))
     if not contact:
         from app.exceptions import NotFound
+
         raise NotFound(f"Contacto {external_id} nao encontrado")
     if not contact.phone:
         from app.exceptions import DomainError
+
         raise DomainError(f"Contacto {external_id} nao possui telefone")
     return await _fetch_profile(contact.phone, external_id)
 

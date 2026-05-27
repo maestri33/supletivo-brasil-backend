@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     )
 
     # Banco — Postgres central v7m com schema asaas
-    database_url: str = Field(validation_alias="ASAAS_APP_DB_URL")
+    database_url: str
     database_schema: str = "asaas"
 
     # Asaas — production-only por padrao; habilita sandbox via env
@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     asaas_internal_url_scheduling: str | None = Field(
         default=None, validation_alias="ASAAS_INTERNAL_URL_SCHEDULING"
     )
+
+    # Webhook HMAC secret — mesma chave configurada no painel Asaas
+    asaas_webhook_secret: str | None = Field(default=None, validation_alias="ASAAS_WEBHOOK_SECRET")
 
     # Nonce TTL for external URL verification
     url_verify_nonce_ttl: int = 600

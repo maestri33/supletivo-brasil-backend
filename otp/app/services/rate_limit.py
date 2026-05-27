@@ -8,7 +8,7 @@ A política é checada e gravada na MESMA transação (UPSERT atômico).
 Se qualquer limite estoura, levanta `RateLimitExceeded` com retry_after_s.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -29,13 +29,11 @@ async def check_and_record(session: AsyncSession, external_id: UUID) -> None:
 
     Levanta RateLimitExceeded se bloqueado — nesse caso nada é alterado.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     window_s = settings.otp_ratelimit_window_s
     hourly_max = settings.otp_ratelimit_hourly_max
 
-    existing = await session.scalar(
-        select(RateLimit).where(RateLimit.external_id == external_id)
-    )
+    existing = await session.scalar(select(RateLimit).where(RateLimit.external_id == external_id))
 
     if existing is not None:
         # ── regra 1: janela curta ──
@@ -44,7 +42,8 @@ async def check_and_record(session: AsyncSession, external_id: UUID) -> None:
             retry_after = max(1, int(window_s - elapsed_s))
             log.info(
                 "otp.rate_limit.window_blocked",
-                external_id=str(external_id), retry_after_s=retry_after,
+                external_id=str(external_id),
+                retry_after_s=retry_after,
             )
             raise RateLimitExceeded(
                 f"Aguarde {retry_after}s antes de gerar outro OTP.",
@@ -63,8 +62,7 @@ async def check_and_record(session: AsyncSession, external_id: UUID) -> None:
                     retry_after_s=retry_after,
                 )
                 raise RateLimitExceeded(
-                    f"Limite de {hourly_max} OTPs/hora atingido. "
-                    f"Aguarde {retry_after}s.",
+                    f"Limite de {hourly_max} OTPs/hora atingido. Aguarde {retry_after}s.",
                     retry_after_s=retry_after,
                 )
             new_hourly_count = existing.hourly_count + 1
@@ -102,9 +100,7 @@ async def check_and_record(session: AsyncSession, external_id: UUID) -> None:
 
 async def reset(session: AsyncSession, external_id: UUID) -> None:
     """Limpa a entrada de rate limit pra um external_id (uso debug/admin)."""
-    rl = await session.scalar(
-        select(RateLimit).where(RateLimit.external_id == external_id)
-    )
+    rl = await session.scalar(select(RateLimit).where(RateLimit.external_id == external_id))
     if rl is None:
         return
     await session.delete(rl)

@@ -9,6 +9,23 @@ from app.config import get_settings
 from app.exceptions import DomainError
 from app.stats import get_stats
 from app.utils.logging import RequestLoggingMiddleware, configure_logging, get_logger
+from app.metrics import setup_metrics
+
+
+def _cors_origins() -> list[str]:
+    """CORS origins: dev/staging permite *, prod exige CORS_ORIGINS (COD-18 P0.2)."""
+    import os as _os
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+    env = _os.getenv("ENV", _os.getenv("ENVIRONMENT", "development"))
+    if env in ("development", "dev", "staging"):
+        return ["*"]
+    raw = _os.getenv("CORS_ORIGINS", "")
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return []
+
 
 # -- Boot --
 settings = get_settings()
@@ -21,11 +38,22 @@ log.info("service.startup", service=settings.service_name, env=settings.env)
 # -- App --
 app = FastAPI(title=settings.service_name, version="1.0.0")
 
+# ── Rate limiting (slowapi) ─────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+
+# ── SlowAPI middleware ──────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+from slowapi.middleware import SlowAPIMiddleware
+app.add_middleware(SlowAPIMiddleware)
+
+
 app.add_middleware(RequestLoggingMiddleware)
+_origins = _cors_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_origins,
+    allow_credentials=bool(_origins and _origins != ["*"]),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -41,3 +69,5 @@ async def _handle_domain_error(request: Request, exc: DomainError) -> JSONRespon
 
 
 app.include_router(api_router)
+setup_metrics(app)
+

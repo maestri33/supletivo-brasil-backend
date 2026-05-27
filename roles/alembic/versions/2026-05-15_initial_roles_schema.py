@@ -29,8 +29,10 @@ def upgrade() -> None:
     op.create_table(
         "role_rules",
         sa.Column(
-            "id", postgresql.UUID(as_uuid=True),
-            server_default=sa.text("gen_random_uuid()"), nullable=False,
+            "id",
+            postgresql.UUID(as_uuid=True),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
         ),
         sa.Column("from_role", sa.String(length=64), nullable=True),
         sa.Column("to_role", sa.String(length=64), nullable=False),
@@ -38,8 +40,10 @@ def upgrade() -> None:
         sa.Column("requires_role", sa.String(length=64), nullable=True),
         sa.Column("forbids_role", sa.String(length=64), nullable=True),
         sa.Column(
-            "blocking", sa.Boolean(),
-            server_default=sa.text("false"), nullable=False,
+            "blocking",
+            sa.Boolean(),
+            server_default=sa.text("false"),
+            nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="role_rules_pkey"),
         schema=SCHEMA,
@@ -48,26 +52,35 @@ def upgrade() -> None:
     op.create_table(
         "user_roles",
         sa.Column(
-            "id", postgresql.UUID(as_uuid=True),
-            server_default=sa.text("gen_random_uuid()"), nullable=False,
+            "id",
+            postgresql.UUID(as_uuid=True),
+            server_default=sa.text("gen_random_uuid()"),
+            nullable=False,
         ),
         sa.Column("external_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("role", sa.String(length=64), nullable=False),
         sa.Column(
-            "assigned_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "assigned_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id", name="user_roles_pkey"),
         sa.ForeignKeyConstraint(
-            ["external_id"], ["auth.users.external_id"],
+            ["external_id"],
+            ["auth.users.external_id"],
             name="user_roles_external_id_fkey",
-            onupdate="CASCADE", ondelete="RESTRICT",
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
         ),
         schema=SCHEMA,
     )
     op.create_index(
-        "user_roles_external_id_idx", "user_roles", ["external_id"], schema=SCHEMA,
+        "user_roles_external_id_idx",
+        "user_roles",
+        ["external_id"],
+        schema=SCHEMA,
     )
 
 

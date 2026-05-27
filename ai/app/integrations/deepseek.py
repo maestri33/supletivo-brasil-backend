@@ -6,7 +6,6 @@ API OpenAI-compatible. Cache de contexto KV ativado por padrao (gratuito).
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 import json
-import time
 
 import httpx
 
@@ -84,7 +83,9 @@ class DeepSeekClient:
         payload: dict = {
             "model": model or self._default_model,
             "messages": messages,
-            "temperature": temperature if temperature is not None else self._default_temperature,
+            "temperature": temperature
+            if temperature is not None
+            else self._default_temperature,
             "user_id": self._user_id,
         }
         resolved_max_tokens = max_tokens if max_tokens is not None else self._max_tokens
@@ -177,12 +178,15 @@ class DeepSeekClient:
         """Gera JSON estruturado. Mantido para backward compat com /json/."""
         schema_note = (
             f"O JSON deve seguir este schema: {schema_description}"
-            if schema_description else ""
+            if schema_description
+            else ""
         )
         instruction_line = f"Instrucao: {instruction}" if instruction else ""
 
         result = await self._chat(
-            system_prompt=SYSTEM_PROMPT_PT + " Retorne APENAS um JSON valido. " + schema_note,
+            system_prompt=SYSTEM_PROMPT_PT
+            + " Retorne APENAS um JSON valido. "
+            + schema_note,
             user_message=f"Prompt: {prompt}\n{instruction_line}",
             temperature=temperature,
             max_tokens=max_tokens,
@@ -202,7 +206,8 @@ class DeepSeekClient:
 
     async def _request(self, payload: dict) -> ChatResult:
         resp = await request_with_retry(
-            self._client, "POST",
+            self._client,
+            "POST",
             f"{self._base_url}/chat/completions",
             json=payload,
             headers=self._headers(),
@@ -313,7 +318,9 @@ class DeepSeekClient:
         ) as response:
             if response.status_code >= 400:
                 body = await response.aread()
-                raise IntegrationError(f"DeepSeek streaming falhou ({response.status_code}): {body.decode()}")
+                raise IntegrationError(
+                    f"DeepSeek streaming falhou ({response.status_code}): {body.decode()}"
+                )
 
             async for line in response.aiter_lines():
                 if not line.startswith("data: "):

@@ -58,9 +58,7 @@ class ContactCheckResponse(BaseModel):
     """
 
     found: bool = Field(description="Se o contacto ja existe na base local")
-    external_id: str | None = Field(
-        default=None, description="ID do contacto se encontrado"
-    )
+    external_id: str | None = Field(default=None, description="ID do contacto se encontrado")
     phone: str | None = Field(default=None, description="Telefone do contacto se encontrado")
     email: str | None = Field(default=None, description="Email do contacto se encontrado")
     phone_valid: bool | None = Field(

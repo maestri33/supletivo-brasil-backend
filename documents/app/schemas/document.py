@@ -1,22 +1,31 @@
-from pydantic import BaseModel
+"""Schemas Pydantic para a API de documentos."""
+
 from datetime import date, datetime
-from uuid import UUID
+
+from pydantic import BaseModel
 
 
 ALLOWED_MIME_IMG = {"image/jpeg", "image/png", "image/webp"}
-IMAGE_SLOTS = frozenset({
-    "rg_foto_frente", "rg_foto_verso",
-    "cnh_foto_frente", "cnh_foto_verso",
-    "carteira_trabalho_foto_frente", "carteira_trabalho_foto_verso",
-    "passaporte_foto_frente", "passaporte_foto_verso",
-    "certidao_foto",
-    "reservista_foto",
-    "comprovante_residencia_foto",
-    "foto",
-})
+IMAGE_SLOTS = frozenset(
+    {
+        "rg_foto_frente",
+        "rg_foto_verso",
+        "cnh_foto_frente",
+        "cnh_foto_verso",
+        "carteira_trabalho_foto_frente",
+        "carteira_trabalho_foto_verso",
+        "passaporte_foto_frente",
+        "passaporte_foto_verso",
+        "certidao_foto",
+        "reservista_foto",
+        "comprovante_residencia_foto",
+        "foto",
+    }
+)
 
 
 # --- sub-documentos ---
+
 
 class RGUpdate(BaseModel):
     numero: str | None = None
@@ -25,15 +34,14 @@ class RGUpdate(BaseModel):
 
 
 class RGOut(BaseModel):
-    id: int
+    id: str  # UUID
     numero: str | None = None
     orgao_emissor: str | None = None
     data_emissao: date | None = None
     foto_frente: str | None = None
     foto_verso: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class CNHUpdate(BaseModel):
@@ -45,7 +53,7 @@ class CNHUpdate(BaseModel):
 
 
 class CNHOut(BaseModel):
-    id: int
+    id: str  # UUID
     numero: str | None = None
     categoria: str | None = None
     data_nascimento: date | None = None
@@ -54,8 +62,7 @@ class CNHOut(BaseModel):
     foto_frente: str | None = None
     foto_verso: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class CarteiraTrabalhoUpdate(BaseModel):
@@ -66,7 +73,7 @@ class CarteiraTrabalhoUpdate(BaseModel):
 
 
 class CarteiraTrabalhoOut(BaseModel):
-    id: int
+    id: str  # UUID
     numero: str | None = None
     serie: str | None = None
     uf: str | None = None
@@ -74,8 +81,7 @@ class CarteiraTrabalhoOut(BaseModel):
     foto_frente: str | None = None
     foto_verso: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class PassaporteUpdate(BaseModel):
@@ -85,15 +91,14 @@ class PassaporteUpdate(BaseModel):
 
 
 class PassaporteOut(BaseModel):
-    id: int
+    id: str  # UUID
     numero: str | None = None
     validade: date | None = None
     data_emissao: date | None = None
     foto_frente: str | None = None
     foto_verso: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class CertidaoUpdate(BaseModel):
@@ -108,6 +113,7 @@ class CertidaoUpdate(BaseModel):
 
 # --- documento principal ---
 
+
 class DocumentUpdate(BaseModel):
     rg: RGUpdate | None = None
     cnh: CNHUpdate | None = None
@@ -121,8 +127,8 @@ class DocumentUpdate(BaseModel):
 
 
 class DocumentOut(BaseModel):
-    id: int
-    external_id: UUID
+    id: str  # UUID
+    external_id: str  # UUID
     created_at: datetime
     updated_at: datetime
 
@@ -149,5 +155,4 @@ class DocumentOut(BaseModel):
     comprovante_residencia_foto: str | None = None
     foto: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}

@@ -13,7 +13,11 @@ class AuthClient(BaseClient):
         phone: str | None = None,
         external_id: str | None = None,
     ) -> dict:
-        body = {k: v for k, v in {"cpf": cpf, "phone": phone, "external_id": external_id}.items() if v is not None}
+        body = {
+            k: v
+            for k, v in {"cpf": cpf, "phone": phone, "external_id": external_id}.items()
+            if v is not None
+        }
         resp = await request_with_retry(self.client, "POST", "/api/v1/check", json=body)
         return resp.json()
 

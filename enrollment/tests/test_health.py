@@ -13,8 +13,7 @@ async def test_ready(client: AsyncClient) -> None:
     resp = await client.get("/ready")
     assert resp.status_code == 200
     body = resp.json()
-    assert body["status"] == "ok"
-    assert body["db"] == "ok"
+    assert body["status"] == "ready"
 
 
 async def test_status(client: AsyncClient) -> None:

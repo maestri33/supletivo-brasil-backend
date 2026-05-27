@@ -5,10 +5,7 @@ import re
 from app.exceptions import ValidationError
 
 # Caracteres invisíveis e de controle (mesmo conjunto do name.py)
-_INVISIBLE_RE = re.compile(
-    "[​-‏-‪-‮⁠-⁩"
-    "﻿­᠎͏]"
-)
+_INVISIBLE_RE = re.compile("[​-‏-‪-‮⁠-⁩﻿­᠎͏]")
 _CONTROL_RE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
 _MARKUP_RE = re.compile(r"<[^>]*>")
@@ -68,7 +65,9 @@ def validate_description(value: str | None) -> str | None:
         raise ValidationError("Descrição não pode conter tags HTML/XML")
 
     if _SUSPICIOUS_RE.search(value):
-        raise ValidationError("Descrição contém caracteres não permitidos (emojis, símbolos, markup)")
+        raise ValidationError(
+            "Descrição contém caracteres não permitidos (emojis, símbolos, markup)"
+        )
 
     apenas_alfa = "".join(c for c in value if c.isalpha())
     if len(apenas_alfa) < MIN_LETTERS:

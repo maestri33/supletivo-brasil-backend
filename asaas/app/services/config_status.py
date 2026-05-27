@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,11 +15,13 @@ _settings = get_settings()
 
 
 async def status(db: AsyncSession) -> dict:
+    secret = await cfg.get_webhook_secret(db)
     out: dict[str, Any] = {
         "configured": await cfg.all_status(db),
         "account": None,
         "balance": None,
         "webhook_registered": None,
+        "webhook_hmac_configured": bool(secret),
         "errors": [],
     }
 
@@ -26,6 +29,11 @@ async def status(db: AsyncSession) -> dict:
     if not api_key:
         out["errors"].append("asaas_api_key_not_set")
         return out
+
+    if not secret:
+        env = os.getenv("ENV", os.getenv("ENVIRONMENT", "development"))
+        if env not in ("development", "dev", "staging"):
+            out["errors"].append("webhook_hmac_disabled")
 
     async with AsaasClient(api_key) as client:
         try:

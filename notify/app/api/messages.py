@@ -39,7 +39,8 @@ async def send_message(
     summary="Disparo de email de teste (mail-tester etc) — nao cria Contact",
 )
 async def test_email(
-    payload: TestEmailRequest, session: AsyncSession = Depends(get_session),
+    payload: TestEmailRequest,
+    session: AsyncSession = Depends(get_session),
 ) -> TestEmailResult:
     """Helper para validacao de deliverability.
 
@@ -62,14 +63,18 @@ async def list_messages(
     session: AsyncSession = Depends(get_session),
 ) -> list[MessageRead]:
     messages = await message_service.list_messages(
-        session, contact_id=contact_id, limit=limit, offset=offset,
+        session,
+        contact_id=contact_id,
+        limit=limit,
+        offset=offset,
     )
     return [MessageRead.model_validate(m, from_attributes=True) for m in messages]
 
 
 @router.get("/{message_id}", response_model=MessageRead, summary="Obter mensagem")
 async def get_message(
-    message_id: int, session: AsyncSession = Depends(get_session),
+    message_id: int,
+    session: AsyncSession = Depends(get_session),
 ) -> MessageRead:
     msg = await message_service.get_message(session, message_id)
     if msg is None:

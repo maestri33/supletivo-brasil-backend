@@ -19,9 +19,7 @@ router = APIRouter()
         502: {"model": ErrorResponse, "description": "Falha na InfinitePay"},
     },
 )
-async def create(
-    body: CheckoutCreate, db: AsyncSession = Depends(get_session)
-) -> CheckoutResponse:
+async def create(body: CheckoutCreate, db: AsyncSession = Depends(get_session)) -> CheckoutResponse:
     """Cria um link de pagamento InfinitePay.
 
     handle, price, description, redirect_url e public_api_url usam os defaults
@@ -43,9 +41,7 @@ async def list_all(db: AsyncSession = Depends(get_session)) -> CheckoutListRespo
     response_model=CheckoutResponse,
     responses={404: {"model": ErrorResponse, "description": "Checkout nao encontrado"}},
 )
-async def get_one(
-    external_id: str, db: AsyncSession = Depends(get_session)
-) -> CheckoutResponse:
+async def get_one(external_id: str, db: AsyncSession = Depends(get_session)) -> CheckoutResponse:
     """Consulta um checkout pelo external_id.
 
     Se pago, retorna receipt_url. Senao, retorna checkout_url para pagamento.

@@ -71,10 +71,12 @@ async def _fetch_lead_context(external_id: str) -> tuple[str, str, str, str]:
     """
     async with (
         httpx.AsyncClient(
-            base_url=settings.PROFILES_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+            base_url=settings.PROFILES_BASE_URL,
+            timeout=settings.HTTP_TIMEOUT,
         ) as profiles_http,
         httpx.AsyncClient(
-            base_url=settings.NOTIFY_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+            base_url=settings.NOTIFY_BASE_URL,
+            timeout=settings.HTTP_TIMEOUT,
         ) as notify_http,
     ):
         profiles = ProfilesClient(profiles_http)
@@ -119,7 +121,9 @@ async def create_checkout_for_lead(external_id: str, payment_method: str = "cred
     if not name or not phone or not email:
         log.warning(
             "checkout_skip_missing_data",
-            name=bool(name), phone=bool(phone), email=bool(email),
+            name=bool(name),
+            phone=bool(phone),
+            email=bool(email),
         )
         return
 
@@ -128,14 +132,24 @@ async def create_checkout_for_lead(external_id: str, payment_method: str = "cred
         # Caminho legado / fallback. Cria sync e devolve None se falhar.
         try:
             checkout_row, encoded_image_b64 = await _create_pix_checkout(
-                ext_uuid, external_id, name, phone, email, cpf,
+                ext_uuid,
+                external_id,
+                name,
+                phone,
+                email,
+                cpf,
             )
         except PixCheckoutError as exc:
             log.error("pix_bg_failed", code=exc.code, detail=exc.detail)
             return
     else:
         checkout_row = await _create_credit_card_checkout(
-            log, ext_uuid, external_id, name, phone, email,
+            log,
+            ext_uuid,
+            external_id,
+            name,
+            phone,
+            email,
         )
 
     if checkout_row is None:
@@ -145,9 +159,7 @@ async def create_checkout_for_lead(external_id: str, payment_method: str = "cred
     # branch sync, no-op).
     promoter_external_id: UUID | None = None
     async with async_session_maker() as session:
-        existing = await session.scalar(
-            select(Checkout).where(Checkout.external_id == ext_uuid)
-        )
+        existing = await session.scalar(select(Checkout).where(Checkout.external_id == ext_uuid))
         if existing is None:
             session.add(checkout_row)
         lead = await session.scalar(select(Lead).where(Lead.external_id == ext_uuid))
@@ -165,11 +177,21 @@ async def create_checkout_for_lead(external_id: str, payment_method: str = "cred
     qr_abs = absolute_qr_url(checkout_row.qrcode_image) if checkout_row.qrcode_image else ""
     await asyncio.gather(
         _notify_lead_checkout(
-            external_id, customer_link, qr_abs, payment_method, encoded_image_b64,
+            external_id,
+            customer_link,
+            qr_abs,
+            payment_method,
+            encoded_image_b64,
         ),
         _notify_promoter_checkout(
-            external_id, phone, name, customer_link, qr_abs,
-            promoter_external_id, payment_method, encoded_image_b64,
+            external_id,
+            phone,
+            name,
+            customer_link,
+            qr_abs,
+            promoter_external_id,
+            payment_method,
+            encoded_image_b64,
         ),
     )
 
@@ -184,7 +206,8 @@ async def _create_credit_card_checkout(
 ) -> Checkout | None:
     """Cria checkout via InfinitePay (cartao de credito)."""
     async with httpx.AsyncClient(
-        base_url=settings.INFINITEPAY_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+        base_url=settings.INFINITEPAY_BASE_URL,
+        timeout=settings.HTTP_TIMEOUT,
     ) as ip_http:
         ip_client = InfinitePayClient(ip_http)
         try:
@@ -192,7 +215,9 @@ async def _create_credit_card_checkout(
                 CheckoutCreate(
                     external_id=external_id,
                     customer=CustomerIn(
-                        name=name, email=email, phone_number=_sanitize_phone(phone),
+                        name=name,
+                        email=email,
+                        phone_number=_sanitize_phone(phone),
                     ),
                 )
             )
@@ -273,7 +298,8 @@ async def _create_pix_checkout(
     )
 
     async with httpx.AsyncClient(
-        base_url=settings.ASAAS_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+        base_url=settings.ASAAS_BASE_URL,
+        timeout=settings.HTTP_TIMEOUT,
     ) as asaas_http:
         try:
             charge = await AsaasClient(asaas_http).create_charge_pix(payload)
@@ -366,7 +392,12 @@ async def create_pix_checkout_for_lead(
         )
 
     checkout, encoded_image_b64 = await _create_pix_checkout(
-        ext_uuid, external_id, name, phone, email, cpf,
+        ext_uuid,
+        external_id,
+        name,
+        phone,
+        email,
+        cpf,
     )
 
     # Persiste + transiciona na mesma session.
@@ -390,8 +421,14 @@ async def create_pix_checkout_for_lead(
     qr_abs = absolute_qr_url(checkout.qrcode_image) if checkout.qrcode_image else ""
     asyncio.create_task(
         _notify_checkout_safely(
-            external_id, phone, name, customer_link, qr_abs,
-            promoter_external_id, "pix", encoded_image_b64,
+            external_id,
+            phone,
+            name,
+            customer_link,
+            qr_abs,
+            promoter_external_id,
+            "pix",
+            encoded_image_b64,
         )
     )
 
@@ -412,11 +449,21 @@ async def _notify_checkout_safely(
     try:
         await asyncio.gather(
             _notify_lead_checkout(
-                external_id, customer_link, qr_abs, payment_method, encoded_image_b64,
+                external_id,
+                customer_link,
+                qr_abs,
+                payment_method,
+                encoded_image_b64,
             ),
             _notify_promoter_checkout(
-                external_id, phone, first_name, customer_link, qr_abs,
-                promoter_id, payment_method, encoded_image_b64,
+                external_id,
+                phone,
+                first_name,
+                customer_link,
+                qr_abs,
+                promoter_id,
+                payment_method,
+                encoded_image_b64,
             ),
         )
     except Exception as exc:
@@ -449,8 +496,7 @@ async def _notify_lead_checkout(
         template_path = MESSAGES / "checkout_lead.md"
     template = template_path.read_text(encoding="utf-8")
     content = (
-        template
-        .replace("{{checkout_url}}", customer_link)
+        template.replace("{{checkout_url}}", customer_link)
         .replace("{{pix_payload}}", customer_link)
         .replace("{{qr_url}}", qr_url)
     )
@@ -464,7 +510,8 @@ async def _notify_lead_checkout(
         caption_template_path = MESSAGES / "checkout_lead_pix_qr.md"
         if caption_template_path.exists():
             caption = caption_template_path.read_text(encoding="utf-8").replace(
-                "{{pix_payload}}", customer_link,
+                "{{pix_payload}}",
+                customer_link,
             )
         else:
             # Fallback: caption minimo com so o BR Code (copia-e-cola direto).
@@ -508,10 +555,7 @@ async def _notify_promoter_checkout(
 
     # Promoter tambem recebe o QR anexado pra poder repassar/conferir.
     if payment_method == "pix" and encoded_image_b64:
-        caption = (
-            f"QR Code PIX de {first_name} ({phone}):\n\n"
-            f"{customer_link}"
-        )
+        caption = f"QR Code PIX de {first_name} ({phone}):\n\n{customer_link}"
         await notify_and_track(
             str(promoter_id),
             caption,

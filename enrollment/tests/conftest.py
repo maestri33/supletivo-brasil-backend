@@ -108,9 +108,8 @@ async def session_factory(engine, monkeypatch) -> async_sessionmaker[AsyncSessio
 async def _clean_between_tests(engine) -> AsyncIterator[None]:
     yield
     async with engine.begin() as conn:
-        await conn.execute(
-            text("TRUNCATE enrollment.enrollment_events RESTART IDENTITY CASCADE")
-        )
+        await conn.execute(text("TRUNCATE enrollment.enrollments RESTART IDENTITY CASCADE"))
+        await conn.execute(text("TRUNCATE enrollment.enrollment_events RESTART IDENTITY CASCADE"))
         await conn.execute(text("DELETE FROM auth.users"))
 
 

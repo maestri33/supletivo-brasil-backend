@@ -9,9 +9,7 @@ Padrão alinhado com os demais serviços v7m (ver auth/app/exceptions.py).
 class DomainError(Exception):
     """Base para todas as exceções de domínio."""
 
-    def __init__(
-        self, detail: str, status_code: int = 400, code: str = "DOMAIN_ERROR"
-    ) -> None:
+    def __init__(self, detail: str, status_code: int = 400, code: str = "DOMAIN_ERROR") -> None:
         self.detail = detail
         self.status_code = status_code
         self.code = code
@@ -21,9 +19,7 @@ class DomainError(Exception):
 class NotFound(DomainError):
     """Recurso não encontrado (404)."""
 
-    def __init__(
-        self, detail: str = "Recurso não encontrado", code: str = "NOT_FOUND"
-    ) -> None:
+    def __init__(self, detail: str = "Recurso não encontrado", code: str = "NOT_FOUND") -> None:
         super().__init__(detail, 404, code)
 
 
@@ -37,7 +33,5 @@ class Conflict(DomainError):
 class ValidationError(DomainError):
     """Erro de validação (422)."""
 
-    def __init__(
-        self, detail: str = "Erro de validação", code: str = "VALIDATION_ERROR"
-    ) -> None:
+    def __init__(self, detail: str = "Erro de validação", code: str = "VALIDATION_ERROR") -> None:
         super().__init__(detail, 422, code)
