@@ -8,37 +8,36 @@ Microsserviço responsável por armazenar e gerenciar endereços da plataforma. 
 
 ## Status
 
-**Parcial — funcional, mas incompleto.**
+**Funcional e conforme à CONVENTION (§4 UUID).** Transição PK int→UUID concluída (Fase 4, 2026-05-27). Validado via `ruff check` + `ruff format --check` verdes.
 
-- Todos os endpoints dos dois recursos estão implementados e com migração Alembic correspondente (0001).
-- Webhook de eventos (create/update/delete) implementado em `integrations/webhook.py`.
-- Integração ViaCEP implementada em `integrations/viacep.py`.
-- **Ausência total de testes** — não há diretório `tests/` nem arquivo de teste.
-- TODO presente com funcionalidades ainda não implementadas (ver §Pendências).
-- Arquivos `uploads/` com PDFs reais versionados (violação de §9 da CONVENTION).
+- Todos os endpoints dos dois recursos implementados com migração Alembic (0001 inicial, 0002 UUID).
+- Healthcheck `/health`, `/ready`, `/status` implementados.
+- Webhook de eventos (create/update/delete) em `integrations/webhook.py`.
+- Integração ViaCEP em `integrations/viacep.py`.
+- **Ausência de testes** — não há diretório `tests/` nem arquivo de teste (task futura: COD-25).
+- **Validação PG pendente** — `alembic upgrade head` não executado neste ambiente (PG não disponível). Validar antes de deploy.
 
 ---
 
 ## Estrutura
 
-**Aninhado** — pacote em `address/address/app/`, não em `address/app/` como exige a CONVENTION (§3: "Sem aninhamento de nome").
+**Achatado** — pacote em `address/app/`, conforme CONVENTION §3.
 
 ```
 address/
-└── address/          ← aninhamento indevido
-    ├── app/
-    │   ├── api/          addresses.py · entity_addresses.py · health.py · router.py
-    │   ├── models/       address.py · entity_address.py
-    │   ├── schemas/      address.py · entity_address.py
-    │   ├── services/     address_service.py · entity_address_service.py
-    │   ├── integrations/ viacep.py · webhook.py
-    │   ├── utils/        logging.py
-    │   └── validators/   address_fields.py · zipcode.py
-    ├── alembic/
-    │   └── versions/  2026-05-22_0001_initial_addresses_schema.py
-    ├── pyproject.toml
-    ├── TODO
-    └── uploads/       ← dados locais versionados (violação §9)
+├── app/
+│   ├── api/          addresses.py · entity_addresses.py · health.py · router.py
+│   ├── models/       address.py · entity_address.py
+│   ├── schemas/      address.py · entity_address.py
+│   ├── services/     address_service.py · entity_address_service.py
+│   ├── integrations/ viacep.py · webhook.py
+│   ├── utils/        logging.py
+│   └── validators/   address_fields.py · zipcode.py
+├── alembic/
+│   └── versions/  2026-05-22_0001_initial_addresses_schema.py
+│                   2026-05-25_0002_addresses_pk_uuid.py
+├── pyproject.toml
+└── uploads/       ← .gitignore'd (não versionado)
 ```
 
 ---
@@ -62,7 +61,7 @@ address/
 | GET | `/api/v1/addresses/by-external-id/{external_id}` | Lista todos endereços de um usuário |
 | GET | `/api/v1/addresses/by-external-id/{external_id}/{kind}/current` | Endereço mais recente de um usuário por tipo |
 | GET | `/api/v1/addresses/cep/{zipcode}` | Lookup ViaCEP (não persiste; retorna dados do CEP) |
-| GET | `/api/v1/addresses/{address_id}` | Busca endereço por ID interno |
+| GET | `/api/v1/addresses/{address_id}` | Busca endereço por ID interno (UUID) |
 | PATCH | `/api/v1/addresses/{address_id}` | Atualização parcial; dispara webhook `address.updated` |
 | DELETE | `/api/v1/addresses/{address_id}` | Remove endereço; dispara webhook `address.deleted` |
 
@@ -85,7 +84,7 @@ address/
 
 | Coluna | Tipo | Restrições |
 |--------|------|-----------|
-| `id` | integer | PK, autoincrement |
+| `id` | UUID | PK (gerado na app via `uuid4`) |
 | `external_id` | uuid | NOT NULL, FK → `auth.users.external_id` (RESTRICT/CASCADE), index |
 | `kind` | varchar(20) | NOT NULL, index — valores: `home`, `billing`, `shipping` |
 | `zipcode` | varchar(8) | NOT NULL, index |
@@ -101,13 +100,13 @@ address/
 | `created_at` | timestamptz | NOT NULL, default `now()` |
 | `updated_at` | timestamptz | NOT NULL, default `now()` |
 
-Índices compostos: `(external_id, kind)`.
+Índices: `external_id`, `kind`, `zipcode`, composto `(external_id, kind)`.
 
 ### Tabela `addresses.entity_address_details`
 
 | Coluna | Tipo | Restrições |
 |--------|------|-----------|
-| `id` | integer | PK, autoincrement |
+| `id` | UUID | PK (gerado na app via `uuid4`) |
 | `street`, `number`, `complement`, `neighborhood`, `city`, `state`, `zipcode`, `lat`, `lng` | varchar | todos nullable |
 | `created_at` / `updated_at` | timestamptz | NOT NULL |
 
@@ -115,11 +114,11 @@ address/
 
 | Coluna | Tipo | Restrições |
 |--------|------|-----------|
-| `id` | integer | PK, autoincrement |
+| `id` | UUID | PK (gerado na app via `uuid4`) |
 | `entity_type` | varchar(50) | NOT NULL |
 | `external_id` | varchar(100) | NOT NULL |
 | `proof_file` | varchar(255) | nullable |
-| `address_id` | integer | nullable, FK → `entity_address_details.id` (SET NULL) |
+| `address_id` | UUID | nullable, FK → `entity_address_details.id` (SET NULL) |
 | `created_at` / `updated_at` | timestamptz | NOT NULL |
 
 UNIQUE: `(entity_type, external_id)`.
@@ -132,8 +131,6 @@ auth_users = Table("users", metadata,
     Column("external_id", PG_UUID(as_uuid=True), primary_key=True),
     schema="auth")
 ```
-
-**Observação:** PK das tabelas deste serviço é `integer` (autoincrement), não `UUID` — diverge da convenção §4 que determina `PK = UUID`.
 
 ---
 
@@ -148,41 +145,34 @@ auth_users = Table("users", metadata,
 
 ### Internas
 
-Nenhuma integração com outros microsserviços da plataforma via httpx no código atual.
+- `auth/app/integrations/address.py` — cliente HTTP que chama `POST /api/v1/addresses` no registro.
+- `candidate/app/integrations/address.py` — cliente HTTP que chama endpoints de address e entity_address no funil.
 
 ---
 
 ## Pendências
 
-### Arquivo TODO
+### Testes
 
-```
-Veja... funcos totalmente desmilitarizadas (irao ser usadas so dentro do app)
+Nenhum arquivo de teste. Task [COD-25](/COD/issues/COD-25) cobre a criação da suíte de testes para address.
 
-get /external_id/ (procura endereco de um usuario)
-get /id/ busca por id do endereco
-get list / busca todos enderecos
-post /external_id/{CEP} - Valida CEP, faz busca usando api externa já implementada,
-  insere dados da busca (devolve no payload e já salva no db)
-patch /external_id/ demais dados
-post /webhook/external_id/ (cria endereco null, toda vez aque usuario é criado,
-  implementar em auth)
-```
+### Validação PG
 
-Os 5 primeiros itens do TODO estão implementados nos endpoints de `addresses.py`. **Não implementado:** endpoint `POST /webhook/external_id/` que deveria criar endereço nulo automaticamente ao criar usuário no serviço `auth`.
+`alembic upgrade head` não executado — PG não disponível no ambiente de desenvolvimento atual. Validar migration 0002 antes de deploy em staging/produção.
 
-### TODOs no código
-
-Nenhum comentário `# TODO` encontrado no código-fonte.
-
-### Desvios da CONVENTION
+### Desvios da CONVENTION (pós-Fase 4)
 
 | # | Desvio | Severidade |
 |---|--------|-----------|
-| 1 | **Aninhamento** — pacote em `address/address/app/` (deveria ser `address/app/`) | Alta |
-| 2 | **PK integer** nas 3 tabelas — CONVENTION §4 exige `PK = UUID` | Alta |
-| 3 | **Sem testes** — nenhum arquivo em `tests/`; CONVENTION §15 exige testes para todo comportamento | Alta |
-| 4 | **`uploads/` versionado** com PDFs reais — CONVENTION §9 proíbe dados locais no repositório | Média |
-| 5 | **Webhook desmilitarizado** (`webhook_url` hardcoded para `http://10.10.10.129`) — endpoint público sem verificação de origem; CONVENTION §5 recomenda verificação para webhooks externos | Média |
-| 6 | **`POST /proof` salva em disco local** (`uploads/`) — sem storage externo, não adequado para produção distribuída | Média |
-| 7 | **Webhook `auth` não implementado** — `post /webhook/external_id/` do TODO é um webhook público que deveria ser tratado isoladamente conforme §5 | Média |
+| 1 | **Sem testes** — nenhum arquivo em `tests/`; task [COD-25](/COD/issues/COD-25) | Alta |
+| 2 | **Webhook desmilitarizado** (`webhook_url` hardcoded para `http://10.10.10.129`) — endpoint público sem verificação de origem; CONVENTION §5 recomenda verificação para webhooks externos | Média |
+| 3 | **`POST /proof` salva em disco local** (`uploads/`) — sem storage externo, não adequado para produção distribuída | Média |
+
+### Desvios resolvidos na Fase 4
+
+| # | Desvio | Resolução |
+|---|--------|-----------|
+| ✅ | PK integer → UUID nas 3 tabelas | Migration 0002, models/service/schema/api atualizados |
+| ✅ | Aninhamento `address/address/app/` | Corrigido — estrutura achatada `address/app/` |
+| ✅ | `uploads/` versionado com PDFs reais | `.gitignore` cobre `uploads/`; arquivos não trackeados |
+| ✅ | TODO órfão com funcionalidades já implementadas | Arquivo TODO removido |

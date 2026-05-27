@@ -7,6 +7,7 @@ comprovante e unlink (com preservação de histórico).
 import os
 import re
 import uuid
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,7 +22,9 @@ settings = get_settings()
 
 
 async def _by_key(
-    session: AsyncSession, entity_type: str, external_id: str,
+    session: AsyncSession,
+    entity_type: str,
+    external_id: str,
 ) -> EntityAddress | None:
     return await session.scalar(
         select(EntityAddress).where(
@@ -31,12 +34,14 @@ async def _by_key(
     )
 
 
-async def _by_id(session: AsyncSession, ea_id: int) -> EntityAddress:
+async def _by_id(session: AsyncSession, ea_id: UUID) -> EntityAddress:
     return await session.scalar(select(EntityAddress).where(EntityAddress.id == ea_id))
 
 
 async def get_or_create(
-    session: AsyncSession, entity_type: str, external_id: str,
+    session: AsyncSession,
+    entity_type: str,
+    external_id: str,
 ) -> EntityAddressRead:
     ea = await _by_key(session, entity_type, external_id)
     if ea:
@@ -50,7 +55,10 @@ async def get_or_create(
 
 
 async def update_address_by_cep(
-    session: AsyncSession, entity_type: str, external_id: str, cep: str,
+    session: AsyncSession,
+    entity_type: str,
+    external_id: str,
+    cep: str,
 ) -> EntityAddressRead:
     ea = await _by_key(session, entity_type, external_id)
     if not ea:
@@ -79,7 +87,10 @@ async def update_address_by_cep(
 
 
 async def upload_proof(
-    session: AsyncSession, entity_type: str, external_id: str, file,
+    session: AsyncSession,
+    entity_type: str,
+    external_id: str,
+    file,
 ) -> EntityAddressRead:
     ea = await _by_key(session, entity_type, external_id)
     if not ea:
@@ -100,7 +111,9 @@ async def upload_proof(
 
 
 async def unlink_and_create_new(
-    session: AsyncSession, entity_type: str, external_id: str,
+    session: AsyncSession,
+    entity_type: str,
+    external_id: str,
 ) -> EntityAddressRead:
     old = await _by_key(session, entity_type, external_id)
     if old:

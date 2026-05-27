@@ -45,7 +45,7 @@ async def create_address(session: AsyncSession, data: AddressCreate) -> AddressR
     return result
 
 
-async def get_address(session: AsyncSession, address_id: int) -> AddressRead:
+async def get_address(session: AsyncSession, address_id: UUID) -> AddressRead:
     address = await session.get(Address, address_id)
     if not address:
         raise NotFound(f'Address "{address_id}" não encontrado')
@@ -75,13 +75,16 @@ async def list_addresses(
 
 
 async def list_by_external_id(
-    session: AsyncSession, external_id: UUID,
+    session: AsyncSession,
+    external_id: UUID,
 ) -> list[AddressRead]:
     return await list_addresses(session, external_id=external_id, limit=100)
 
 
 async def current_by_kind(
-    session: AsyncSession, external_id: UUID, kind: str,
+    session: AsyncSession,
+    external_id: UUID,
+    kind: str,
 ) -> AddressRead:
     address = await session.scalar(
         select(Address)
@@ -97,7 +100,9 @@ async def current_by_kind(
 
 
 async def patch_address(
-    session: AsyncSession, address_id: int, data: AddressPatch,
+    session: AsyncSession,
+    address_id: UUID,
+    data: AddressPatch,
 ) -> AddressRead:
     address = await session.get(Address, address_id)
     if not address:
@@ -117,7 +122,7 @@ async def patch_address(
     return result
 
 
-async def delete_address(session: AsyncSession, address_id: int) -> None:
+async def delete_address(session: AsyncSession, address_id: UUID) -> None:
     address = await session.get(Address, address_id)
     if not address:
         raise NotFound(f'Address "{address_id}" não encontrado')
