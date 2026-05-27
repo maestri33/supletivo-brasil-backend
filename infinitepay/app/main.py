@@ -11,18 +11,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from app.api.health import router as health_router
+from app.api.integration_health import router as integration_health_router
 from app.api.router import router as api_router
 from app.config import get_settings
 from app.db import close_db
 from app.exceptions import DomainError
+from app.metrics import setup_metrics
 from app.utils.logging import configure_logging, log_event
 from app.workers import outbound_queue
-from app.metrics import setup_metrics
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 
 @asynccontextmanager
@@ -107,6 +108,7 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=exc.code, content={"detail": str(exc), **exc.extra})
 
     app.include_router(health_router, tags=["health"])
+    app.include_router(integration_health_router, tags=["health"])
     app.include_router(api_router)
     setup_metrics(app)
     return app
