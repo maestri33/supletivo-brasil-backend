@@ -37,7 +37,7 @@
 
 | Service | Tests | Pass | Fail/Err/Skip | WS | Money Path? | Status |
 |---------|-------|------|---------------|-----|-------------|--------|
-| lead | 141 | 141 | 0 | WS-QA | ✅ critical | 🟢 **70% cov — nova Sprint 4** |
+| lead | 161 | 161 | 0 | QA | ✅ critical | 🟢 **76% cov** — 0→76% Sprint 4 |
 | asaas | 191 | 191 | 0 | WS-PARTEB | ✅ critical | 🟢 Bom — 74% cov |
 | profiles | 148 | 68 | 80 fail | WS-CONFA | — | 🔴 80 falhas (422 ≠ 200/201/204/404) |
 | fees | 36 | 36 | 0 | WS-PARTEB | — | 🟢 OK |
@@ -80,9 +80,9 @@ Fluxo: `lead create → checkout → asaas PIX charge → webhook paid → enrol
 
 | Step | Service | Tests | Pass | Coverage Assessment |
 |------|---------|-------|------|---------------------|
-| Lead creation | lead | 141 | 141 | 🟢 **70%** (nova Sprint 4) |
+| Lead creation | lead | 161 | 161 | 🟢 **76%** (Sprint 4 concluída) |
 | Auth (lead login) | auth | 29 | 12 (17 err) | 🔴 Quebrado |
-| Checkout (GET/POST) | lead | 141 (incl) | 141 | 🟢 **70%** |
+| Checkout (GET/POST) | lead | 161 (incl) | 161 | 🟢 **76%** |
 | Asaas PIX charge | asaas | 191 | 191 | 🟢 Bom (74%) |
 | Asaas webhook | asaas | 191 (incl) | 191 | 🟢 Bom |
 | Enrollment | enrollment | 12 | 12 | 🟢 OK |
@@ -100,6 +100,17 @@ Fluxo: `lead create → checkout → asaas PIX charge → webhook paid → enrol
 - [x] Fix hub: 15/16 pass, 1 fail (auth guard ausente — POST retorna 201 em vez de 403)
 - [x] Fix profiles: diagnosticado — 68/148 pass, 80 fail (assert 422 → endpoints mudaram validação)
 - [x] Fix infinitepay: diagnosticado — 24/26 pass, 2 fail (HMAC validation + health webhook status)
+
+### Sprint 4 — Lead backfill + coverage gate + E2E smoke (COD-55, COD-56, COD-57)
+- [x] **COD-55** — Backfill `lead` service: 161 tests, 76% coverage (**+20 novos testes**, 4 falhas corrigidas, 0→76% cobertura do `lead` service)
+- [x] Fix 4 failing tests in test_tools.py:
+   - `test_successful_pix_creation`: patching conflitante corrigido
+   - `test_success_creates_pending_message`: `mock_send` → `mock_client.send_message`
+   - `test_creates_directory_if_not_exists`: patching corrigido para usar MEDIA_DIR real
+   - `test_rewrites_legacy_prefix`: assertion incorreta corrigida
+- [x] New `tests/test_integrations.py`: 20 testes para request_with_retry, AuthClient, NotifyClient, ProfilesClient, notify handlers
+- [x] Integrations coverage: `__init__.py` 40%→**100%**, `auth.py` 42%→**100%**, `notify.py` 21%→**100%**, `profiles.py` 45%→**100%**
+- [x] `notify/handlers.py` coverage: 13%→**55%**
 
 ### Sprint 1 (next)
 - [x] ~~Test suite para lead service~~ — **concluído Sprint 4** (141 tests, 70% cov)

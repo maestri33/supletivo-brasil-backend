@@ -30,11 +30,17 @@ dependencies = [
 [dependency-groups]
 dev = [
     "aiosqlite>=0.20",
+    "coverage>=7.14.1",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "pytest-cov>=7.1.0",
     "ruff>=0.6",
 ]
+
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["*/migrations/*", "*/tests/*", "*/__pycache__/*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
