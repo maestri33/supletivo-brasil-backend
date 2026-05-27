@@ -18,7 +18,10 @@ from app.integrations.notify import NotifyClient, NotifyError
 from app.integrations.otp import OTPClient
 from app.integrations.profiles import ProfilesClient, ProfilesError
 from app.schemas.auth import CheckRequest
+from app.utils.logging import get_logger
 from app.utils.validation import validate_cpf, validate_phone
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/check", tags=["check"])
 
@@ -82,8 +85,8 @@ async def dispatch_otp(external_id: str) -> None:
     try:
         async with OTPClient(timeout=5) as otp:
             await otp.create(external_id)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("otp_dispatch_failed", external_id=external_id, error=type(exc).__name__)
 
 
 # ── Rate limit ────────────────────────────────────
@@ -170,6 +173,7 @@ async def _check_external_id(
         return {"otp_wait": wait}
 
     bg.add_task(dispatch_otp, external_id if result["found"] else rkey)
+    logger.info("otp_dispatched_via_external_id", external_id=external_id[:8] if result["found"] else rkey[:16])
     return {"otp_sent": True}
 
 

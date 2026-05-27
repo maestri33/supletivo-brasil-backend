@@ -9,6 +9,9 @@ from app.integrations.jwt import JWTClient
 from app.integrations.otp import OTPClient, OTPError
 from app.integrations.roles import RolesClient
 from app.schemas.auth import LoginRequest, TokenResponse
+from app.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/login", tags=["login"])
 
@@ -18,6 +21,7 @@ async def login(data: LoginRequest) -> TokenResponse:
     # 1. Busca roles e verifica se a pedida esta entre elas
     user_roles = await _get_roles(data.external_id)
     if data.role not in user_roles:
+        logger.warning("login_role_denied", external_id=data.external_id, requested_role=data.role, available_roles=user_roles)
         raise ForbiddenError(
             f"Usuario nao possui a role '{data.role}'.",
             code="ROLE_NOT_HELD",
@@ -29,6 +33,8 @@ async def login(data: LoginRequest) -> TokenResponse:
     # 3. Issue JWT com todas as roles ativas
     async with JWTClient() as jwt:
         tokens = await jwt.issue(data.external_id, user_roles)
+
+    logger.info("login_success", external_id=data.external_id, role=data.role)
 
     return TokenResponse(**tokens)
 

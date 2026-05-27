@@ -13,6 +13,9 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config import get_settings
+from app.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 settings = get_settings()
 
@@ -48,6 +51,7 @@ async def get_current_user(
     jwks = await _get_jwks()
 
     if not jwks.get("keys"):
+        logger.error("jwks_no_keys")
         raise HTTPException(500, "Nenhuma chave no JWKS")
 
     header = jwt.get_unverified_header(token)

@@ -10,6 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import async_session
 from app.exceptions import NotFound
 from app.models.user import User
+from app.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 async def get_db() -> AsyncSession:  # type: ignore[valid-type]

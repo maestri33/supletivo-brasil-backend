@@ -9,6 +9,9 @@ from fastapi import APIRouter, Depends, Request
 
 from app.api.auth_guard import require_admin
 from app.config import get_settings
+from app.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/atomic", tags=["atomic"])
 
@@ -38,6 +41,7 @@ async def atomic_create(
 
     token = str(uuid.uuid4())
     await redis.setex(ATOMIC_KEY, ATOMIC_TTL, token)
+    logger.warning("atomic_token_created", token_hash=hash(token) & 0xFFFFFF)
     return {
         "atomic_id": token,
         "ttl": ATOMIC_TTL,
@@ -67,6 +71,8 @@ async def atomic_execute(
 
     # Token valido — remove imediatamente para evitar reentrada
     await redis.delete(ATOMIC_KEY)
+
+    logger.warning("atomic_wipe_executed", atomic_id_hash=hash(atomic_id) & 0xFFFFFF)
 
     results: dict[str, dict] = {}
 

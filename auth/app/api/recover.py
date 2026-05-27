@@ -21,7 +21,10 @@ from app.api.check import (
     try_acquire_otp_slot,
 )
 from app.exceptions import ValidationError
+from app.utils.logging import get_logger
 from app.utils.validation import validate_cpf, validate_phone
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/recover", tags=["recover"])
 
