@@ -40,7 +40,7 @@ class MockAsyncClientContext:
 
     def __init__(self, json_data=None, status=200, raise_for_status=None):
         self.mock_get = AsyncMock()
-        mock_resp = AsyncMock()
+        mock_resp = MagicMock()
         mock_resp.status_code = status
         mock_resp.json = MagicMock(return_value=json_data or {})
         mock_resp.is_success = 200 <= status < 300
@@ -48,12 +48,12 @@ class MockAsyncClientContext:
             mock_resp.raise_for_status.side_effect = raise_for_status
         self.mock_get.return_value = mock_resp
 
-    def __enter__(self):
+    async def __aenter__(self):
         client = MagicMock()
         client.get = self.mock_get
         return client
 
-    def __exit__(self, *args):
+    async def __aexit__(self, *args):
         pass
 
 
@@ -61,7 +61,8 @@ class TestGetJwks:
     """JWKS fetching with 5-minute cache."""
 
     async def test_fetches_and_caches_jwks(self):
-        from app.dependencies import _jwks_cache, _jwks_cached_at, get_jwks
+        import app.dependencies as deps
+        from app.dependencies import get_jwks
 
         jwks_response = {"keys": [{"kid": "test-key", "kty": "RSA"}]}
 
@@ -71,8 +72,8 @@ class TestGetJwks:
             result = await get_jwks()
 
         assert result == jwks_response
-        assert _jwks_cache == jwks_response
-        assert _jwks_cached_at > 0
+        assert deps._jwks_cache == jwks_response
+        assert deps._jwks_cached_at > 0
 
         # Second call uses cache — no HTTP call
         mock_ctx.mock_get.reset_mock()

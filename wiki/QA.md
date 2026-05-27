@@ -115,6 +115,8 @@ Fluxo: `lead create → checkout → asaas PIX charge → webhook paid → enrol
    - Coverage job runs `pytest --cov --cov-report=xml` for 20 services
    - Coverage gate aggregates XML reports and enforces 60% for money-path (lead, asaas, infinitepay, enrollment, candidate, training), 40% for all others
    - Final `ci-gate` blocks PR if lint, test, or coverage-gate fails
+   - `[tool.coverage.run]` added to all 22 services' `pyproject.toml` with `source = ["app"]` and omit rules for migrations/tests
+   - `pytest-cov>=7.1.0` and `coverage>=7.14.1` in dev dependencies of all services (ai and documents added retroactively)
 
 ### Sprint 1 (next)
 - [x] ~~Test suite para lead service~~ — **concluído Sprint 4** (161 tests, 76% cov, 3,058 LOC — COD-55)
