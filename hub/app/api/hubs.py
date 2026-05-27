@@ -20,6 +20,19 @@ public = APIRouter(prefix="/api/v1", tags=["hubs"])
 
 
 @public.get(
+    "/hubs",
+    response_model=list[HubRead],
+    summary="Listar todos os polos (uso interno entre servicos)",
+)
+async def list_hubs(
+    session: AsyncSession = Depends(get_session),
+) -> list[HubRead]:
+    result = await session.execute(select(Hub).order_by(Hub.name))
+    hubs = result.scalars().all()
+    return [HubRead.model_validate(h) for h in hubs]
+
+
+@public.get(
     "/hubs/{external_id}",
     response_model=HubRead,
     summary="Ler polo por external_id (uso interno entre servicos)",

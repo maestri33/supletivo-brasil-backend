@@ -1,44 +1,47 @@
 # RUNBOOK — Backend Supletivo
 
-> **Status:** esqueleto (Sprint 0). Conteúdo será preenchido conforme a infra
-> (docker-compose, CI/CD) amadurece. Atualizado em: 2026-05-27.
+> **Status:** Sprint 2 — preenchido com dados reais do `docker-compose.dev.yml`.
+> Atualizado em: 2026-05-27.
 >
-> **Referências:** `CONVENTION.md` · `wiki/PLANO_ADEQUACAO.md` · `wiki/<app>.md`
+> **Referências:** `CONVENTION.md` · `wiki/PLANO_ADEQUACAO.md` · `wiki/<app>.md` · `docker-compose.dev.yml`
 
 ---
 
 ## 1. Inventário de Serviços
 
-| Serviço | Porta | Schema | Status | CLAUDE.md | wiki.md |
+| Serviço | Porta interna | Porta host | Schema | Status | CLAUDE.md | wiki.md |
 |---|---|---|---|---|---|---|
-| address | 80 | addresses | ativo | ✅ | ✅ |
-| ai | 80 | ai | ativo | ✅ | ✅ |
-| asaas | 80 | asaas | ativo (F5 concluída) | ✅ | ✅ |
-| auth | 80 | auth | ativo | ✅ | ✅ |
-| candidate | 80 | candidate | ativo | ✅ | ✅ |
-| commissions | — | commissions | **não criado** (Parte B) | ✅ | ✅ |
-| coordinator | — | coordinator | **não criado** (Parte B) | ✅ | ✅ |
-| documents | 80 | documents | ativo | ✅ | ✅ |
-| enrollment | 80 | enrollment | ativo | ✅ | ✅ |
-| fees | 80 | fees | ativo | ✅ | ✅ |
-| hub | 80 | hub | ativo | ✅ | ✅ |
-| infinitepay | 80 | infinitepay | ativo (F5 concluída) | ✅ | ✅ |
-| jwt | — | jwt | ativo | ✅ | ✅ |
-| lead | 80 | lead | ativo (modelo de referência) | ✅ | ✅ |
-| notify | 80 | notify | ativo | ✅ | ✅ |
-| otp | 80 | otp | ativo | ✅ | ✅ |
-| profiles | 80 | profiles | ativo | ✅ | ✅ |
-| promoter | 80 | promoter | ativo | ✅ | ✅ |
-| roles | 80 | roles | ativo | ✅ | ✅ |
-| staff | — | staff | spine (Milestone 1) | ✅ | ✅ |
-| student | 80 | student | ativo (Milestone 1) | ✅ | ✅ |
-| training | 80 | training | ativo | ✅ | ✅ |
+| address | 8000 | 8001 | addresses | ativo | ✅ | ✅ |
+| ai | 8000 | 8002 | ai | ativo | ✅ | ✅ |
+| asaas | 8000 | 8003 | asaas | ativo (F5 concluída) | ✅ | ✅ |
+| auth | 8000 | 8004 | auth | ativo | ✅ | ✅ |
+| candidate | 8000 | 8005 | candidate | ativo | ✅ | ✅ |
+| commissions | — | — | commissions | **não criado** (Parte B) | ✅ | ✅ |
+| coordinator | — | — | coordinator | **não criado** (Parte B) | ✅ | ✅ |
+| documents | 8000 | 8008 | documents | ativo (⚠️ sqlite) | ✅ | ✅ |
+| enrollment | 8000 | 8009 | enrollment | ativo | ✅ | ✅ |
+| fees | 8000 | 8010 | fees | ativo | ✅ | ✅ |
+| hub | 8000 | 8011 | hub | ativo | ✅ | ✅ |
+| infinitepay | 8000 | 8012 | infinitepay | ativo (F5 concluída) | ✅ | ✅ |
+| jwt | — | 8013 | jwt | ativo (lib, sem porta exposta) | ✅ | ✅ |
+| lead | 8000 | 8014 | lead | ativo (modelo de referência) | ✅ | ✅ |
+| notify | 8000 | 8015 | notify | ativo | ✅ | ✅ |
+| otp | 8000 | 8016 | otp | ativo | ✅ | ✅ |
+| profiles | 8000 | 8017 | profiles | ativo | ✅ | ✅ |
+| promoter | 8000 | 8018 | promoter | ativo | ✅ | ✅ |
+| roles | 8000 | 8019 | roles | ativo | ✅ | ✅ |
+| staff | — | 8020 | staff | spine (Milestone 1) | ✅ | ✅ |
+| student | 8000 | 8021 | student | ativo (Milestone 1) | ✅ | ✅ |
+| training | 8000 | 8022 | training | ativo | ✅ | ✅ |
 
 **CLAUDE.md:** 22/22 ✅ | **wiki.md:** 22/22 ✅
 
 **Infraestrutura compartilhada:**
-- Postgres central (todas as services usam schemas distintos no mesmo DB)
-- Redis (OTP, locks, cache efêmero)
+- **Postgres 16** (Alpine) — DB `supletivo`, user `supletivo`, host `postgres:5432`
+- **Redis 7** (Alpine) — host `redis:6379`
+- **docker-compose:** `docker-compose.dev.yml` (20 serviços + postgres + redis)
+- ⚠️ **documents** usa SQLite (`sqlite:///documents.db`), não Postgres
+- ⚠️ **jwt** e **staff** são serviços de biblioteca/suporte, sem porta HTTP dedicada (jwt expõe porta internamente para servir JWKS)
 
 ---
 
@@ -46,53 +49,86 @@
 
 ### 2.1 Pré-requisitos
 
-- VM no Proxmox com Docker instalado
-- `docker compose` (v2) disponível
-- `.env` configurado na raiz (ver `.env.example` de cada serviço)
-- Postgres e Redis acessíveis
+- VM no Proxmox com Docker e `docker compose` (v2)
+- `.env` configurado por serviço (ver `.env.example` de cada um)
+- Postgres e Redis acessíveis via rede Docker (`postgres:5432`, `redis:6379`)
 
-### 2.2 Subir tudo
+### 2.2 Subir tudo (dev)
 
 ```bash
-# Na raiz do projeto (onde está o docker-compose.yml)
-docker compose up -d
+# Na raiz do projeto
+docker compose -f docker-compose.dev.yml up -d
 
-# Verificar status
-docker compose ps
+# Verificar status (todos os 22 containers: 20 serviços + postgres + redis)
+docker compose -f docker-compose.dev.yml ps
 
 # Verificar logs de um serviço específico
-docker compose logs -f <servico>
+docker compose -f docker-compose.dev.yml logs -f <servico>
 ```
 
-### 2.3 Subir um serviço individual
+### 2.3 Subir um serviço individual (Docker)
+
+```bash
+docker compose -f docker-compose.dev.yml up -d <servico>
+
+# Exemplo: subir só o lead
+docker compose -f docker-compose.dev.yml up -d lead
+```
+
+### 2.4 Subir um serviço individual (local/dev)
 
 ```bash
 cd <servico>/
 make install    # uv sync
-make dev        # uvicorn com reload (desenvolvimento)
+make dev        # uvicorn --reload (desenvolvimento)
 # ou
-make run        # uvicorn produção (workers=2)
+make run        # uvicorn (produção)
 ```
 
-### 2.4 Derrubar tudo
+### 2.5 Derrubar tudo
 
 ```bash
-docker compose down
+docker compose -f docker-compose.dev.yml down
+
+# Derrubar TUDO incluindo volumes (⚠️ perde dados do Postgres!)
+docker compose -f docker-compose.dev.yml down -v
 ```
 
-### 2.5 Derrubar um serviço
+### 2.6 Derrubar/Reiniciar um serviço
 
 ```bash
-docker compose stop <servico>
-docker compose rm -f <servico>
+# Parar
+docker compose -f docker-compose.dev.yml stop <servico>
+
+# Remover container (mantém volume)
+docker compose -f docker-compose.dev.yml rm -f <servico>
+
+# Reiniciar
+docker compose -f docker-compose.dev.yml restart <servico>
 ```
 
-### 2.6 Health check
+### 2.7 Health check
 
-Cada serviço expõe `/healthz`:
+Cada serviço expõe `/healthz` na porta interna 8000. Pelo host, use a porta mapeada:
 
 ```bash
-curl -fsS http://localhost:<porta>/healthz
+# Pelo host (porta mapeada)
+curl -fsS http://localhost:8001/healthz    # address
+curl -fsS http://localhost:8002/healthz    # ai
+curl -fsS http://localhost:8003/healthz    # asaas
+curl -fsS http://localhost:8004/healthz    # auth
+curl -fsS http://localhost:8014/healthz    # lead
+# ... (ver tabela §1 para portas)
+
+# Batch — verificar todos de uma vez
+for port in $(seq 8001 8005) $(seq 8008 8022); do
+  status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:$port/healthz 2>/dev/null)
+  echo "port $port: $status"
+done
+
+# Infraestrutura
+docker compose -f docker-compose.dev.yml exec postgres pg_isready -U supletivo -d supletivo
+docker compose -f docker-compose.dev.yml exec redis redis-cli ping
 ```
 
 ---
@@ -102,24 +138,36 @@ curl -fsS http://localhost:<porta>/healthz
 ### 3.1 Banco de dados (Postgres)
 
 ```bash
-# Backup completo (todos os schemas)
-pg_dump -h <host> -U <user> -d <dbname> -F c -f backup_$(date +%Y%m%d_%H%M%S).dump
+# Credenciais reais (docker-compose.dev.yml)
+#   DB: supletivo  |  User: supletivo  |  Host: postgres:5432
+
+# Backup completo (todos os schemas) — rodar de dentro do container
+docker compose -f docker-compose.dev.yml exec postgres \
+  pg_dump -U supletivo -d supletivo -F c -f /tmp/backup_$(date +%Y%m%d_%H%M%S).dump
+
+# Copiar backup para o host
+docker compose -f docker-compose.dev.yml cp \
+  postgres:/tmp/backup_20260527_120000.dump ./backups/
 
 # Backup de schema específico
-pg_dump -h <host> -U <user> -d <dbname> -n <schema> -F c -f <schema>_backup.dump
+docker compose -f docker-compose.dev.yml exec postgres \
+  pg_dump -U supletivo -d supletivo -n addresses -F c -f /tmp/address_backup.dump
 
-# Restore
-pg_restore -h <host> -U <user> -d <dbname> -c --if-exists backup.dump
+# Restore completo (⚠️ destrutivo — drop + recreate)
+docker compose -f docker-compose.dev.yml cp ./backups/backup.dump postgres:/tmp/
+docker compose -f docker-compose.dev.yml exec postgres \
+  pg_restore -U supletivo -d supletivo -c --if-exists /tmp/backup.dump
 ```
 
 ### 3.2 Redis
 
 ```bash
-# Snapshot manual
-redis-cli BGSAVE
+# Snapshot manual (dentro do container)
+docker compose -f docker-compose.dev.yml exec redis redis-cli BGSAVE
 
-# Backup do dump.rdb
-cp /var/lib/redis/dump.rdb /backups/redis_$(date +%Y%m%d_%H%M%S).rdb
+# Copiar dump para o host
+docker compose -f docker-compose.dev.yml cp \
+  redis:/data/dump.rdb ./backups/redis_$(date +%Y%m%d_%H%M%S).rdb
 ```
 
 ### 3.3 Migrações Alembic
@@ -235,12 +283,12 @@ services:
 
 ### 6.1 Incidente: serviço não responde
 
-1. Verificar container: `docker compose ps`
-2. Verificar logs: `docker compose logs --tail=100 <servico>`
-3. Verificar saúde: `curl -fsS http://localhost:<porta>/healthz`
-4. Verificar Postgres: `pg_isready -h <host> -U <user>`
-5. Verificar Redis: `redis-cli ping`
-6. Reiniciar se necessário: `docker compose restart <servico>`
+1. Verificar containers: `docker compose -f docker-compose.dev.yml ps`
+2. Verificar logs: `docker compose -f docker-compose.dev.yml logs --tail=100 <servico>`
+3. Verificar saúde: `curl -fsS http://localhost:<porta_host>/healthz` (ver tabela §1)
+4. Verificar Postgres: `docker compose -f docker-compose.dev.yml exec postgres pg_isready -U supletivo -d supletivo`
+5. Verificar Redis: `docker compose -f docker-compose.dev.yml exec redis redis-cli ping`
+6. Reiniciar se necessário: `docker compose -f docker-compose.dev.yml restart <servico>`
 7. Se persistir: verificar disco (`df -h`), memória (`free -m`), CPU (`top`)
 
 ### 6.2 Incidente: migração falhou
