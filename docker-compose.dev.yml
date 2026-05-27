@@ -41,6 +41,29 @@ services:
       timeout: 5s
       retries: 5
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: maestri33
+      PGADMIN_DEFAULT_PASSWORD: "1993"
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "True"
+      PGADMIN_CONFIG_LOGIN_BANNER: "VPN-only access — authorized users only"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ./docker/pgadmin/pgpass:/pgadmin4/pgpass:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:80/misc/ping", "-O", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
   # -- Microsserviços (1 container por serviço, porta interna 8000) --
 
   address:
@@ -117,6 +140,14 @@ services:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: auth
       REDIS_URL: redis://redis:6379/0
+      PROFILES_SERVICE_URL: http://profiles:8000
+      OTP_SERVICE_URL: http://otp:8000
+      JWT_SERVICE_URL: http://jwt:8000
+      ROLES_SERVICE_URL: http://roles:8000
+      NOTIFY_SERVICE_URL: http://notify:8000
+      LEAD_SERVICE_URL: http://lead:8000
+      DOCUMENTS_SERVICE_URL: http://documents:8000
+      ADDRESS_SERVICE_URL: http://address:8000
     depends_on:
       postgres:
         condition: service_healthy
@@ -398,6 +429,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: profiles
       REDIS_URL: redis://redis:6379/0
+      CPFHUB_API_KEY: ${CPFHUB_API_KEY:-}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
@@ -649,6 +681,7 @@ services:
 
 volumes:
   pgdata:
+  pgadmin_data:
   prometheus_data:
   loki_data:
   grafana_data:
