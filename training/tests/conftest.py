@@ -17,7 +17,7 @@ from uuid import uuid4
 
 # precisa rodar ANTES de qualquer 'from app...'
 _TMP = Path(tempfile.mkdtemp(prefix="training-tests-"))
-os.environ["TRAINING_APP_DB_URL"] = f"sqlite+aiosqlite:///{_TMP / 'test.db'}"
+os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP / 'test.db'}"
 os.environ["DATABASE_SCHEMA"] = ""
 os.environ["MEDIA_DIR"] = str(_TMP / "media")
 

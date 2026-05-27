@@ -13,7 +13,7 @@ from pathlib import Path
 from uuid import UUID
 
 _TMP_DB = Path(tempfile.mkdtemp(prefix="student-tests-")) / "test.db"
-os.environ["STUDENT_APP_DB_URL"] = f"sqlite+aiosqlite:///{_TMP_DB}"
+os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DB}"
 os.environ["DATABASE_SCHEMA"] = ""
 os.environ["JWT_BASE_URL"] = "http://jwt.test"
 

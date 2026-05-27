@@ -1,5 +1,7 @@
 """Testes para endpoints demilitarized de leads (CRUD)."""
 
+import asyncio
+
 import pytest
 from uuid import uuid4
 
@@ -30,11 +32,13 @@ class TestListLeads:
     # COD-19 v2
     async def test_list_ordered_by_created_at_desc(self, client, make_lead):
         id1 = await make_lead(status="captured")
+        await asyncio.sleep(0.01)  # garante created_at diferente
         id2 = await make_lead(status="waiting")
 
         resp = await client.get("/api/v1/demilitarized/leads")
         data = resp.json()
         # O mais recente (id2) deve vir primeiro
+        assert len(data) >= 2
         assert data[0]["external_id"] == str(id2)
         assert data[1]["external_id"] == str(id1)
 
@@ -124,6 +128,18 @@ class TestPatchLead:
         data = resp.json()
         assert data["status"] == "completed"
         assert data["promoter_external_id"] == promoter_id
+
+    # COD-19 v3: extra edge cases
+    async def test_patch_same_promoter_is_idempotent(self, client, make_lead):
+        """Patch sem alteracoes (promoter ja setado) retorna OK."""
+        promoter_id = uuid4()
+        lead_id = await make_lead(status="captured", promoter_external_id=promoter_id)
+        resp = await client.patch(
+            f"/api/v1/demilitarized/leads/{lead_id}",
+            json={"status": "captured"},  # mesmo status
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "captured"
 
 
 @pytest.mark.asyncio

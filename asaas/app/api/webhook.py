@@ -17,6 +17,7 @@ from ..services import security_validator as security_validator_svc
 from ..services.webhook_security import verify_hmac, verify_ip_allowlist
 from ..utils.logging import log_event
 from ..utils.net import client_ip, user_agent
+from ..metrics import inc_webhook_event
 
 router = APIRouter(tags=["asaas-inbound"])
 
@@ -77,6 +78,8 @@ async def receive_webhook(
     await _check_token(db, asaas_access_token)
     body = await request.json()
     event = body.get("event") if isinstance(body, dict) else None
+    if event:
+        inc_webhook_event(event)
 
     row = WebhookEvent(
         event=event,

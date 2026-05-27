@@ -62,10 +62,12 @@ for _env_var in (
     "NOTIFY_BASE_URL",
     "PROFILES_BASE_URL",
     "ROLES_BASE_URL",
-    "PROMOTER_DEFAULT",
 ):
     if _env_var not in os.environ:
         os.environ[_env_var] = "http://mock.local"
+# PROMOTER_DEFAULT precisa ser um UUID valido (usado em UUID(settings.PROMOTER_DEFAULT))
+if "PROMOTER_DEFAULT" not in os.environ:
+    os.environ["PROMOTER_DEFAULT"] = "00000000-0000-0000-0000-000000000000"
 
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402

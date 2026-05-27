@@ -1,13 +1,16 @@
 """Model PaymentBatch — lote semanal de pagamentos de comissoes."""
 
 import enum
+from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Enum, Integer, String, Text, Date
+from sqlalchemy import BigInteger, Enum, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 from app.models._mixins import TimestampMixin
 
+if TYPE_CHECKING:
+    from app.models.commission import Commission
 
 class PaymentBatchStatus(str, enum.Enum):
     PENDING = "pending"

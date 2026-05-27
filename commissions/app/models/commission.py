@@ -3,8 +3,7 @@
 import enum
 from uuid import UUID
 
-from sqlalchemy import BigInteger, Enum, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import BigInteger, Enum, ForeignKey, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -26,7 +25,7 @@ class Commission(Base, TimestampMixin):
 
     # Quem recebe (FK para auth.users via external_id)
     recipient_external_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+        Uuid,
         ForeignKey(
             "auth.users.external_id",
             ondelete="RESTRICT",
@@ -49,7 +48,7 @@ class Commission(Base, TimestampMixin):
         comment="Tipo de entidade que originou: lead, student_completion",
     )
     source_external_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+        Uuid,
         index=True,
         nullable=False,
         comment="UUID externo da entidade de origem (lead.external_id ou student.external_id)",
@@ -76,7 +75,7 @@ class Commission(Base, TimestampMixin):
     payment_batch_id: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey(
-            "commissions.payment_batches.id",
+            "payment_batches.id",
             ondelete="SET NULL",
             onupdate="CASCADE",
             name="commissions_payment_batch_id_fkey",

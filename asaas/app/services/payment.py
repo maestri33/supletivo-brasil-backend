@@ -40,6 +40,7 @@ from ..config import get_settings
 from ..db import async_session_maker
 from ..exceptions import PaymentError
 from ..integrations.asaas_client import AsaasClient, AsaasError
+from ..metrics import inc_payment
 from ..models import Payment, PixKey
 from ..utils.brcode import analyze as analyze_brcode
 from ..utils.logging import log_event
@@ -322,6 +323,7 @@ async def _mark_payment(
         payment.asaas_id = asaas_id
     payment.last_error = last_error
     await db.flush()
+    inc_payment(kind=payment.kind, status=status)
 
 
 async def _find_transfer_by_external_reference(
@@ -763,6 +765,7 @@ async def apply_webhook(db: AsyncSession, payload: dict) -> Payment | None:
     if new_status == "FAILED":
         row.last_error = transfer.get("failReason") or f"event={event}"
     await db.flush()
+    inc_payment(kind=row.kind, status=new_status)
     return row
 
 

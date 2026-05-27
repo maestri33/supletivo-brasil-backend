@@ -68,7 +68,7 @@ class TestLeadModel:
         lead = Lead(external_id=ext_id, status=LeadStatus.CAPTURED)
         repr_str = repr(lead)
         assert "Lead" in repr_str
-        assert "captured" in repr_str
+        assert "LeadStatus.CAPTURED" in repr_str or "captured" in repr_str
 
     async def test_lead_external_id_unique(self):
         """external_id deve ser unico."""

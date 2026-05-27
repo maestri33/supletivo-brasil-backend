@@ -19,12 +19,17 @@ dependencies = [
     "alembic>=1.13",
     "asyncpg>=0.31.0",
     "slowapi>=0.1.9",
+    "httpx>=0.28",
+    "structlog>=25.5.0",
+    "prometheus-client>=0.21",
 ]
 
 [dependency-groups]
 dev = [
+    "aiosqlite>=0.22.1",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
+    "pytest-mock>=3.14",
     "ruff>=0.6",
 ]
 

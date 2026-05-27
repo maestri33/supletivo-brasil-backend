@@ -76,7 +76,8 @@ async def get_current_user(
     except jwt.ExpiredSignatureError as exc:
         raise HTTPException(401, "Token expirado") from exc
     except jwt.PyJWTError as exc:
-        raise HTTPException(401, f"Token invalido: {exc}") from exc
+        logger.warning("jwt_validation_failed", error=type(exc).__name__)
+        raise HTTPException(401, "Token invalido") from exc
 
     return payload
 

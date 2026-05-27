@@ -17,7 +17,7 @@ from pathlib import Path
 
 # precisa rodar ANTES de qualquer 'from app...'
 _TMP_DB = Path(tempfile.mkdtemp(prefix="asaas-tests-")) / "test.db"
-os.environ["ASAAS_APP_DB_URL"] = f"sqlite+aiosqlite:///{_TMP_DB}"
+os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DB}"
 os.environ["DATABASE_SCHEMA"] = ""
 os.environ["ASAAS_WEBHOOK_ALLOWED_CIDRS"] = ""  # desabilita IP allow-list em teste
 

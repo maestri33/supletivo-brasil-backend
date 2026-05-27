@@ -26,6 +26,7 @@ from app.integrations.infinitepay_client import (
     create_checkout_link,
     payment_check,
 )
+from app.metrics import inc_checkout
 from app.models import Checkout, WebhookLog
 from app.services import monitor as ai_monitor
 from app.services import receipt as ai_receipt
@@ -233,6 +234,7 @@ async def create_checkout(db: AsyncSession, body: dict[str, Any]) -> dict:
             external_id=external_id,
         )
 
+    inc_checkout(status="created")
     return {"external_id": external_id, "checkout_url": checkout_url}
 
 
@@ -419,4 +421,5 @@ async def handle_infinitepay_webhook(
         )
 
     # paid-state + job enfileirado commitam juntos na rota (atomico — licao do asaas).
+    inc_checkout(status="paid")
     return {"ok": True, "paid": True}

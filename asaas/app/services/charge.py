@@ -30,6 +30,7 @@ from ..exceptions import PaymentError, ValidationError
 from ..integrations.asaas_client import AsaasClient, AsaasError
 from ..models import Payment
 from ..utils.logging import log_event
+from ..metrics import inc_payment
 from . import customer as customer_service
 
 CHARGE_STATUSES = ("PENDING", "PAID", "EXPIRED", "CANCELLED", "REFUNDED")
@@ -288,6 +289,7 @@ async def apply_webhook(db: AsyncSession, payload: dict) -> Payment | None:
     row.status = new_status
     row.updated_at = datetime.now(UTC)
     await db.flush()
+    inc_payment(kind="charge", status=new_status)
     log_event(
         "charge_status_changed",
         payment_id=row.payment_id,

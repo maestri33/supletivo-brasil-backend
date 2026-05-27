@@ -18,7 +18,7 @@ from uuid import UUID, uuid4
 
 # precisa rodar ANTES de qualquer 'from app...'
 _TMP_DB = Path(tempfile.mkdtemp(prefix="promoter-tests-")) / "test.db"
-os.environ["PROMOTER_APP_DB_URL"] = f"sqlite+aiosqlite:///{_TMP_DB}"
+os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DB}"
 os.environ["DATABASE_SCHEMA"] = ""
 
 from unittest.mock import AsyncMock  # noqa: E402
