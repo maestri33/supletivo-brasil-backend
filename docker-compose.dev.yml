@@ -24,6 +24,7 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U supletivo -d supletivo"]
       interval: 5s
@@ -44,10 +45,10 @@ services:
   pgadmin:
     image: dpage/pgadmin4:latest
     environment:
-      PGADMIN_DEFAULT_EMAIL: maestri33
+      PGADMIN_DEFAULT_EMAIL: maestri33@local.dev
       PGADMIN_DEFAULT_PASSWORD: "1993"
       PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "True"
-      PGADMIN_CONFIG_LOGIN_BANNER: "VPN-only access — authorized users only"
+      PGADMIN_CONFIG_LOGIN_BANNER: "'VPN-only access - authorized users only'"
     ports:
       - "5050:80"
     volumes:

@@ -26,7 +26,7 @@ class AuthClient(BaseClient):
             self.client,
             "POST",
             "/api/v1/login",
-            json={"external_id": external_id, "otp": otp, "role": "lead"},
+            json={"external_id": external_id, "otp": otp, "role": "candidate"},
         )
         return resp.json()
 
@@ -35,6 +35,6 @@ class AuthClient(BaseClient):
             self.client,
             "POST",
             "/api/v1/register",
-            json={"role": "lead", "phone": phone, "cpf": cpf},
+            json={"role": "candidate", "phone": phone, "cpf": cpf},
         )
         return resp.json()
