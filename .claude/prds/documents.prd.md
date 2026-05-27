@@ -8,383 +8,289 @@
 ## 1. Contexto de Negócio
 
 O módulo `documents` é o **repositório central de documentos de identificação** da
-plataforma. Armazena RG, CNH, Carteira de Trabalho, Passaporte, Certidão (tipada),
-Reservista (serviço militar), Comprovante de Residência e Foto — vinculados por
-`external_id` ao usuário criado no serviço `auth`.
+plataforma. Cada usuário (identificado por `external_id` do auth) possui um
+agregado `Document` que contém referências a sub-documentos (RG, CNH, CTPS,
+passaporte) e campos inline (certidão, reservista, comprovante de residência, foto).
 
-**Regra dura do TODO do dono:** "ao ser criado usuário, um document é criado com seu
-external_id e todos documentos são criados juntos respectivamente, com campos null,
-só document_id relacionado ao document". Ou seja: **provisionamento eager** — uma
-chamada cria o Document agregado + todos os sub-documentos vazios.
+**Regra dura do TODO:** "ao ser criado usuário, um document é criado com seu
+external_id e todos documentos são criados juntos respectivamente, com campos null".
+O provisionamento é **eager** — uma chamada cria o Document + todos os sub-documentos
+vazios de uma vez.
 
-**Tipos de sub-documento:**
-- **Tabelas separadas** (com FK apontando por UUID): RG, CNH, Carteira de Trabalho,
-  Passaporte. Cada um tem campos textuais + slots de foto (frente/verso).
-- **Campos inline no Document**: Certidão (tipada: nascimento/casamento/óbito —
-  **uma por Document**), Reservista (serviço militar — **criado para todos, mas
-  regra de gênero pendente**), Comprovante de Residência, Foto geral.
+**Estado atual:** O módulo está funcional mas com dívida técnica significativa:
+- Rodava em Tortoise+SQLite sem migrações (migrado para SQLAlchemy 2.0 async + Alembic)
+- PK agora é UUID (CORRIGIDO)
+- Pydantic v2 (CORRIGIDO)
+- Nomes de arquivo/tabela em português (legado do TODO original)
+- Sem testes automatizados
+- Webhook genérico em vez de integração notify via CONVENTION §11/§12
 
-**Estado atual:** O módulo foi **parcialmente reescrito** para a stack canônica:
-- ✅ SQLAlchemy 2.0 async + asyncpg (db.py)
-- ✅ PK UUID em todas as tabelas
-- ✅ Pydantic v2 com `model_config`
-- ✅ pydantic-settings (config.py)
-- ✅ structlog (utils/logging.py)
-- ✅ Estrutura correta `documents/app/` (sem aninhamento)
-- ❌ Sem Alembic — `alembic/` ausente
-- ❌ Sem testes — `tests/` ausente
-- ❌ Sem `integrations/` — webhook embutido no service
-- ❌ Nomes em português em modelos (carteira_trabalho.py)
-- ❌ `requires-python = ">=3.11"` (deveria ser `>=3.12`)
-
-**Gap de provisionamento:** O `get_or_create` atual cria o Document se não existe,
-mas **não cria sub-documentos automaticamente** (RG, CNH, etc.). Os sub-documentos
-são criados on-demand quando o usuário envia dados. Isso diverge da regra dura do
-dono ("todos documentos são criados juntos").
+**Gap identificado:**
+1. **Certidão** — o TODO diz "tipo pode ser nascimento, casamento e etc, mas só uma
+   por document". A constraint de unicidade (um tipo de certidão por Document) não está
+   implementada no banco.
+2. **Serviço militar** — "só pra homens, mas tem que criar". A criação condicional por
+   gênero não está implementada (gênero não é recebido no provisionamento).
+3. **Notify** — usa webhook genérico em vez do padrão `integrations/notify.py` da
+   CONVENTION §11/§12.
+4. **Testes** — zero cobertura.
 
 ## 2. Atores
 
 | Ator | Role | Ação |
 |------|------|------|
-| **Sistema (auth)** | Serviço upstream | Chama provisionamento eager no registro do usuário |
-| **Sistema (candidate/enrollment)** | Serviço upstream | Lê e escreve dados de documentos do candidato |
-| **Sistema (training)** | Serviço upstream | Consulta documentos para validar elegibilidade |
-| **App do usuário** | Consumidor indireto | Faz upload de fotos e preenche dados (via serviços upstream) |
-| **Admin** | Operador | Consulta/gerencia documentos (futuro — sem endpoint admin hoje) |
+| **Sistema (auth)** | Serviço upstream | Chama `GET/PUT /api/v1/documentos/{external_id}` para provisionar e ler documentos no registro |
+| **Sistema (candidate)** | Serviço upstream | Lê documentos do candidato para validação de etapas |
+| **Sistema (enrollment)** | Serviço upstream | Lê documentos para matrícula (exige certidão, RG, etc.) |
+| **Sistema (training)** | Serviço upstream | Consulta documentos para compliance de treinamento |
+| **Usuário final** | Indireto | Faz upload de fotos/imagens dos seus documentos via app (chamado pelo serviço de frontend/backend) |
+| **Admin** | Operacional | Consulta documentos para auditoria (futuro — não implementado ainda) |
 
-**Nota:** Todos os endpoints são **desmilitarizados** (uso interno, sem autenticação).
-O serviço não é exposto à internet.
+**Nota:** Todos os endpoints são **desmilitarizados** (sem JWT/auth) — uso interno
+da plataforma. Segurança é por restrição de rede (docker-compose interno).
 
 ## 3. Estados / Máquina de Estados
 
-O `documents` **não tem máquina de estados**. O ciclo de vida é:
+O módulo **não tem máquina de estados**. O ciclo de vida é simples:
 
 ```
-Provisionamento (auth.register)
-  → Document criado + sub-documentos vazios (todos NULL)
-    → Preenchimento gradual (PUT textual + POST imagem por slot)
-      → Estado "completo" quando todos os campos obrigatórios preenchidos
-        (validação é responsabilidade do serviço que consome — ex.: candidate)
+Criação (provisionamento eager) → Document + sub-documentos vazios
+  ↓
+Atualização textual (PUT) → preenche campos dos sub-documentos
+  ↓
+Upload de imagens (POST /imagens/{slot}) → anexa fotos aos slots
+  ↓
+Delete de imagens (DELETE /imagens/{slot}) → remove foto do slot
 ```
 
-**Fluxo de provisionamento (target):**
-```
-POST /api/v1/documentos/{external_id}/provision  (desmilitarizado)
-  → Cria Document (se não existe)
-  → Cria RG (vazio)
-  → Cria CNH (vazio)
-  → Cria CarteiraTrabalho (vazio)
-  → Cria Passaporte (vazio)
-  → Campos inline (certidão, reservista, etc.) ficam NULL
-  → Retorna DocumentOut com todos os sub-documentos
-```
-
-**Fluxo atual (get-or-create):**
-```
-GET /api/v1/documentos/{external_id}
-  → Se Document não existe, cria (sem sub-documentos)
-  → Retorna DocumentOut
-```
+O `get_or_create` garante que todo `external_id` válido sempre retorna um Document
+(cria na primeira consulta se não existir).
 
 ## 4. Entidades & Campos
 
 ### Schema `documents`
 
-#### `documentos` — Agregado principal
+#### Tabela `documentos` (agregado raiz)
 
-| Coluna | Tipo | Nullable | Default | FK / Índice | Descrição |
-|--------|------|----------|---------|-------------|-----------|
-| `id` | `UUID` PK | NOT NULL | `uuid4()` | — | PK interno |
-| `external_id` | `UUID` | NOT NULL | `uuid4()` | **UNIQUE INDEX** | UUID do usuário (auth) — referência lógica sem FK |
-| `rg_id` | `UUID` | NULL | — | — | FK lógica → `rg.id` |
-| `cnh_id` | `UUID` | NULL | — | — | FK lógica → `cnh.id` |
-| `carteira_trabalho_id` | `UUID` | NULL | — | — | FK lógica → `carteiras_trabalho.id` |
-| `passaporte_id` | `UUID` | NULL | — | — | FK lógica → `passaportes.id` |
-| `certidao_tipo` | `String(20)` | NULL | — | — | Tipo: nascimento, casamento, obito |
-| `certidao_numero` | `String(50)` | NULL | — | — | Número da certidão |
-| `certidao_cartorio` | `String(100)` | NULL | — | — | Cartório emissor |
-| `certidao_livro` | `String(20)` | NULL | — | — | Livro |
-| `certidao_folha` | `String(20)` | NULL | — | — | Folha |
-| `certidao_termo` | `String(20)` | NULL | — | — | Termo |
-| `certidao_data_emissao` | `Date` | NULL | — | — | Data de emissão |
-| `certidao_foto` | `String(500)` | NULL | — | — | Path da foto (media) |
-| `reservista_numero` | `String(30)` | NULL | — | — | Número do certificado |
-| `reservista_serie` | `String(20)` | NULL | — | — | Série |
-| `reservista_categoria` | `String(20)` | NULL | — | — | Categoria |
-| `reservista_ra` | `String(20)` | NULL | — | — | RA (Região de Alistamento) |
-| `reservista_foto` | `String(500)` | NULL | — | — | Path da foto |
-| `comprovante_residencia_foto` | `String(500)` | NULL | — | — | Path do comprovante |
-| `foto` | `String(500)` | NULL | — | — | Foto geral do usuário |
-| `created_at` | `DateTime(tz)` | NOT NULL | `now()` | — | Timestamp de criação |
-| `updated_at` | `DateTime(tz)` | NOT NULL | `now()` | — | Timestamp de atualização |
+| Coluna | Tipo | Constraints | Descrição |
+|--------|------|-------------|-----------|
+| `id` | UUID | PK, default gen_random_uuid() | ID interno |
+| `external_id` | UUID | UNIQUE, NOT NULL, INDEX | UUID do usuário (ref. lógica ao auth.users) |
+| `rg_id` | UUID | nullable | FK lógica → `rg.id` |
+| `cnh_id` | UUID | nullable | FK lógica → `cnh.id` |
+| `carteira_trabalho_id` | UUID | nullable | FK lógica → `carteiras_trabalho.id` |
+| `passaporte_id` | UUID | nullable | FK lógica → `passaportes.id` |
+| `certidao_tipo` | VARCHAR(20) | nullable | Tipo: `nascimento`, `casamento`, `obito` |
+| `certidao_numero` | VARCHAR(50) | nullable | Número da certidão |
+| `certidao_cartorio` | VARCHAR(100) | nullable | Cartório emissor |
+| `certidao_livro` | VARCHAR(20) | nullable | Livro |
+| `certidao_folha` | VARCHAR(20) | nullable | Folha |
+| `certidao_termo` | VARCHAR(20) | nullable | Termo |
+| `certidao_data_emissao` | DATE | nullable | Data de emissão |
+| `certidao_foto` | VARCHAR(500) | nullable | Path da foto (storage local) |
+| `reservista_numero` | VARCHAR(30) | nullable | Número do certificado de reservista |
+| `reservista_serie` | VARCHAR(20) | nullable | Série |
+| `reservista_categoria` | VARCHAR(20) | nullable | Categoria |
+| `reservista_ra` | VARCHAR(20) | nullable | RA |
+| `reservista_foto` | VARCHAR(500) | nullable | Path da foto |
+| `comprovante_residencia_foto` | VARCHAR(500) | nullable | Path da foto |
+| `foto` | VARCHAR(500) | nullable | Foto geral do usuário |
+| `created_at` | TIMESTAMP | NOT NULL | Via TimestampMixin |
+| `updated_at` | TIMESTAMP | NOT NULL | Via TimestampMixin |
 
-#### `rg` — Registro Geral
+#### Tabela `rg`
 
-| Coluna | Tipo | Nullable | Default | Descrição |
-|--------|------|----------|---------|-----------|
-| `id` | `UUID` PK | NOT NULL | `uuid4()` | PK |
-| `numero` | `String(30)` | NULL | — | Número do RG |
-| `orgao_emissor` | `String(50)` | NULL | — | Órgão emissor |
-| `data_emissao` | `Date` | NULL | — | Data de emissão |
-| `foto_frente` | `String(500)` | NULL | — | Path da foto frente |
-| `foto_verso` | `String(500)` | NULL | — | Path do foto verso |
-| `created_at` | `DateTime(tz)` | NOT NULL | `now()` | — |
-| `updated_at` | `DateTime(tz)` | NOT NULL | `now()` | — |
+| Coluna | Tipo | Constraints | Descrição |
+|--------|------|-------------|-----------|
+| `id` | UUID | PK | ID interno |
+| `numero` | VARCHAR(30) | nullable | Número do RG |
+| `orgao_emissor` | VARCHAR(50) | nullable | Órgão emissor |
+| `data_emissao` | DATE | nullable | Data de emissão |
+| `foto_frente` | VARCHAR(500) | nullable | Path da foto frente |
+| `foto_verso` | VARCHAR(500) | nullable | Path da foto verso |
+| `created_at`, `updated_at` | TIMESTAMP | NOT NULL | Via TimestampMixin |
 
-#### `cnh` — Carteira Nacional de Habilitação
+#### Tabela `cnh`
 
-| Coluna | Tipo | Nullable | Default | Descrição |
-|--------|------|----------|---------|-----------|
-| `id` | `UUID` PK | NOT NULL | `uuid4()` | PK |
-| `numero` | `String(30)` | NULL | — | Número da CNH |
-| `categoria` | `String(5)` | NULL | — | Categoria (A, B, AB, etc.) |
-| `data_nascimento` | `Date` | NULL | — | Data de nascimento |
-| `validade` | `Date` | NULL | — | Data de validade |
-| `registro_nacional` | `String(30)` | NULL | — | Registro nacional (RENACH) |
-| `foto_frente` | `String(500)` | NULL | — | Path da foto frente |
-| `foto_verso` | `String(500)` | NULL | — | Path do foto verso |
-| `created_at` | `DateTime(tz)` | NOT NULL | `now()` | — |
-| `updated_at` | `DateTime(tz)` | NOT NULL | `now()` | — |
+| Coluna | Tipo | Constraints | Descrição |
+|--------|------|-------------|-----------|
+| `id` | UUID | PK | ID interno |
+| `numero` | VARCHAR(30) | nullable | Número da CNH |
+| `categoria` | VARCHAR(5) | nullable | Categoria (A, B, AB, etc.) |
+| `data_nascimento` | DATE | nullable | Data de nascimento |
+| `validade` | DATE | nullable | Data de validade |
+| `registro_nacional` | VARCHAR(30) | nullable | Registro nacional |
+| `foto_frente` | VARCHAR(500) | nullable | Path da foto frente |
+| `foto_verso` | VARCHAR(500) | nullable | Path da foto verso |
+| `created_at`, `updated_at` | TIMESTAMP | NOT NULL | Via TimestampMixin |
 
-#### `carteiras_trabalho` — Carteira de Trabalho (CTPS)
+#### Tabela `carteiras_trabalho`
 
-| Coluna | Tipo | Nullable | Default | Descrição |
-|--------|------|----------|---------|-----------|
-| `id` | `UUID` PK | NOT NULL | `uuid4()` | PK |
-| `numero` | `String(30)` | NULL | — | Número da CTPS |
-| `serie` | `String(20)` | NULL | — | Série |
-| `uf` | `String(2)` | NULL | — | UF de emissão |
-| `data_emissao` | `Date` | NULL | — | Data de emissão |
-| `foto_frente` | `String(500)` | NULL | — | Path da foto frente |
-| `foto_verso` | `String(500)` | NULL | — | Path do foto verso |
-| `created_at` | `DateTime(tz)` | NOT NULL | `now()` | — |
-| `updated_at` | `DateTime(tz)` | NOT NULL | `now()` | — |
+| Coluna | Tipo | Constraints | Descrição |
+|--------|------|-------------|-----------|
+| `id` | UUID | PK | ID interno |
+| `numero` | VARCHAR(30) | nullable | Número da CTPS |
+| `serie` | VARCHAR(20) | nullable | Série |
+| `uf` | VARCHAR(2) | nullable | UF de emissão |
+| `data_emissao` | DATE | nullable | Data de emissão |
+| `foto_frente` | VARCHAR(500) | nullable | Path da foto frente |
+| `foto_verso` | VARCHAR(500) | nullable | Path da foto verso |
+| `created_at`, `updated_at` | TIMESTAMP | NOT NULL | Via TimestampMixin |
 
-#### `passaportes` — Passaporte
+#### Tabela `passaportes`
 
-| Coluna | Tipo | Nullable | Default | Descrição |
-|--------|------|----------|---------|-----------|
-| `id` | `UUID` PK | NOT NULL | `uuid4()` | PK |
-| `numero` | `String(30)` | NULL | — | Número do passaporte |
-| `validade` | `Date` | NULL | — | Data de validade |
-| `data_emissao` | `Date` | NULL | — | Data de emissão |
-| `foto_frente` | `String(500)` | NULL | — | Path da foto frente |
-| `foto_verso` | `String(500)` | NULL | — | Path do foto verso |
-| `created_at` | `DateTime(tz)` | NOT NULL | `now()` | — |
-| `updated_at` | `DateTime(tz)` | NOT NULL | `now()` | — |
+| Coluna | Tipo | Constraints | Descrição |
+|--------|------|-------------|-----------|
+| `id` | UUID | PK | ID interno |
+| `numero` | VARCHAR(30) | nullable | Número do passaporte |
+| `validade` | DATE | nullable | Data de validade |
+| `data_emissao` | DATE | nullable | Data de emissão |
+| `foto_frente` | VARCHAR(500) | nullable | Path da foto frente |
+| `foto_verso` | VARCHAR(500) | nullable | Path da foto verso |
+| `created_at`, `updated_at` | TIMESTAMP | NOT NULL | Via TimestampMixin |
 
-**Nota sobre FKs:** As referências de `documentos` para as tabelas filhas são
-**FKs lógicas** (UUID sem constraint de FK declarada no banco). Segue o padrão
-de referência cross-service por `external_id` (CONVENTION §4). Shadow table
-read-only de `auth.users` é opcional — ver Open Questions.
+### Relacionamentos
 
-### Slots de imagem válidos
-
-| Slot | Tipo | Tabela alvo |
-|------|------|-------------|
-| `rg_foto_frente` | Sub-documento | `rg.foto_frente` |
-| `rg_foto_verso` | Sub-documento | `rg.foto_verso` |
-| `cnh_foto_frente` | Sub-documento | `cnh.foto_frente` |
-| `cnh_foto_verso` | Sub-documento | `cnh.foto_verso` |
-| `carteira_trabalho_foto_frente` | Sub-documento | `carteiras_trabalho.foto_frente` |
-| `carteira_trabalho_foto_verso` | Sub-documento | `carteiras_trabalho.foto_verso` |
-| `passaporte_foto_frente` | Sub-documento | `passaportes.foto_frente` |
-| `passaporte_foto_verso` | Sub-documento | `passaportes.foto_verso` |
-| `certidao_foto` | Inline | `documentos.certidao_foto` |
-| `reservista_foto` | Inline | `documentos.reservista_foto` |
-| `comprovante_residencia_foto` | Inline | `documentos.comprovante_residencia_foto` |
-| `foto` | Inline | `documentos.foto` |
+- `documentos.rg_id` → `rg.id` (lógica, sem FK cross-schema)
+- `documentos.cnh_id` → `cnh.id` (lógica, sem FK cross-schema)
+- `documentos.carteira_trabalho_id` → `carteiras_trabalho.id` (lógica)
+- `documentos.passaporte_id` → `passaportes.id` (lógica)
+- `documentos.external_id` → `auth.users.external_id` (lógica, sem FK cross-schema)
 
 ## 5. Endpoints
 
-### 5.1. Provisionamento (desmilitarizado) — **NOVO (target)**
+Todos endpoints são **desmilitarizados** (uso interno da plataforma).
 
-| Campo | Valor |
-|-------|-------|
-| **Método** | `POST` |
-| **Rota** | `/api/v1/documentos/{external_id}/provision` |
-| **Tipo** | **Desmilitarizado** (app para app) |
-| **Auth** | Nenhuma |
-| **Request body** | `{"gender": "M\|F\|null"}` (opcional — para regra do reservista) |
-| **Response** | `201` — `DocumentOut` com todos os sub-documentos criados |
-| **Erros** | `409` Document já existe para este external_id |
-| **Side-effects** | Cria Document + RG + CNH + CarteiraTrabalho + Passaporte (vazios); campos inline NULL |
-| **Idempotência** | Segunda chamada → `409` (ou `200` se optarmos por idempotência — ver Open Questions) |
+### GET `/api/v1/documentos/{external_id}`
 
-**Regras de negócio:**
-- Cria **todos** os sub-documentos numa transação única (atomicidade)
-- Se `gender` for "F" ou null, **mesmo assim cria** o registro de reservista
-  (campos NULL) — a regra de gênero é de validação, não de existência
-  (conforme TODO: "serviço militar só pra homens, mas tem que criar")
-- `external_id` é referência lógica ao `auth.users` — sem FK cross-schema
+Retorna o Document completo do usuário (com todos os sub-documentos).
+Se não existir, cria automaticamente (get_or_create).
 
-### 5.2. Consulta (desmilitarizado)
+- **Auth:** Nenhuma (desmilitarizado)
+- **Response 200:** `DocumentOut` (agregado completo com todos os sub-documentos)
+- **Idempotência:** Idempotente (get_or_create)
 
-| Campo | Valor |
-|-------|-------|
-| **Método** | `GET` |
-| **Rota** | `/api/v1/documentos/{external_id}` |
-| **Tipo** | **Desmilitarizado** |
-| **Auth** | Nenhuma |
-| **Response** | `200` — `DocumentOut` (com sub-documentos carregados via joinedload) |
-| **Erros** | `404` Document não encontrado (quando provisionamento obrigatório) |
-| **Comportamento atual** | **get-or-create** — cria Document se não existe (sem sub-documentos) |
+### PUT `/api/v1/documentos/{external_id}`
 
-**Nota:** O comportamento get-or-create atual diverge do provisionamento eager.
-Após implementar o endpoint de provisionamento, este GET deveria retornar `404`
-se o Document não foi provisionado (o `auth` é responsável por chamar o provision).
+Atualiza campos textuais dos sub-documentos e campos inline do Document.
 
-### 5.3. Atualização textual (desmilitarizado)
+- **Auth:** Nenhuma (desmilitarizado)
+- **Request body:** `DocumentUpdate`
+  ```json
+  {
+    "rg": {"numero": "...", "orgao_emissor": "...", "data_emissao": "2020-01-01"},
+    "cnh": {"numero": "...", "categoria": "B", "validade": "2030-01-01"},
+    "carteira_trabalho": {"numero": "...", "serie": "...", "uf": "SP"},
+    "passaporte": {"numero": "...", "validade": "2030-01-01"},
+    "certidao": {"tipo": "nascimento", "numero": "...", "cartorio": "..."},
+    "reservista_numero": "...",
+    "reservista_serie": "...",
+    "reservista_categoria": "...",
+    "reservista_ra": "..."
+  }
+  ```
+- **Response 200:** `DocumentOut`
+- **Response 422:** Erro de validação (ex: certidao_tipo inválido)
+- **Idempotência:** Idempotente (merge parcial — só campos não-null são atualizados)
+- **Side effects:** Dispara webhook `documento.atualizado`
 
-| Campo | Valor |
-|-------|-------|
-| **Método** | `PUT` |
-| **Rota** | `/api/v1/documentos/{external_id}` |
-| **Tipo** | **Desmilitarizado** |
-| **Auth** | Nenhuma |
-| **Request body** | `DocumentUpdate` (campos parciais por sub-documento) |
-| **Response** | `200` — `DocumentOut` atualizado |
-| **Erros** | `422` certidao_tipo inválido; `404` Document não encontrado |
+### POST `/api/v1/documentos/{external_id}/imagens/{slot}`
 
-**Regras de negócio:**
-- Atualização é **parcial** — só os campos enviados são alterados
-- Certidão tipo deve ser um de: `nascimento`, `casamento`, `obito`
-- Sub-documentos são criados on-demand se não existem (via `_get_or_create_sub`)
-- PII (números) é mascarado nos logs (utils/pii.py)
+Upload de imagem para um slot nomeado.
 
-### 5.4. Upload de imagem (desmilitarizado)
+- **Auth:** Nenhuma (desmilitarizado)
+- **Content-Type:** `multipart/form-data` (campo `file`)
+- **Slots válidos:** `rg_foto_frente`, `rg_foto_verso`, `cnh_foto_frente`, `cnh_foto_verso`, `carteira_trabalho_foto_frente`, `carteira_trabalho_foto_verso`, `passaporte_foto_frente`, `passaporte_foto_verso`, `certidao_foto`, `reservista_foto`, `comprovante_residencia_foto`, `foto`
+- **Tipos permitidos:** `image/jpeg`, `image/png`, `image/webp`
+- **Tamanho máximo:** 10MB (configurável via `MAX_UPLOAD_MB`)
+- **Response 201:** `DocumentOut`
+- **Response 413:** Arquivo excede limite
+- **Response 422:** Slot inválido ou tipo não permitido
+- **Side effects:** Remove arquivo anterior do mesmo slot (se existir), dispara webhook `documento.imagem_uploaded`
 
-| Campo | Valor |
-|-------|-------|
-| **Método** | `POST` |
-| **Rota** | `/api/v1/documentos/{external_id}/imagens/{slot}` |
-| **Tipo** | **Desmilitarizado** |
-| **Auth** | Nenhuma |
-| **Content-Type** | `multipart/form-data` |
-| **Validações** | Slot válido (12 opções); MIME type ∈ {image/jpeg, image/png, image/webp}; tamanho ≤ `max_upload_mb` (default 10MB) |
-| **Response** | `201` — `DocumentOut` atualizado |
-| **Erros** | `422` slot inválido; `422` tipo não permitido; `413` arquivo grande demais |
-| **Side-effects** | Salva arquivo em `{media_root}/documentos/{external_id}/{slot}.{ext}`; atualiza path no DB; deleta arquivo anterior se existia |
+### GET `/api/v1/documentos/{external_id}/imagens/{slot}`
 
-### 5.5. Download de imagem (desmilitarizado)
+Download de imagem de um slot.
 
-| Campo | Valor |
-|-------|-------|
-| **Método** | `GET` |
-| **Rota** | `/api/v1/documentos/{external_id}/imagens/{slot}` |
-| **Tipo** | **Desmilitarizado** |
-| **Auth** | Nenhuma |
-| **Response** | `200` — `FileResponse` com o arquivo de imagem |
-| **Erros** | `404` slot vazio ou arquivo não encontrado; `422` slot inválido |
+- **Auth:** Nenhuma (desmilitarizado)
+- **Response 200:** `FileResponse` (arquivo binário)
+- **Response 404:** Slot vazio ou arquivo não encontrado
 
-### 5.6. Delete de imagem (desmilitarizado)
+### DELETE `/api/v1/documentos/{external_id}/imagens/{slot}`
 
-| Campo | Valor |
-|-------|-------|
-| **Método** | `DELETE` |
-| **Rota** | `/api/v1/documentos/{external_id}/imagens/{slot}` |
-| **Tipo** | **Desmilitarizado** |
-| **Auth** | Nenhuma |
-| **Response** | `200` — `DocumentOut` atualizado |
-| **Erros** | `422` slot inválido |
-| **Side-effects** | Remove arquivo do disco; seta coluna para NULL no DB |
+Remove imagem de um slot.
 
-### 5.7. Health / Ready (desmilitarizado)
+- **Auth:** Nenhuma (desmilitarizado)
+- **Response 200:** `DocumentOut` (atualizado)
+- **Response 422:** Slot inválido
+- **Side effects:** Remove arquivo do storage, dispara webhook `documento.imagem_deleted`
 
-| Campo | Valor |
-|-------|-------|
-| **Método** | `GET` |
-| **Rotas** | `/health`, `/ready` |
-| **Tipo** | **Desmilitarizado** |
-| **Response** | `{"status": "ok/ready", "version": "..."}` |
+### Health
+
+- `GET /health` — healthcheck básico (padrão CONVENTION)
 
 ## 6. Integrações Externas
 
-| Serviço | Tipo de integração | Propósito | Client em |
-|---------|-------------------|-----------|-----------|
-| `notify` | HTTP (httpx, desmilitarizado) | Disparar notificações assíncronas (fire-and-forget) | `integrations/notify.py` (**a criar**) |
-
-**Atualmente:** O webhook está embutido em `services/document_service.py` como
-`_fire_webhook()` usando httpx direto para `settings.webhook_url`. Deve ser
-extraído para `integrations/notify.py` seguindo o padrão dos outros serviços.
-
-**Padrão de integração (CONVENTION §12):**
-- Client httpx com context manager
-- **Fire-and-forget** — falha é logada (structlog), nunca impede o fluxo principal
-- Timeout de 5s
-- Logs nunca expõem PII
+| Serviço | Direção | Mecanismo | Descrição |
+|---------|---------|-----------|-----------|
+| **auth** | Upstream → documents | HTTP desmilitarizado | Auth provisiona documentos no registro do usuário |
+| **candidate** | Upstream → documents | HTTP desmilitarizado | Candidate lê documentos do candidato |
+| **enrollment** | Upstream → documents | HTTP desmilitarizado | Enrollment exige documentos para matrícula |
+| **training** | Upstream → documents | HTTP desmilitarizado | Training consulta documentos para compliance |
+| **notify** | documents → notify | HTTP (integrations/notify.py) | **GAP:** Atual usa webhook genérico, deveria usar notify via padrão CONVENTION §11/§12 |
+| **webhook externo** | documents → webhook | HTTP POST (fire-and-forget) | Emite eventos: `documento.criado`, `documento.atualizado`, `documento.imagem_uploaded`, `documento.imagem_deleted` |
 
 ## 7. Eventos Disparados / Consumidos
 
-### Consumidos
+### Eventos Disparados (via webhook)
 
-Nenhum. O documents não consome eventos de outros serviços.
-
-### Disparados (via webhook → notify)
-
-| Evento | Gatilho | Destino |
+| Evento | Trigger | Payload |
 |--------|---------|---------|
-| `documento.criado` | Criação do Document (get_or_create ou provision) | `notify` (webhook) |
-| `documento.atualizado` | Atualização textual via PUT | `notify` (webhook) |
-| `documento.imagem_uploaded` | Upload de imagem via POST | `notify` (webhook) |
-| `documento.imagem_deleted` | Delete de imagem via DELETE | `notify` (webhook) |
+| `documento.criado` | Criação do Document (get_or_create) | `{"external_id": "..."}` |
+| `documento.atualizado` | PUT de campos textuais | `{"external_id": "...", "changes": {...}}` |
+| `documento.imagem_uploaded` | Upload de imagem | `{"external_id": "...", "slot": "..."}` |
+| `documento.imagem_deleted` | Delete de imagem | `{"external_id": "...", "slot": "..."}` |
 
-**Padrão:** Fire-and-forget via httpx.AsyncClient. Falha é logged como warning,
-nunca re-raises. O fluxo principal (criação/atualização) é sempre commitado
-independentemente da disponibilidade do notify.
+### Eventos Consumidos
 
-## 8. Regras de Negócio Invariantes
+Nenhum. O módulo é reativo (chamado por outros serviços), não consome eventos.
 
-1. **MUITO IMPORTANTE → provisionamento eager** — "ao ser criado usuário, um document
-   é criado com seu external_id e todos documentos são criados juntos respectivamente"
-   (TODO). Invariante: após `POST /provision`, existem 1 Document + 4 sub-documentos
-   (RG, CNH, CarteiraTrabalho, Passaporte) com campos NULL.
+### GAP: Integração com Notify
 
-2. **MUITO IMPORTANTE → certidão única por Document** — "certidao tipo pode ser
-   nascimento, casamento e etc, mas só uma por document" (TODO). Invariante:
-   `documentos` tem no máximo 1 certidão (campos inline, não tabela separada).
-   Tipo ∈ {nascimento, casamento, obito}.
+O padrão CONVENTION §11/§12 exige `integrations/notify.py` com httpx client para
+notificações assíncronas. O código atual usa um webhook genérico (`_fire_webhook`).
+Migrar para o padrão notify é recomendado mas não bloqueante para o MVP.
 
-3. **MUITO IMPORTANTE → reservista criado para todos** — "serviço militar só pra
-   homens, mas tem que criar" (TODO). Invariante: reservista é criado (campos NULL)
-   independentemente do gênero. A **validação** de gênero é responsabilidade do
-   serviço que consome (ex.: candidate ao marcar como "completo").
+## 8. Regras de Negócio / Invariantes
 
-4. **JAMAIS servir imagem sem validação** — Upload aceita apenas {image/jpeg,
-   image/png, image/webp} com tamanho ≤ max_upload_mb. Invariante: se MIME ∉
-   permitidos ou tamanho > limite → 422/413, arquivo não é salvo.
-
-5. **JAMAIS deletar arquivo sem atualizar DB** — Delete de imagem remove o arquivo
-   do disco E seta a coluna para NULL numa mesma operação. Invariante: se o DB
-   diz NULL, o arquivo não existe no disco (e vice-versa após sync).
-
-6. **MUITO IMPORTANTE → PII mascarado em logs** — Números de documentos (RG, CNH,
-   CTPS, passaporte, certidão, reservista) são mascarados via `mask_number()` antes
-   de escrever no structlog. Invariante: nenhum log contém número de documento
-   completo.
-
-7. **MUITO IMPORTANTE → external_id sem duplicata** — `external_id` tem constraint
-   UNIQUE na tabela `documentos`. Invariante: não existem dois Documents para o
-   mesmo usuário.
+| # | Invariante | Fonte (TODO) | Status |
+|---|-----------|--------------|--------|
+| INV-1 | **Um Document por `external_id`** — a constraint UNIQUE em `external_id` garante unicidade | TODO implícito | ✅ Implementada (DB constraint) |
+| INV-2 | **Provisionamento eager** — ao criar o usuário, TODOS os sub-documentos são criados (vazios) de uma vez | "ao ser criado usuário, um document é criado com seu external_id e todos documentos são criados juntos" | ⚠️ Parcial — `get_or_create` cria Document mas sub-documentos são lazy (criados no primeiro acesso via `_get_or_create_sub`) |
+| INV-3 | **Certidão: apenas uma por Document** — "tipo pode ser nascimento, casamento e etc, mas só uma por document" | TODO | ❌ Não implementada — não há constraint de unicidade; teoricamente poderia ter certidao_tipo=nascimento E certidao_tipo=casamento no mesmo Document |
+| INV-4 | **Serviço militar: só para homens** — "só pra homens, mas tem que criar" | TODO | ❌ Não implementada — gênero não é recebido no provisionamento; reservista é criado para todos |
+| INV-5 | **Imagens: tipo e tamanho validados** — só jpeg/png/webp, máx 10MB | Código existente | ✅ Implementada |
+| INV-6 | **Slots de imagem restritos** — apenas os 12 slots definidos em `IMAGE_SLOTS` | Código existente | ✅ Implementada |
+| INV-7 | **PII mascarada em logs** — números de documento são mascarados antes de logar | COD-18 PII audit | ✅ Implementada (via `mask_number`) |
+| INV-8 | **Identificadores em inglês** — tabelas/colunas/rotas em inglês, comentários pt-br | CONVENTION §7 | ⚠️ Parcial — nomes de tabelas em português (`documentos`, `carteiras_trabalho`) mas colunas e rotas mistas |
 
 ## 9. Critérios de Aceite
 
-1. [ ] `POST /provision/{external_id}` cria Document + 4 sub-documentos (RG, CNH,
-   CarteiraTrabalho, Passaporte) com campos NULL numa transação única.
-2. [ ] `POST /provision` para external_id já existente retorna `409`.
-3. [ ] `GET /{external_id}` retorna Document com todos os sub-documentos (joinedload).
-4. [ ] `PUT /{external_id}` atualiza campos parciais de qualquer sub-documento.
-5. [ ] `PUT /{external_id}` com certidao_tipo inválido retorna `422`.
-6. [ ] `POST /{external_id}/imagens/{slot}` com MIME válido salva arquivo e atualiza DB.
-7. [ ] `POST /{external_id}/imagens/{slot}` com MIME inválido retorna `422` sem salvar.
-8. [ ] `POST /{external_id}/imagens/{slot}` com arquivo > max_upload_mb retorna `413`.
-9. [ ] `GET /{external_id}/imagens/{slot}` retorna o arquivo via FileResponse.
-10. [ ] `DELETE /{external_id}/imagens/{slot}` remove arquivo do disco e seta coluna NULL.
-11. [ ] Webhook é extraído para `integrations/notify.py` com fire-and-forget.
-12. [ ] Migrações Alembic válidas (`alembic upgrade head` sem erro).
-13. [ ] Testes verdes: provisionamento, CRUD textual, imagens, validações.
-14. [ ] `ruff check` e `ruff format` limpos.
-15. [ ] `wiki/documents.md` reescrita refletindo o serviço novo.
+| # | Critério | Testável |
+|---|---------|----------|
+| AC-1 | `GET /api/v1/documentos/{external_id}` retorna Document com todos os sub-documentos (vazios se nunca preenchidos) | Sim — GET retorna 200 com estrutura completa |
+| AC-2 | `GET` com `external_id` inexistente cria o Document automaticamente (get_or_create) | Sim — GET + verificação no banco |
+| AC-3 | `PUT` atualiza apenas campos não-null (merge parcial) | Sim — PUT parcial + GET confirma só os campos enviados mudaram |
+| AC-4 | `PUT` com `certidao.tipo` inválido retorna 422 | Sim — PUT com tipo="invalido" → 422 |
+| AC-5 | Upload de imagem para slot válido salva arquivo e atualiza path no banco | Sim — POST + GET download confirma |
+| AC-6 | Upload de tipo não-permitido (ex: `application/pdf`) retorna 422 | Sim — POST com PDF → 422 |
+| AC-7 | Upload de arquivo > 10MB retorna 413 | Sim — POST com arquivo grande → 413 |
+| AC-8 | Upload para slot inválido retorna 422 | Sim — POST com slot="invalido" → 422 |
+| AC-9 | Delete de imagem remove arquivo do storage e zera path no banco | Sim — DELETE + GET download → 404 |
+| AC-10 | Upload substitui arquivo anterior do mesmo slot (sem lixo no storage) | Sim — upload 2x + verificação de apenas 1 arquivo no disco |
+| AC-11 | Webhooks são disparados corretamente para cada operação | Sim — mock webhook endpoint + verificação de chamadas |
+| AC-12 | `ruff check` e `ruff format` passam sem erros | Sim — execução de ruff |
+| AC-13 | Migração Alembic aplica limpa em banco vazio | Sim — `alembic upgrade head` em DB fresh |
 
 ## 10. Riscos / Open Questions
 
@@ -392,39 +298,22 @@ independentemente da disponibilidade do notify.
 
 | Risco | Probabilidade | Impacto | Mitigação |
 |-------|--------------|---------|-----------|
-| Mídia sensível (documentos) exposta sem auth | Média | Alto | Endpoint desmilitarizado = rede interna; considerar restrição de IP ou token assinado (Open Question) |
-| `external_id` sem garantia de usuário existente | Média | Médio | Provisionamento é chamado pelo `auth` após commit do User; shadow table opcional |
-| Provisionamento eager cria muitos registros vazios | Baixa | Baixo | Aceitável (1 Document + 4 sub-docs por usuário); índices por `external_id` |
-| Arquivo no disco sem referência no DB (lixo) | Média | Baixo | Job de limpeza periódica (futuro); delete sempre limpa arquivo+coluna juntos |
-| Regra de gênero do reservista depende de dado externo | Média | Médio | Criar reservista para todos (campos NULL); validação de gênero fica no consumidor |
+| Mídia sensível (documentos) exposta sem auth | Média | Alto | Endpoints são desmilitarizados — segurança depende de restrição de rede. Considerar token assinado para download de imagens (futuro) |
+| `external_id` sem garantia de usuário existente gera documentos órfãos | Média | Médio | Provisionamento confiável a partir do auth + limpeza periódica de órfãos |
+| Webhook indisponível perde eventos | Baixa | Baixo | Fire-and-forget — não bloqueia operação principal. Migrar para notify melhora resiliência |
+| Nomes de tabela em português (`documentos`) criam fricção com outros módulos em inglês | Baixa | Baixo | Renomear é breaking change — fazer em sprint separada se necessário |
+| Storage local não escala para produção | Média | Alto | Migrar para S3/object storage em produção (fora de escopo MVP) |
 
 ### Open Questions
 
-- [ ] **Shadow table de `auth.users`** — Declarar `Table("users", ...)` no schema
-  `auth` para resolver FK cross-schema? Ou manter apenas coluna UUID indexada sem
-  FK declarada (comportamento atual)?
-- [ ] **Endpoint de provisionamento vs get-or-create** — O GET atual cria o Document
-  se não existe. Após implementar `/provision`, o GET deve retornar `404` se não
-  provisionado? Ou manter get-or-create como fallback?
-- [ ] **Idempotência do provisionamento** — `POST /provision` deve retornar `409` se
-  já existe, ou `200` com o Document existente (idempotente)?
-- [ ] **Controle de acesso à mídia** — Como restringir download de imagens sensíveis
-  num endpoint desmilitarizado? Restrição de rede interna? URL/token assinado?
-- [ ] **Validação de gênero para reservista** — O gênero vem no payload do
-  provisionamento, ou `documents` consulta o `profiles` via integração? Ou a
-  validação é responsabilidade exclusiva do consumidor (candidate)?
-- [ ] **Quais notificações via notify** — Definir catálogo mínimo de eventos
-  notificados. Os 4 atuais (criado, atualizado, imagem_uploaded, imagem_deleted)
-  são suficientes?
-- [ ] **Renomeação de modelos para inglês** — `carteira_trabalho.py` → `work_permit.py`?
-  Ou manter nomes em português por serem termos de domínio brasileiro?
-- [ ] **Dados existentes no SQLite** — Há dados no SQLite atual que precisam migrar,
-  ou é greenfield?
-- [ ] **`requires-python`** — Atualmente `>=3.11`. Deve ser `>=3.12` conforme
-  CONVENTION §2.
+- [ ] **Fonte do gênero** para regra INV-4 (serviço militar só pra homens): vem no payload do provisionamento, ou `documents` consulta `profiles` via integração? Definir antes de implementar INV-4.
+- [ ] **Constraint de unicidade de certidão** (INV-3): aplicar como constraint no banco (ex: partial unique index) ou validar no service layer?
+- [ ] **Migração de nomes de tabela**: renomear `documentos` → `documents`, `carteiras_trabalho` → `carteira_trabalho` para consistência? Breaking change.
+- [ ] **Notify vs webhook**: migrar `_fire_webhook` para `integrations/notify.py` no padrão CONVENTION §11/§12 agora ou em sprint separado?
+- [ ] **Dados existentes**: há dados no SQLite/Tortoise que precisam migrar, ou é greenfield?
+- [ ] **Controle de acesso à mídia**: como gatear download de imagens sensíveis em endpoint desmilitarizado?
 
 ---
 
-*CONSOLIDADO a partir de: `documents-service.prd.md`, `wiki/documents.md`,
-`documents/TODO`, código-fonte atual (`documents/app/`), CONVENTION.md.*
-*Status: PRONTO PARA REVIEW.*
+*Consolidado de: `documents-service.prd.md` (DRAFT anterior) + código existente em `documents/app/` + TODO original.*
+*Status: PRONTO PARA REVIEW — aguarda aceite do board antes de implementação.*

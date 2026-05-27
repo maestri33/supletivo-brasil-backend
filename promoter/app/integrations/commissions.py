@@ -1,9 +1,8 @@
 """Integracao com o servico `commissions` (dono do dominio de comissoes).
 
-ATENCAO: o servico `commissions` ainda nao existe (apenas spec/TODO). Nao
-inventamos o contrato dele (CONVENTION §2). Este client assume um endpoint de
-listagem por promoter; quando `commissions` for construido, ajuste a rota/parsing.
-Ate la', o service degrada para "indisponivel" sem quebrar o fluxo (§12).
+O servico `commissions` agora existe (Parte B concluida). O endpoint assume
+/api/v1/demilitarized/commissions com filtro por promoter_external_id.
+Degrada para indisponivel se o servico nao responder (§12).
 """
 
 from app.integrations import BaseClient, request_with_retry

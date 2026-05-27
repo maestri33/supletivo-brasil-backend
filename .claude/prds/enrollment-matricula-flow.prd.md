@@ -1,4 +1,11 @@
-# Enrollment — Fluxo de Matrícula
+# SUPERSEDED — ver enrollment.prd.md
+
+> Este PRD foi substituído pelo `enrollment.prd.md` (27/05), que contém a spec completa
+> com as 10 seções padronizadas. O conteúdo abaixo fica como histórico.
+
+---
+
+# Enrollment — Fluxo de Matrícula (LEGADO)
 
 > Serviço: `enrollment/` · Spec de origem: `enrollment/TODO` · Convenção: `CONVENTION.md`
 > Espelho de implementação: `candidate/` (mesma orquestração profiles/address/documents/ai/roles).
@@ -74,8 +81,6 @@ promoção de papel registrada no `roles`**.
 - Refatorar o stub auditivo além do necessário (mantém webhook + auditoria existentes).
 
 ## Delivery Milestones
-<!-- Business outcomes, not engineering tasks. /plan turns each into a plan. -->
-<!-- Status: pending | in-progress | complete -->
 
 | # | Milestone | Outcome | Status | Plan |
 |---|---|---|---|---|
@@ -106,4 +111,5 @@ promoção de papel registrada no `roles`**.
 | Selfie/`ai` indisponível travar o funil | Média | Alto | Validação best-effort §13 (não bloqueia), igual `candidate` |
 
 ---
-*Status: DRAFT — requirements only. Implementation planning pending via /plan.*
+
+*Status: SUPERSEDED — substituído por `enrollment.prd.md` em 27/05/2026.*

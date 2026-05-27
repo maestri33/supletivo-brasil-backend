@@ -1,10 +1,8 @@
 """Visao read-only das comissoes do promoter — agrega do servico `commissions`.
 
-PENDENCIA (documentada, sem TODO orfao): o servico `commissions` ainda nao existe
-(so' spec/TODO). Nao inventamos o contrato dele (CONVENTION §2). Enquanto nao
-existir/estiver fora, a visao degrada para `available=False` + lista vazia, sem
-quebrar o fluxo (§12). Quando `commissions` for construido, basta o client
-responder — nenhum ajuste necessario aqui.
+O servico `commissions` agora existe (Parte B concluida). O client abaixo
+chama via HTTP; se o servico estiver indisponivel, degrada para
+available=False + lista vazia (graceful degradation).
 """
 
 import httpx
