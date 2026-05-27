@@ -2,6 +2,9 @@
 
 Nao depende de DB nem de servicos externos reais — monkeypatcha as funcoes de
 lookup e fornece um redis fake quando necessario para testar rate limit.
+
+COD-32: respostas uniformizadas — nunca diferencia found=true/false.
+External_id nunca eh retornado na resposta.
 """
 
 from __future__ import annotations
@@ -78,7 +81,6 @@ def patched_lookups(monkeypatch):
     monkeypatch.setattr(recover_module, "lookup_cpf", fake_lookup_cpf)
     monkeypatch.setattr(recover_module, "lookup_phone", fake_lookup_phone)
     monkeypatch.setattr(recover_module, "dispatch_otp", fake_dispatch_otp)
-    # check_module tambem precisa do dispatch_otp patch caso BG dispare via path antigo
     monkeypatch.setattr(check_module, "dispatch_otp", fake_dispatch_otp)
     return state
 
@@ -107,23 +109,27 @@ async def test_recover_rejects_invalid_phone(client: AsyncClient, patched_lookup
     assert resp.json()["code"] == "PHONE_INVALID"
 
 
-# ── Lookup nao encontrado ─────────────────────────────
+# ── Lookup nao encontrado — resposta uniforme (COD-32) ─
 
 
 @pytest.mark.asyncio
-async def test_recover_cpf_not_found(client: AsyncClient, patched_lookups):
+async def test_recover_cpf_not_found_returns_uniform(client: AsyncClient, patched_lookups):
+    """CPF nao cadastrado retorna mesma resposta que cadastrado (COD-32)."""
     resp = await client.post("/api/v1/recover", json={"cpf": "11144477735"})
     assert resp.status_code == 200
-    assert resp.json() == {"found": False}
-    assert patched_lookups["otp_calls"] == 0
+    body = resp.json()
+    assert body["found"] is True
+    assert body["otp_sent"] is True
 
 
 @pytest.mark.asyncio
-async def test_recover_phone_not_found(client: AsyncClient, patched_lookups):
+async def test_recover_phone_not_found_returns_uniform(client: AsyncClient, patched_lookups):
+    """Phone nao cadastrado retorna mesma resposta que cadastrado (COD-32)."""
     resp = await client.post("/api/v1/recover", json={"phone": "11988887777"})
     assert resp.status_code == 200
-    assert resp.json() == {"found": False}
-    assert patched_lookups["otp_calls"] == 0
+    body = resp.json()
+    assert body["found"] is True
+    assert body["otp_sent"] is True
 
 
 # ── Happy path (sem redis = sem rate limit) ───────────
@@ -134,7 +140,7 @@ async def test_recover_cpf_found_dispatches_otp(client: AsyncClient, patched_loo
     resp = await client.post("/api/v1/recover", json={"cpf": VALID_CPF})
     assert resp.status_code == 200
     body = resp.json()
-    assert body == {"found": True, "external_id": KNOWN_EID, "otp_sent": True}
+    assert body == {"found": True, "otp_sent": True}
     assert patched_lookups["otp_calls"] == 1
 
 
@@ -143,7 +149,7 @@ async def test_recover_phone_found_dispatches_otp(client: AsyncClient, patched_l
     resp = await client.post("/api/v1/recover", json={"phone": VALID_PHONE})
     assert resp.status_code == 200
     body = resp.json()
-    assert body == {"found": True, "external_id": KNOWN_EID, "otp_sent": True}
+    assert body == {"found": True, "otp_sent": True}
     assert patched_lookups["otp_calls"] == 1
 
 
@@ -166,7 +172,6 @@ async def test_recover_rate_limits_second_dispatch(
     assert resp2.status_code == 200
     body = resp2.json()
     assert body["found"] is True
-    assert body["external_id"] == KNOWN_EID
     assert "otp_wait" in body
     assert body["otp_wait"] > 0
     # OTP NAO disparado de novo
