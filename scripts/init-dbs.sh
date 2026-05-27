@@ -100,7 +100,7 @@ echo ""
 
 # Step 1: Ensure the database exists
 echo "--- Step 1: Ensure database '$PG_DB' exists ---"
-DB_EXISTS=$(PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d postgres -t -A -c "SELECT 1 FROM pg_database WHERE datname='$PG_DB'")
+DB_EXISTS=$(PG_CMD_ADMIN -c "SELECT 1 FROM pg_database WHERE datname='$PG_DB'")
 if [ "$DB_EXISTS" = "1" ]; then
     pass "Database '$PG_DB' already exists"
 else

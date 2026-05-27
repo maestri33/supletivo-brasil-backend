@@ -654,6 +654,31 @@ services:
       driver: "json-file"
       options: { max-size: "25m", max-file: "3" }
 
+  # -- Log shipping (Promtail → Loki) --
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    volumes:
+      - ./promtail:/promtail:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: ["-config.file=/promtail/promtail-config.yml"]
+    depends_on:
+      loki: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:9080/ready", "-O", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits: { memory: 128M }
+        reservations: { memory: 64M }
+    logging:
+      driver: "json-file"
+      options: { max-size: "10m", max-file: "2" }
+
 volumes:
   pgdata:
   prometheus_data:
