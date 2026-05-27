@@ -31,8 +31,8 @@ class DocumentsClient:
     # ── Documentos ─────────────────────────────────
 
     async def ensure(self, external_id: str) -> dict:
-        """GET /api/v1/documentos/{external_id} — get-or-create do documento (sub-docs null)."""
-        resp = await self._request("GET", f"/api/v1/documentos/{external_id}")
+        """GET /api/v1/documents/{external_id} — get-or-create do documento (sub-docs null)."""
+        resp = await self._request("GET", f"/api/v1/documents/{external_id}")
         return resp.json()
 
     # ── Internal ───────────────────────────────────

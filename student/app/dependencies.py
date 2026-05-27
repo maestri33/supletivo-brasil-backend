@@ -1,4 +1,4 @@
-"""Dependencies — validacao JWT/JWKS com gate por role."""
+"""Dependencies — validacao JWT/JWKS, gate por role e por status do Student."""
 
 import time
 from uuid import UUID
@@ -7,8 +7,12 @@ import httpx
 import jwt
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.db import get_session
+from app.models import Student, StudentStatus
 
 settings = get_settings()
 
@@ -66,5 +70,33 @@ def require_role(role: str):
         if role not in payload.get("roles", []):
             raise HTTPException(403, f"Requires '{role}' role")
         return UUID(payload["external_id"])
+
+    return Depends(_check)
+
+
+def require_student_with_status(*allowed: StudentStatus):
+    """Aluno autenticado cujo status esta na lista `allowed`. Carrega o Student
+    a partir do external_id do JWT — uma so' consulta na DB, reaproveitada pela rota.
+    """
+    allowed_values = {s.value for s in allowed}
+
+    async def _check(
+        payload: dict = Depends(get_token_payload),
+        session: AsyncSession = Depends(get_session),
+    ) -> Student:
+        if "student" not in payload.get("roles", []):
+            raise HTTPException(403, "Requires 'student' role")
+        external_id = UUID(payload["external_id"])
+        student = await session.scalar(
+            select(Student).where(Student.external_id == external_id)
+        )
+        if student is None:
+            raise HTTPException(404, "Student not found")
+        if student.status.value not in allowed_values:
+            expected = " ou ".join(sorted(allowed_values))
+            raise HTTPException(
+                403, f"Status '{student.status.value}' — requer '{expected}'"
+            )
+        return student
 
     return Depends(_check)

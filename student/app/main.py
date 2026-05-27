@@ -7,17 +7,24 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
-from app.api.authenticated import students_router
+from app.api.authenticated import (
+    diplomas_router,
+    documents_router,
+    exams_router,
+    pending_router,
+    students_router,
+)
 from app.api.health import router as health_router
 from app.config import get_settings
 from app.db import close_db
 from app.exceptions import DomainError
 from app.metrics import setup_metrics
 from app.utils.logging import configure_logging
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -37,13 +44,9 @@ configure_logging()
 
 app = FastAPI(title=settings.service_name, version=settings.app_version, lifespan=lifespan)
 
-# ── Rate limiting (slowapi) ─────────────────────────────────
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
-
-# ── SlowAPI middleware ──────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-from slowapi.middleware import SlowAPIMiddleware
 app.add_middleware(SlowAPIMiddleware)
 
 
@@ -66,9 +69,12 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
 
 
 app.include_router(students_router)
+app.include_router(documents_router)
+app.include_router(exams_router)
+app.include_router(diplomas_router)
+app.include_router(pending_router)
 app.include_router(health_router)
 setup_metrics(app)
-
 
 
 @app.get("/health")

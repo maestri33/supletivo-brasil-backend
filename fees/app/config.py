@@ -37,9 +37,10 @@ class Settings(BaseSettings):
     http_timeout: int = 10
 
     # ── Autorização ─────────────────────────────────────────────────────────
-    # Role exigida nos endpoints autenticados. Só o coordenador do polo (hub)
-    # opera taxas. Em .env para não travar quando o serviço `roles` formalizar
-    # o nome canônico do papel.
+    # Nome da role exigida no gate dos endpoints autenticados. Override via
+    # `.env`. A LISTA mestra de roles válidas (§8) vive no `.env` do app
+    # `roles` — fees só consulta `roles` via HTTP para validar se o usuário
+    # tem esta role agora.
     coordinator_role: str = "coordinator"
 
     # ── Regras de negócio ───────────────────────────────────────────────────

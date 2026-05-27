@@ -42,13 +42,6 @@ def upgrade() -> None:
         ),
         sa.Column("processed_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id", name="enrollment_events_pkey"),
-        sa.ForeignKeyConstraint(
-            ["external_id"],
-            ["auth.users.external_id"],
-            name="enrollment_events_external_id_fkey",
-            onupdate="CASCADE",
-            ondelete="RESTRICT",
-        ),
         schema=SCHEMA,
     )
     op.create_index(

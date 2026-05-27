@@ -24,8 +24,8 @@
 2. **Faça só o que foi pedido.** Sugestões no fim da resposta, não no código.
 3. **Stack fixa (§2).** FastAPI + SQLAlchemy 2.0 async + asyncpg + Alembic +
    Pydantic v2 + httpx.AsyncClient + structlog + pydantic-settings.
-4. **Cada serviço, seu schema.** Schema `student`. FK real cross-schema para
-   `auth.users.external_id` (RESTRICT on delete).
+4. **Cada serviço, seu schema.** Schema `student`. `external_id` e' referencia
+   logica ao `auth.users` (UUID opaco). **Sem FK cross-schema** (§4 do CONVENTION).
 5. **Autenticação obrigatória.** Endpoints de negócio exigem JWT + role
    (`coordinator` para promover, `student` para consultar).
 6. **Idempotência na promoção.** Promover aluno já existente levanta 409
@@ -76,9 +76,9 @@ student/app/
 
 - **Milestone 1 (atual):** promoção (enrollment→student) + consulta de dados
   próprios. Status inicial: `AWAITING_DOCUMENTS`.
-- **FK cross-schema real:** `students.external_id` → `auth.users.external_id`
-  (RESTRICT on delete, CASCADE on update). Única FK cross-schema real do
-  projeto — student é fortemente acoplado ao auth.
+- **Referência opaca ao auth:** `students.external_id` é UUID puro, sem FK
+  cross-schema (§4). Acoplamento é lógico, não relacional. Em delete/promote,
+  consulta `auth` via HTTP se precisar validar existência.
 - **Enum StudentStatus** definido completo desde já (10 status) para evitar
   migração de tipo a cada milestone. Milestone 1 só grava `AWAITING_DOCUMENTS`.
 - **JWT:** RS256 validado contra JWKS do serviço `jwt`. Cache de 5 min.
@@ -92,7 +92,7 @@ student/app/
 - ❌ Promover aluno sem verificar idempotência (external_id duplicado).
 - ❌ Criar endpoint sem autenticação JWT + gate de role.
 - ❌ Alterar fluxo de status sem notificação assíncrona.
-- ❌ Importar modelo de outro serviço (exceto FK declarada no model).
+- ❌ Importar modelo de outro serviço. Sem shadow table. Use `external_id` (§4).
 - ❌ Adicionar status novo no enum sem considerar impacto em notificações.
 - ❌ Commitar `.env` ou segredo.
 

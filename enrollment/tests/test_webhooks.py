@@ -1,7 +1,8 @@
 """Testes E2E do receptor de webhook contra Postgres real (sem mock).
 
 Cobre: persistência + payload JSONB, idempotência por (external_id, event),
-FK cross-schema p/ auth.users, e os endpoints de auditoria.
+referência opaca a auth.users (sem FK cross-schema, §4), e os endpoints de
+auditoria.
 """
 
 from uuid import uuid4
@@ -62,14 +63,22 @@ async def test_different_event_creates_new_row(client: AsyncClient, make_auth_us
     assert len(listing.json()) == 2  # dedup é por (external_id, event)
 
 
-async def test_unknown_user_returns_409(client: AsyncClient) -> None:
+async def test_unknown_external_id_is_accepted(client: AsyncClient) -> None:
+    """Sem FK cross-schema (§4): external_id é referência lógica/opaca.
+
+    O receptor confia no caller (lead) — não consulta auth. O evento é
+    persistido mesmo que o UUID não exista em auth.users. Validação de
+    existência, se necessária, deve ser feita por HTTP em outra camada.
+    """
     ghost = str(uuid4())  # não existe em auth.users
     resp = await client.post(f"/api/v1/webhook/new/{ghost}", json={"event": "lead.completed"})
-    assert resp.status_code == 409
-    assert resp.json()["code"] == "UNKNOWN_EXTERNAL_ID"
+    assert resp.status_code == 202
 
     listing = await client.get(f"/api/v1/events?external_id={ghost}")
-    assert listing.json() == []  # nada persistido (FK barrou)
+    items = listing.json()
+    assert len(items) == 1  # persistiu (sem FK barrando)
+    assert items[0]["external_id"] == ghost
+    assert items[0]["event"] == "lead.completed"
 
 
 async def test_get_event_by_id_and_404(client: AsyncClient, make_auth_user) -> None:

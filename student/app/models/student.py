@@ -4,7 +4,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, ForeignKey
+from sqlalchemy import JSON
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
@@ -40,15 +40,10 @@ class Student(Base, TimestampMixin):
 
     external_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey(
-            "auth.users.external_id",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-            name="students_external_id_fkey",
-        ),
         unique=True,
         index=True,
         nullable=False,
+        comment="UUID opaco do usuário (referência lógica, sem FK §4)",
     )
 
     status: Mapped[StudentStatus] = mapped_column(

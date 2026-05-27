@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-import niquests
+import httpx
 from fastapi import APIRouter, Depends, Request
 
 from app.api.auth_guard import require_admin
@@ -90,7 +90,7 @@ async def atomic_execute(
 
     # 2. Profiles — deleta perfis conhecidos
     try:
-        async with niquests.AsyncSession() as s:
+        async with httpx.AsyncClient() as s:
             # GET all profiles primeiro
             resp = await s.get(
                 f"{settings.PROFILES_SERVICE_URL}/api/v1/profiles",
@@ -119,7 +119,7 @@ async def atomic_execute(
 
     # 3. Roles — deleta usuarios (nao as regras)
     try:
-        async with niquests.AsyncSession() as s:
+        async with httpx.AsyncClient() as s:
             resp = await s.get(
                 f"{settings.ROLES_SERVICE_URL}/api/v1/users",
                 timeout=10,
@@ -144,7 +144,7 @@ async def atomic_execute(
 
     # 4. Notify — deleta contatos
     try:
-        async with niquests.AsyncSession() as s:
+        async with httpx.AsyncClient() as s:
             resp = await s.get(
                 f"{settings.NOTIFY_SERVICE_URL}/api/v1/contacts",
                 timeout=10,
@@ -173,7 +173,7 @@ async def atomic_execute(
     # 5. Lead — deleta leads e checkouts
     try:
         base = f"{settings.LEAD_SERVICE_URL}/api/v1/demilitarized"
-        async with niquests.AsyncSession() as s:
+        async with httpx.AsyncClient() as s:
             # Leads
             resp = await s.get(f"{base}/leads", timeout=10)
             if resp.status_code == 200:

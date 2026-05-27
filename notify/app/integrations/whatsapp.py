@@ -141,8 +141,12 @@ class WhatsAppClient:
     # ------------------------------------------------------------------
 
     async def health(self) -> dict[str, Any]:
-        """Verifica o status global da API Evolution."""
-        return await self._get("/instance/status")
+        """Verifica o status global da API Evolution.
+
+        Evolution API v2.3.7 não tem /instance/status — usa /instance/fetchInstances
+        para listar instâncias e verificar conectividade.
+        """
+        return await self._get("/instance/fetchInstances")
 
     # ------------------------------------------------------------------
     # Chat / User

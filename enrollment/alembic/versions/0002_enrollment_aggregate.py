@@ -48,13 +48,6 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="enrollments_pkey"),
-        sa.ForeignKeyConstraint(
-            ["external_id"],
-            ["auth.users.external_id"],
-            name="enrollments_external_id_fkey",
-            onupdate="CASCADE",
-            ondelete="RESTRICT",
-        ),
         schema=SCHEMA,
     )
     op.create_index(

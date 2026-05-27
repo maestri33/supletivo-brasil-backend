@@ -109,12 +109,12 @@ async def validate_entry_role(role: str) -> None:
 
 async def _validate_entry_role(role: str) -> None:
     """Verifica se existe regra com from_role=None e to_role=role."""
-    import niquests
+    import httpx
 
     from app.config import get_settings
 
     base = get_settings().ROLES_SERVICE_URL
-    async with niquests.AsyncSession() as s:
+    async with httpx.AsyncClient() as s:
         resp = await s.get(f"{base}/api/v1/config/roles")
         resp.raise_for_status()
         rules = resp.json()

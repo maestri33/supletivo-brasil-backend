@@ -46,13 +46,6 @@ def upgrade() -> None:
             server_default=sa.text("now()"),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["external_id"],
-            ["auth.users.external_id"],
-            name="students_external_id_fkey",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-        ),
         sa.PrimaryKeyConstraint("id", name="students_pkey"),
         sa.UniqueConstraint("external_id", name="students_external_id_key"),
         schema=SCHEMA,

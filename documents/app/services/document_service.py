@@ -2,11 +2,11 @@ import httpx
 from pathlib import Path
 
 from app.config import settings
-from app.models.document import Document, CERTIDAO_TIPOS
+from app.models.document import Document, CERTIFICATE_KINDS
 from app.models.rg import RG
 from app.models.cnh import CNH
-from app.models.carteira_trabalho import CarteiraTrabalho
-from app.models.passaporte import Passaporte
+from app.models.work_card import WorkCard
+from app.models.passport import Passport
 from app.exceptions import (
     DocumentNotFoundError,
     InvalidSlotError,
@@ -21,19 +21,19 @@ logger = get_logger(__name__)
 
 
 SUB_SLOT_MAP: dict[str, tuple[str, str]] = {
-    "rg_foto_frente": ("rg", "foto_frente"),
-    "rg_foto_verso": ("rg", "foto_verso"),
-    "cnh_foto_frente": ("cnh", "foto_frente"),
-    "cnh_foto_verso": ("cnh", "foto_verso"),
-    "carteira_trabalho_foto_frente": ("carteira_trabalho", "foto_frente"),
-    "carteira_trabalho_foto_verso": ("carteira_trabalho", "foto_verso"),
-    "passaporte_foto_frente": ("passaporte", "foto_frente"),
-    "passaporte_foto_verso": ("passaporte", "foto_verso"),
+    "rg_front_photo": ("rg", "front_photo"),
+    "rg_back_photo": ("rg", "back_photo"),
+    "cnh_front_photo": ("cnh", "front_photo"),
+    "cnh_back_photo": ("cnh", "back_photo"),
+    "work_card_front_photo": ("work_card", "front_photo"),
+    "work_card_back_photo": ("work_card", "back_photo"),
+    "passport_front_photo": ("passport", "front_photo"),
+    "passport_back_photo": ("passport", "back_photo"),
 }
 
 
 def _doc_dir(external_id: str) -> Path:
-    d = Path(settings.media_root) / "documentos" / external_id
+    d = Path(settings.media_root) / "documents" / external_id
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -43,7 +43,7 @@ def _write_file(external_id: str, slot: str, content: bytes, original_name: str)
     filename = f"{slot}.{ext}"
     full_path = _doc_dir(external_id) / filename
     full_path.write_bytes(content)
-    return f"documentos/{external_id}/{filename}"
+    return f"documents/{external_id}/{filename}"
 
 
 def _delete_file(file_path: str):
@@ -61,19 +61,19 @@ async def _fire_webhook(event: str, payload: dict):
                 settings.webhook_url, json={"event": event, "payload": payload}
             )
     except Exception:
-        logger.warning("webhook_falhou", webhook_event=event)
+        logger.warning("webhook_failed", webhook_event=event)
 
 
 async def get_or_create(external_id: str) -> Document:
     doc = await Document.get_or_none(external_id=external_id).prefetch_related(
-        "rg", "cnh", "carteira_trabalho", "passaporte"
+        "rg", "cnh", "work_card", "passport"
     )
     if doc is None:
         doc = await Document.create(external_id=external_id)
-        logger.info("documento_criado", external_id=external_id)
-        await _fire_webhook("documento.criado", {"external_id": external_id})
+        logger.info("document_created", external_id=external_id)
+        await _fire_webhook("document.created", {"external_id": external_id})
         doc = await Document.get_or_none(external_id=external_id).prefetch_related(
-            "rg", "cnh", "carteira_trabalho", "passaporte"
+            "rg", "cnh", "work_card", "passport"
         )
     return doc
 
@@ -95,21 +95,21 @@ async def update_document(external_id: str, data: DocumentUpdate) -> Document:
     changes = {}
 
     sub_updates = {
-        "rg": (RG, data.rg, ["numero", "orgao_emissor", "data_emissao"]),
+        "rg": (RG, data.rg, ["number", "issuing_agency", "issue_date"]),
         "cnh": (
             CNH,
             data.cnh,
-            ["numero", "categoria", "data_nascimento", "validade", "registro_nacional"],
+            ["number", "category", "date_of_birth", "expires_on", "national_register"],
         ),
-        "carteira_trabalho": (
-            CarteiraTrabalho,
-            data.carteira_trabalho,
-            ["numero", "serie", "uf", "data_emissao"],
+        "work_card": (
+            WorkCard,
+            data.work_card,
+            ["number", "series", "state", "issue_date"],
         ),
-        "passaporte": (
-            Passaporte,
-            data.passaporte,
-            ["numero", "validade", "data_emissao"],
+        "passport": (
+            Passport,
+            data.passport,
+            ["number", "expires_on", "issue_date"],
         ),
     }
 
@@ -124,37 +124,37 @@ async def update_document(external_id: str, data: DocumentUpdate) -> Document:
                 changes[f"{fk_field}_{field}"] = value
         await sub.save()
 
-    if data.certidao is not None:
-        c = data.certidao
-        if c.tipo is not None:
-            if c.tipo not in CERTIDAO_TIPOS:
-                raise ValueError(f"certidao_tipo inválido: {c.tipo}")
-            doc.certidao_tipo = c.tipo
-            changes["certidao_tipo"] = c.tipo
-        if c.numero is not None:
-            doc.certidao_numero = c.numero
-            changes["certidao_numero"] = c.numero
-        if c.cartorio is not None:
-            doc.certidao_cartorio = c.cartorio
-            changes["certidao_cartorio"] = c.cartorio
-        if c.livro is not None:
-            doc.certidao_livro = c.livro
-            changes["certidao_livro"] = c.livro
-        if c.folha is not None:
-            doc.certidao_folha = c.folha
-            changes["certidao_folha"] = c.folha
-        if c.termo is not None:
-            doc.certidao_termo = c.termo
-            changes["certidao_termo"] = c.termo
-        if c.data_emissao is not None:
-            doc.certidao_data_emissao = c.data_emissao
-            changes["certidao_data_emissao"] = c.data_emissao
+    if data.certificate is not None:
+        c = data.certificate
+        if c.kind is not None:
+            if c.kind not in CERTIFICATE_KINDS:
+                raise ValueError(f"certificate_kind inválido: {c.kind}")
+            doc.certificate_kind = c.kind
+            changes["certificate_kind"] = c.kind
+        if c.number is not None:
+            doc.certificate_number = c.number
+            changes["certificate_number"] = c.number
+        if c.registry_office is not None:
+            doc.certificate_registry_office = c.registry_office
+            changes["certificate_registry_office"] = c.registry_office
+        if c.book is not None:
+            doc.certificate_book = c.book
+            changes["certificate_book"] = c.book
+        if c.page is not None:
+            doc.certificate_page = c.page
+            changes["certificate_page"] = c.page
+        if c.entry is not None:
+            doc.certificate_entry = c.entry
+            changes["certificate_entry"] = c.entry
+        if c.issue_date is not None:
+            doc.certificate_issue_date = c.issue_date
+            changes["certificate_issue_date"] = c.issue_date
 
     simples = {
-        "reservista_numero": data.reservista_numero,
-        "reservista_serie": data.reservista_serie,
-        "reservista_categoria": data.reservista_categoria,
-        "reservista_ra": data.reservista_ra,
+        "military_number": data.military_number,
+        "military_series": data.military_series,
+        "military_category": data.military_category,
+        "military_ra": data.military_ra,
     }
     for field, value in simples.items():
         if value is not None:
@@ -162,15 +162,14 @@ async def update_document(external_id: str, data: DocumentUpdate) -> Document:
             changes[field] = value
 
     await doc.save()
-    # Mask PII in changes before logging (COD-18 PII audit)
-    _PII_SUFFIXES = {"numero", "ra", "livro", "folha", "termo", "cartorio"}
+    _PII_SUFFIXES = {"number", "ra", "book", "page", "entry", "registry_office"}
     masked = {
         k: mask_number(v) if any(suffix in k for suffix in _PII_SUFFIXES) and isinstance(v, str) else v
         for k, v in changes.items()
     }
-    logger.info("documento_atualizado", external_id=external_id, changes=masked)
+    logger.info("document_updated", external_id=external_id, changes=masked)
     await _fire_webhook(
-        "documento.atualizado", {"external_id": external_id, "changes": changes}
+        "document.updated", {"external_id": external_id, "changes": changes}
     )
 
     return await get_or_create(external_id)
@@ -179,8 +178,8 @@ async def update_document(external_id: str, data: DocumentUpdate) -> Document:
 SUBS_FOR_SLOT = {
     "rg": RG,
     "cnh": CNH,
-    "carteira_trabalho": CarteiraTrabalho,
-    "passaporte": Passaporte,
+    "work_card": WorkCard,
+    "passport": Passport,
 }
 
 
@@ -213,9 +212,9 @@ async def upload_image(
     if old_path:
         _delete_file(old_path)
 
-    logger.info("imagem_uploaded", external_id=external_id, slot=slot)
+    logger.info("image_uploaded", external_id=external_id, slot=slot)
     await _fire_webhook(
-        "documento.imagem_uploaded", {"external_id": external_id, "slot": slot}
+        "document.image_uploaded", {"external_id": external_id, "slot": slot}
     )
 
     return await get_or_create(external_id)
@@ -276,9 +275,9 @@ async def delete_image(external_id: str, slot: str) -> Document:
     if toupdate:
         await doc.save(update_fields=["updated_at"])
 
-    logger.info("imagem_deleted", external_id=external_id, slot=slot)
+    logger.info("image_deleted", external_id=external_id, slot=slot)
     await _fire_webhook(
-        "documento.imagem_deleted", {"external_id": external_id, "slot": slot}
+        "document.image_deleted", {"external_id": external_id, "slot": slot}
     )
 
     return await get_or_create(external_id)

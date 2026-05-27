@@ -31,7 +31,7 @@ Aninhada: `documents/documents/app/` — o pacote real fica um nível mais fundo
 | GET | `/api/v1/documentos/{external_id}/imagens/{slot}` | Retorna o arquivo de imagem de um slot | Desmilitarizado (sem auth) |
 | DELETE | `/api/v1/documentos/{external_id}/imagens/{slot}` | Remove imagem de um slot | Desmilitarizado (sem auth) |
 
-Slots válidos: `rg_foto_frente`, `rg_foto_verso`, `cnh_foto_frente`, `cnh_foto_verso`, `carteira_trabalho_foto_frente`, `carteira_trabalho_foto_verso`, `passaporte_foto_frente`, `passaporte_foto_verso`, `certidao_foto`, `reservista_foto`, `comprovante_residencia_foto`, `foto`.
+Slots válidos: `rg_front_photo`, `rg_back_photo`, `cnh_front_photo`, `cnh_back_photo`, `work_card_front_photo`, `work_card_back_photo`, `passport_front_photo`, `passport_back_photo`, `certificate_photo`, `military_photo`, `proof_of_residence_photo`, `photo`.
 
 ## Dados
 ORM atual: **Tortoise-ORM** (não SQLAlchemy). Banco configurado como SQLite (`sqlite:///root/documents.db`) por padrão. Sem schema Postgres dedicado. Sem Alembic — usa `generate_schemas=True` (proibido em produção pela convenção).
@@ -40,13 +40,13 @@ ORM atual: **Tortoise-ORM** (não SQLAlchemy). Banco configurado como SQLite (`s
 
 | Tabela | PK | Campos principais |
 |---|---|---|
-| `documentos` | `id` (IntField) | `external_id` (UUID, unique, index); FKs para `rg`, `cnh`, `carteira_trabalho`, `passaporte`; campos inline de certidão, reservista, comprovante_residencia, foto; `created_at`, `updated_at` |
-| `rg` | `id` (IntField) | `numero`, `orgao_emissor`, `data_emissao`, `foto_frente`, `foto_verso` |
-| `cnh` | `id` (IntField) | `numero`, `categoria`, `data_nascimento`, `validade`, `registro_nacional`, `foto_frente`, `foto_verso` |
-| `carteiras_trabalho` | `id` (IntField) | `numero`, `serie`, `uf`, `data_emissao`, `foto_frente`, `foto_verso` |
-| `passaportes` | `id` (IntField) | `numero`, `validade`, `data_emissao`, `foto_frente`, `foto_verso` |
+| `documents` | `id` (UUID) | `external_id` (UUID, unique, index); IDs `rg_id`, `cnh_id`, `work_card_id`, `passport_id`; campos inline `certificate_*` (kind, number, registry_office, book, page, entry, issue_date, photo), `military_*` (number, series, category, ra, photo), `proof_of_residence_photo`, `photo`; `created_at`, `updated_at` |
+| `rg` | `id` (UUID) | `number`, `issuing_agency`, `issue_date`, `front_photo`, `back_photo` |
+| `cnh` | `id` (UUID) | `number`, `category`, `date_of_birth`, `expires_on`, `national_register`, `front_photo`, `back_photo` |
+| `work_cards` | `id` (UUID) | `number`, `series`, `state`, `issue_date`, `front_photo`, `back_photo` |
+| `passports` | `id` (UUID) | `number`, `expires_on`, `issue_date`, `front_photo`, `back_photo` |
 
-PKs são `IntField` (não UUID como exige a convenção). `external_id` em `documentos` é o UUID do usuário de outro serviço. Sem shadow tables (não há SQLAlchemy nem FK cross-schema declarada).
+PKs são UUID (conforme convenção §4). `external_id` em `documents` é o UUID do usuário de outro serviço. Sem shadow tables (referência ao usuário do auth é por `external_id` UUID opaco, sem FK cross-schema).
 
 ## Integrações
 
@@ -74,13 +74,12 @@ Nenhum comentário `# TODO` encontrado no código-fonte.
 | 2 | **ORM Tortoise** em vez de SQLAlchemy 2.0 async | Stack não canônica (§2) |
 | 3 | **SQLite** como banco padrão; sem asyncpg | Stack não canônica; sem Postgres (§2, §4) |
 | 4 | **Sem Alembic**; usa `generate_schemas=True` | Proibido em produção (§4) |
-| 5 | **PK IntField** em vez de UUID | Viola convenção de PK (§4) |
-| 6 | **Sem autenticação** em qualquer endpoint | Todos os endpoints deveriam ser pelo menos desmilitarizados com controle de acesso (§5) |
-| 7 | **Sem testes** | Nenhum arquivo em `tests/` |
-| 8 | **Sem `integrations/`** — webhook embutido no service | Violação de organização (§12) |
-| 9 | **Sem `alembic/`** | Ausência completa de migrações |
-| 10 | **Nomes de arquivos em português** (`carteira_trabalho.py`) | Identificadores devem ser inglês (§7) |
-| 11 | **Schemas Pydantic com `class Config`** (API v1) em vez de `model_config` | Pydantic v2 correto exige `model_config` (§8) |
-| 12 | **`requires-python = ">=3.11"`** em vez de `>=3.12` | Stack canônica exige 3.12 (§2) |
-| 13 | **Serviço `documents` ausente do design original** — sem `certidao` como tipo próprio, sem `servico_militar` | Funcionalidade incompleta conforme TODO |
-| 14 | **Media servida diretamente** pelo FastAPI (`StaticFiles`) — sem controle de acesso às imagens | Risco de exposição de documentos sensíveis |
+| 5 | **Sem autenticação** em qualquer endpoint | Todos os endpoints deveriam ser pelo menos desmilitarizados com controle de acesso (§5) |
+| 6 | **Sem testes** | Nenhum arquivo em `tests/` |
+| 7 | **Sem `integrations/`** — webhook embutido no service | Violação de organização (§12) |
+| 8 | **Sem `alembic/`** | Ausência completa de migrações |
+| 9 | **Nomes de arquivos em português** (`carteira_trabalho.py`) | Identificadores devem ser inglês (§7) |
+| 10 | **Schemas Pydantic com `class Config`** (API v1) em vez de `model_config` | Pydantic v2 correto exige `model_config` (§8) |
+| 11 | **`requires-python = ">=3.11"`** em vez de `>=3.12` | Stack canônica exige 3.12 (§2) |
+| 12 | **Serviço `documents` ausente do design original** — sem `certidao` como tipo próprio, sem `servico_militar` | Funcionalidade incompleta conforme TODO |
+| 13 | **Media servida diretamente** pelo FastAPI (`StaticFiles`) — sem controle de acesso às imagens | Risco de exposição de documentos sensíveis |

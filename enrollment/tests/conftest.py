@@ -108,9 +108,12 @@ async def session_factory(engine, monkeypatch) -> async_sessionmaker[AsyncSessio
 async def _clean_between_tests(engine) -> AsyncIterator[None]:
     yield
     async with engine.begin() as conn:
+        await conn.execute(text("TRUNCATE enrollment.educational_data RESTART IDENTITY CASCADE"))
         await conn.execute(text("TRUNCATE enrollment.enrollments RESTART IDENTITY CASCADE"))
         await conn.execute(text("TRUNCATE enrollment.enrollment_events RESTART IDENTITY CASCADE"))
-        await conn.execute(text("DELETE FROM auth.users"))
+        # auth.users (shadow) deliberadamente NÃO é truncado: no DB compartilhado
+        # outros schemas (contacts/documents/etc) podem ter FK pra essa tabela
+        # e `make_auth_user` gera UUIDs novos por teste — sem colisão.
 
 
 @pytest_asyncio.fixture
@@ -149,5 +152,142 @@ async def make_auth_user(session_factory):
             )
             await session.commit()
         return str(eid)
+
+    return _make
+
+
+# ── Mocks de integrações HTTP (respx) ────────────────────────────────────────
+#
+# Todas as chamadas que o enrollment faz para serviços vizinhos (roles, profiles,
+# address, documents, ai, notify) são mockadas em todos os testes — `respx_mock`
+# tem autouse=True. Cada teste pode sobrescrever rotas específicas via o router
+# retornado.
+
+@pytest_asyncio.fixture(autouse=True)
+async def respx_mock() -> AsyncIterator[Any]:
+    """Roteia outbound HTTP de testes pra respostas plausíveis.
+
+    `assert_all_called=False` — nem todo teste exerce todas as integrações.
+    """
+    import httpx as _httpx
+    import respx
+
+    with respx.mock(assert_all_called=False) as router:
+        # roles — promote idempotente (lead→enrollment, enrollment→student).
+        router.get(url__regex=r"http://roles:8000/api/v1/role/[a-f0-9-]+$").mock(
+            return_value=_httpx.Response(200, json={"external_id": "x", "roles": []})
+        )
+        router.post(url__regex=r"http://roles:8000/api/v1/role/[a-f0-9-]+/up/[a-z]+$").mock(
+            return_value=_httpx.Response(200, json={"external_id": "x", "roles": ["enrollment"]})
+        )
+        # profiles
+        router.get(url__regex=r"http://profiles:8000/api/v1/profiles/[a-f0-9-]+$").mock(
+            return_value=_httpx.Response(200, json={})
+        )
+        router.patch(url__regex=r"http://profiles:8000/api/v1/profiles/[a-f0-9-]+$").mock(
+            return_value=_httpx.Response(200, json={})
+        )
+        # address
+        router.post("http://address:8000/api/v1/addresses").mock(
+            return_value=_httpx.Response(200, json={"id": 1})
+        )
+        router.get(url__regex=r"http://address:8000/api/v1/addresses/cep/.+$").mock(
+            return_value=_httpx.Response(
+                200,
+                json={
+                    "cep": "01310100",
+                    "formatted": "01310-100",
+                    "valid": True,
+                    "street": "Av Paulista",
+                    "neighborhood": "Bela Vista",
+                    "city": "São Paulo",
+                    "state": "SP",
+                },
+            )
+        )
+        router.get(
+            url__regex=r"http://address:8000/api/v1/entities/enrollment/[a-f0-9-]+$"
+        ).mock(return_value=_httpx.Response(404, json={"detail": "no address"}))
+        # NB: query string `?cep=...` é anexada, então não ancoramos com $.
+        router.post(
+            url__regex=r"http://address:8000/api/v1/entities/enrollment/[a-f0-9-]+/cep"
+        ).mock(return_value=_httpx.Response(200, json={}))
+        # documents
+        router.get(url__regex=r"http://documents:8000/api/v1/documents/[a-f0-9-]+$").mock(
+            return_value=_httpx.Response(
+                200,
+                json={
+                    "rg": {
+                        "numero": "12.345.678-9",
+                        "foto_frente": "/path/frente.jpg",
+                        "foto_verso": "/path/verso.jpg",
+                    },
+                    "foto": "/path/selfie.jpg",
+                },
+            )
+        )
+        router.put(url__regex=r"http://documents:8000/api/v1/documents/[a-f0-9-]+$").mock(
+            return_value=_httpx.Response(200, json={"rg": {"numero": "12.345.678-9"}})
+        )
+        router.post(
+            url__regex=r"http://documents:8000/api/v1/documents/[a-f0-9-]+/images/[a-z_]+$"
+        ).mock(return_value=_httpx.Response(201, json={}))
+        # ai — vision retorna texto que contém "pessoa" (heurística aceita)
+        router.post("http://ai:8000/api/v1/image/vision").mock(
+            return_value=_httpx.Response(200, json={"description": "pessoa de rosto humano"})
+        )
+        # notify — envio de mensagem (best-effort, BackgroundTask)
+        router.post("http://notify:8000/api/v1/messages/send").mock(
+            return_value=_httpx.Response(200, json={"id": "msg-1"})
+        )
+        router.get(url__regex=r"http://notify:8000/api/v1/contacts/[a-f0-9-]+$").mock(
+            return_value=_httpx.Response(200, json={"phone": "+5511999999999"})
+        )
+        yield router
+
+
+# ── Bypass de JWT — override de dependências do FastAPI ──────────────────────
+
+
+@pytest.fixture
+def as_matriculando():
+    """Faz o `get_current_external_id` retornar a UUID dada (skipa JWT)."""
+    from app.dependencies import get_current_external_id
+
+    def _set(external_id: UUID | str) -> None:
+        eid = UUID(str(external_id))
+        app.dependency_overrides[get_current_external_id] = lambda: eid
+
+    return _set
+
+
+@pytest.fixture
+def as_coordinator():
+    """Faz o `get_current_coordinator` retornar a UUID dada (skipa JWT)."""
+    from app.dependencies import get_current_coordinator
+
+    def _set(external_id: UUID | str) -> None:
+        eid = UUID(str(external_id))
+        app.dependency_overrides[get_current_coordinator] = lambda: eid
+
+    return _set
+
+
+@pytest_asyncio.fixture
+async def make_enrollment(session_factory, make_auth_user):
+    """Cria Enrollment direto no DB no status pedido. Retorna external_id (str)."""
+    from app.models import Enrollment
+
+    async def _make(status: str = "started", promoter: str | None = None) -> str:
+        eid = await make_auth_user()
+        async with session_factory() as session:
+            enrollment = Enrollment(
+                external_id=UUID(eid),
+                status=status,
+                promoter_external_id=UUID(promoter) if promoter else None,
+            )
+            session.add(enrollment)
+            await session.commit()
+        return eid
 
     return _make

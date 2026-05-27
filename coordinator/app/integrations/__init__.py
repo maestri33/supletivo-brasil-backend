@@ -1,3 +1,4 @@
-"""Integrations with external services."""
+"""Integracoes do coordinator.
 
-from app.integrations.commissions import trigger_coordinator_commission  # noqa: F401
+Comissoes da formatura migraram para o servico `student` (que e' dono do diploma).
+"""

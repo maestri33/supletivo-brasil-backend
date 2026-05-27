@@ -114,7 +114,7 @@ lead/
 | Coluna | Tipo | Restrições |
 |--------|------|-----------|
 | `id` | BigInteger | PK autoincrement |
-| `external_id` | UUID | UNIQUE, NOT NULL, FK → `auth.users.external_id` (RESTRICT/CASCADE) |
+| `external_id` | UUID | UNIQUE, NOT NULL — referência lógica a `auth.users.external_id` (§4, sem FK cross-schema) |
 | `status` | ENUM `lead_status` | NOT NULL, default `captured`; valores: `captured`, `waiting`, `checkout`, `completed` |
 | `promoter_external_id` | UUID | nullable, index |
 | `created_at` / `updated_at` | timestamptz | NOT NULL, server default `now()` |
@@ -124,7 +124,7 @@ lead/
 | Coluna | Tipo | Notas |
 |--------|------|-------|
 | `id` | BigInteger | PK autoincrement |
-| `external_id` | UUID | UNIQUE, FK → `auth.users.external_id` |
+| `external_id` | UUID | UNIQUE — referência lógica a `auth.users.external_id` (§4, sem FK cross-schema) |
 | `payment_method` | varchar(20) | `credit_card` \| `pix` |
 | `provider` | varchar(20) | `infinitepay` \| `asaas` |
 | `provider_payment_id` | varchar(255) | index; ID retornado pelo provider |
@@ -142,7 +142,7 @@ lead/
 |--------|------|-------|
 | `id` | BigInteger | PK |
 | `message_id` | integer | nullable, index; ID do notify |
-| `external_id` | UUID | FK → `auth.users.external_id`, index |
+| `external_id` | UUID | INDEX — referência lógica a `auth.users.external_id` (§4, sem FK cross-schema) |
 | `direction` | varchar(10) | `out` (envio) \| `in` (webhook) |
 | `channel` | varchar(20) | `whatsapp` \| `email` \| `tts` |
 | `status` | varchar(30) | `sent` \| `delivered` \| `read` \| `failed` \| `skipped` |
@@ -150,14 +150,12 @@ lead/
 | `meta` | JSONB | dados extras do webhook |
 | `created_at` / `updated_at` | timestamptz | |
 
-### Shadow table (cross-schema)
+### Referência cross-schema
 
-```python
-# auth.users — stub read-only para resolver FK cross-schema no SQLAlchemy
-auth_users = Table("users", metadata,
-    Column("external_id", PG_UUID(as_uuid=True), primary_key=True),
-    schema="auth")
-```
+Sem shadow table e sem FK cross-schema (§4). `external_id` é UUID opaco; validação
+de existência, quando necessária, é via HTTP ao `auth`. O `lead/app/db.py` ainda
+declara `Table("users", schema="auth")` como stub legado — pendência a remover
+(ver "Desvios da CONVENTION").
 
 ---
 

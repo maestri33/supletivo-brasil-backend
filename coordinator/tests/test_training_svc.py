@@ -5,12 +5,10 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.coordinator import CoordinatorStatus
 from app.models.training_approval import ApprovalStatus
 from app.services import (
     create_coordinator,
     create_training_approval,
-    get_coordinator,
     list_training_approvals,
     review_training_approval,
 )

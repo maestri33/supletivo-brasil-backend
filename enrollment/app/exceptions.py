@@ -35,3 +35,14 @@ class ValidationError(DomainError):
 
     def __init__(self, detail: str = "Erro de validação", code: str = "VALIDATION_ERROR") -> None:
         super().__init__(detail, 422, code)
+
+
+class IntegrationError(DomainError):
+    """Falha ao falar com outro serviço (profiles, address, documents, ai, ...)."""
+
+    def __init__(
+        self,
+        detail: str = "Falha ao integrar com serviço externo",
+        code: str = "INTEGRATION_ERROR",
+    ) -> None:
+        super().__init__(detail, 502, code)

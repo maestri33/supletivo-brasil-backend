@@ -36,3 +36,19 @@ async def get_or_create(
     session.add(enrollment)
     await session.flush()
     return enrollment, True
+
+
+def advance(
+    enrollment: Enrollment,
+    current: EnrollmentStatus,
+    new: EnrollmentStatus,
+) -> bool:
+    """Avança o status só quando está exatamente em `current` (idempotente).
+
+    Retorna True se houve transição, False se já estava em outro status
+    (incluindo o destino — caller pode considerar no-op como sucesso).
+    """
+    if enrollment.status == current.value:
+        enrollment.status = new.value
+        return True
+    return False

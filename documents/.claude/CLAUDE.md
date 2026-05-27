@@ -22,8 +22,9 @@
 2. **Faça só o que foi pedido.** Sugestões no fim da resposta, não no código.
 3. **Stack fixa (§2).** FastAPI + SQLAlchemy 2.0 async + asyncpg + Alembic +
    Pydantic v2 + httpx.AsyncClient + structlog + pydantic-settings.
-4. **Cada serviço, seu schema.** Schema `documents`. FK cross-schema para
-   `auth.users` via shadow table (`Table` read-only, §4).
+4. **Cada serviço, seu schema.** Schema `documents`. Referência a usuário do
+   auth via `external_id` UUID opaco (§4 da CONVENTION); validação por HTTP
+   quando necessário.
 5. **Toda mudança de modelo → migração Alembic.**
 6. **Dados PII** (RG, CPF, etc.) — logs devem omitir ou mascarar. NUNCA logar
    número de documento completo.
@@ -48,7 +49,7 @@
 documents/app/
 ├── main.py          # FastAPI; lifespan; structlog
 ├── config.py        # Settings (.env) — DATABASE_URL obrigatório
-├── db.py            # async engine, Base, NAMING_CONVENTION, shadow auth_users
+├── db.py            # async engine, Base, NAMING_CONVENTION
 ├── exceptions.py    # exceções de domínio
 ├── api/             # rotas (1 arquivo por recurso + router.py)
 ├── models/          # SQLAlchemy
@@ -60,7 +61,7 @@ documents/app/
 ## 5. O que NÃO fazer
 
 - Não logar PII (número de RG/CNH/CPF completo, endereço).
-- Não importar modelo de outro serviço — usar shadow table read-only.
+- Não importar modelo de outro serviço; referenciar via `external_id` UUID opaco (§4 da CONVENTION).
 - Não conectar no banco de outro serviço.
 - Não versionar uploads (`.gitignore`'d).
 - Comentário/doc em **pt-br** e verdadeiro; logs técnicos em inglês.

@@ -1,7 +1,7 @@
 """initial lead schema
 
 Cria as tabelas do schema `lead` no Postgres central:
-- lead.leads (com FK external_id -> auth.users.external_id)
+- lead.leads (external_id UUID opaco, sem FK cross-schema §4)
 - lead.checkouts
 - lead.messages
 
@@ -73,13 +73,6 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name="leads_pkey"),
         sa.UniqueConstraint("external_id", name="leads_external_id_key"),
-        sa.ForeignKeyConstraint(
-            ["external_id"],
-            ["auth.users.external_id"],
-            name="leads_external_id_fkey",
-            onupdate="CASCADE",
-            ondelete="RESTRICT",
-        ),
         schema=SCHEMA,
     )
     op.create_index("leads_status_idx", "leads", ["status"], schema=SCHEMA)
@@ -121,13 +114,6 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id", name="checkouts_pkey"),
         sa.UniqueConstraint("external_id", name="checkouts_external_id_key"),
-        sa.ForeignKeyConstraint(
-            ["external_id"],
-            ["auth.users.external_id"],
-            name="checkouts_external_id_fkey",
-            onupdate="CASCADE",
-            ondelete="RESTRICT",
-        ),
         schema=SCHEMA,
     )
     op.create_index("checkouts_invoice_slug_idx", "checkouts", ["invoice_slug"], schema=SCHEMA)
@@ -169,13 +155,6 @@ def upgrade() -> None:
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="messages_pkey"),
-        sa.ForeignKeyConstraint(
-            ["external_id"],
-            ["auth.users.external_id"],
-            name="messages_external_id_fkey",
-            onupdate="CASCADE",
-            ondelete="RESTRICT",
-        ),
         schema=SCHEMA,
     )
     op.create_index("messages_message_id_idx", "messages", ["message_id"], schema=SCHEMA)

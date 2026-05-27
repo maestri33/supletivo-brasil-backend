@@ -3,7 +3,7 @@
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import BigInteger, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,14 +27,9 @@ class Message(Base, TimestampMixin):
 
     external_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey(
-            "auth.users.external_id",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-            name="messages_external_id_fkey",
-        ),
         index=True,
         nullable=False,
+        comment="UUID opaco do usuário (referência lógica, sem FK §4)",
     )
 
     direction: Mapped[str] = mapped_column(

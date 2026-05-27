@@ -36,8 +36,8 @@
 5. **Porta 80.** O serviço expõe a porta **80** (ver `Makefile`). Não mude sem
    confirmar.
 6. **Cada serviço, seu banco.** Schema `infinitepay`. Não conecte em banco de
-   outro serviço; relacionamento cross-schema só via **shadow table read-only**
-   (`auth.users`, declarada em `app/db.py`).
+   outro serviço; referência a outros serviços via `external_id` UUID opaco
+   (§4 da CONVENTION).
 7. **Config no `.env`.** Não existe tabela `config` nem rotas `/config` (foram
    removidas na Fase 3). Toda config vem de `app/config.py::get_settings()`.
 8. **Caminho do dinheiro é atômico.** Nunca quebre as invariantes da seção
@@ -73,7 +73,7 @@ infinitepay/
 │   ├── main.py              # FastAPI; lifespan (worker async + close_db); structlog
 │   ├── config.py            # Settings (pydantic-settings); get_settings() cacheado
 │   ├── db.py                # async engine, Base, NAMING_CONVENTION, get_session,
-│   │                        #   close_db, utcnow, shadow auth.users
+│   │                        #   close_db, utcnow
 │   ├── exceptions.py        # DomainError + subclasses
 │   ├── api/                 # checkout.py, webhooks.py, health.py + router.py
 │   ├── models/              # 1 arquivo por entidade: checkout, webhook_log, outbound_job
@@ -143,7 +143,7 @@ Perguntas curtas e objetivas — sem "menu" quando uma pergunta direta resolve.
 - Não recriar a tabela `config` nem rotas `/config` (config é `.env`).
 - Não integrar a IA direto (DeepSeek/SDK `openai`): recibo e triagem de fraude
   passam **sempre** pelo app `ai` via `app/integrations/ai.py` (§12).
-- Não conectar no banco de outro serviço; cross-schema só via shadow table.
+- Não conectar no banco de outro serviço.
 - Não usar `Base.metadata.create_all()` em produção — toda mudança de modelo é
   migração Alembic.
 - Não ordenar query paginada só por `created_at` (não é único) — use desempate

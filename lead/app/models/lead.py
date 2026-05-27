@@ -3,7 +3,7 @@
 import enum
 from uuid import UUID
 
-from sqlalchemy import BigInteger, Enum, ForeignKey
+from sqlalchemy import BigInteger, Enum
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,16 +25,10 @@ class Lead(Base, TimestampMixin):
 
     external_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey(
-            "auth.users.external_id",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-            name="leads_external_id_fkey",
-        ),
         unique=True,
         index=True,
         nullable=False,
-        comment="UUID do usuário emitido pelo auth — FK cross-schema",
+        comment="UUID opaco do usuário emitido pelo auth (referência lógica, sem FK §4)",
     )
 
     status: Mapped[LeadStatus] = mapped_column(

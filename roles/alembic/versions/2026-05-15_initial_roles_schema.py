@@ -2,7 +2,7 @@
 
 Tabelas:
 - roles.role_rules
-- roles.user_roles (FK external_id -> auth.users.external_id)
+- roles.user_roles (external_id UUID opaco, sem FK cross-schema §4)
 
 Revision ID: 0001
 Revises:
@@ -67,13 +67,6 @@ def upgrade() -> None:
         ),
         sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id", name="user_roles_pkey"),
-        sa.ForeignKeyConstraint(
-            ["external_id"],
-            ["auth.users.external_id"],
-            name="user_roles_external_id_fkey",
-            onupdate="CASCADE",
-            ondelete="RESTRICT",
-        ),
         schema=SCHEMA,
     )
     op.create_index(

@@ -2,12 +2,12 @@
 
 from fastapi import APIRouter
 
-from .charge import router as charge_router
-from .config import router as config_router
+from .demilitarized.charge import router as charge_router
+from .demilitarized.config import router as config_router
+from .demilitarized.payment import router as payment_router
+from .demilitarized.pixkey import router as pixkey_router
 from .health import router as health_router
-from .payment import router as payment_router
-from .pixkey import router as pixkey_router
-from .webhook import router as webhook_router
+from .public.webhook import router as webhook_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(config_router)

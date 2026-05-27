@@ -1,7 +1,8 @@
 """Testes E2E do agregado de matrícula (Abertura — milestone 1).
 
 Cobre: criação do Enrollment no webhook `lead.completed`, idempotência por
-external_id, leitura via GET e bloqueio por external_id desconhecido (FK).
+external_id, leitura via GET e aceitação opaca de external_id (sem FK
+cross-schema, §4).
 """
 
 from uuid import uuid4
@@ -52,11 +53,17 @@ async def test_get_enrollment_404(client: AsyncClient) -> None:
     assert resp.json()["code"] == "NOT_FOUND"
 
 
-async def test_unknown_user_creates_no_enrollment(client: AsyncClient) -> None:
+async def test_unknown_external_id_creates_enrollment(client: AsyncClient) -> None:
+    """Sem FK cross-schema (§4): webhook aceita qualquer external_id e cria a
+    matrícula. O acoplamento com auth.users é lógico/opaco — validação de
+    existência, se necessária, deve ser feita por HTTP em outra camada."""
     ghost = str(uuid4())  # não existe em auth.users
 
     resp = await client.post(f"/api/v1/webhook/new/{ghost}", json={"event": "lead.completed"})
-    assert resp.status_code == 409
+    assert resp.status_code == 202
+    assert resp.json()["status"] == "started"
 
     got = await client.get(f"/api/v1/enrollments/{ghost}")
-    assert got.status_code == 404  # nada criado (FK barrou)
+    assert got.status_code == 200  # matrícula criada normalmente
+    assert got.json()["external_id"] == ghost
+    assert got.json()["status"] == "started"

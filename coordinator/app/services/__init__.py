@@ -1,4 +1,7 @@
-"""Services layer — coordinator business logic."""
+"""Services layer — coordinator business logic.
+
+Funcoes de exam, student_document e diploma migraram para o servico `student`.
+"""
 from __future__ import annotations
 
 from datetime import date
@@ -8,11 +11,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.coordinator import Coordinator, CoordinatorStatus
-from app.models.diploma import Diploma, DiplomaStatus
 from app.models.enrollment_fee import EnrollmentFee, FeeStatus
-from app.models.exam import Exam, ExamStatus
-from app.models.student_document import StudentDocument
-from app.models.training_approval import TrainingApproval, ApprovalStatus
+from app.models.training_approval import ApprovalStatus, TrainingApproval
 from app.utils.logging import get_logger
 
 logger = get_logger("coordinator.service")
@@ -126,21 +126,6 @@ async def review_training_approval(
     if reason:
         ta.reason = reason
     await db.flush()
-
-    # Promote candidate to promoter when training is approved
-    if approved and ta.status == ApprovalStatus.approved:
-        try:
-            from app.integrations import promote_to_promoter
-
-            await promote_to_promoter(external_id=str(ta.candidate_external_id))
-        except Exception:
-            logger.warning(
-                "training_approval.promote_error",
-                approval_id=approval_id,
-                candidate_external_id=str(ta.candidate_external_id),
-                exc_info=True,
-            )
-
     logger.info("training_approval.reviewed", id=approval_id, status=ta.status.value)
     return ta
 
@@ -160,7 +145,9 @@ async def list_training_approvals(
         q = q.where(TrainingApproval.status == status)
     total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar() or 0
     items = (
-        await db.execute(q.order_by(TrainingApproval.created_at.desc()).offset(offset).limit(limit))
+        await db.execute(
+            q.order_by(TrainingApproval.created_at.desc()).offset(offset).limit(limit)
+        )
     ).scalars().all()
     return list(items), total
 
@@ -231,242 +218,3 @@ async def pay_enrollment_fee(
     await db.flush()
     logger.info("enrollment_fee.paid", id=fee_id)
     return fee
-
-
-# ---------------------------------------------------------------------------
-# Exam
-# ---------------------------------------------------------------------------
-
-
-async def create_exam(
-    db: AsyncSession,
-    *,
-    coordinator_id: str,
-    student_external_id: str,
-    training_external_id: str,
-    max_score: int = 100,
-) -> Exam:
-    exam = Exam(
-        coordinator_id=coordinator_id,
-        student_external_id=student_external_id,
-        training_external_id=training_external_id,
-        status=ExamStatus.created,
-        max_score=max_score,
-    )
-    db.add(exam)
-    await db.flush()
-    logger.info("exam.created", id=exam.id)
-    return exam
-
-
-async def submit_exam(
-    db: AsyncSession,
-    exam_id: str,
-) -> Exam | None:
-    exam = (await db.execute(select(Exam).where(Exam.id == exam_id))).scalar_one_or_none()
-    if not exam:
-        return None
-    exam.status = ExamStatus.submitted
-    await db.flush()
-    return exam
-
-
-async def grade_exam(
-    db: AsyncSession,
-    exam_id: str,
-    *,
-    score: int,
-    notes: str | None = None,
-    ai_correction: str | None = None,
-) -> Exam | None:
-    exam = (await db.execute(select(Exam).where(Exam.id == exam_id))).scalar_one_or_none()
-    if not exam:
-        return None
-    exam.score = score
-    exam.status = ExamStatus.graded
-    if notes:
-        exam.result_notes = notes
-    if ai_correction:
-        exam.ai_correction = ai_correction
-    await db.flush()
-    logger.info("exam.graded", id=exam_id, score=score)
-    return exam
-
-
-async def list_exams(
-    db: AsyncSession,
-    *,
-    coordinator_id: str | None = None,
-    student_external_id: str | None = None,
-    status: str | None = None,
-    offset: int = 0,
-    limit: int = 50,
-) -> tuple[list[Exam], int]:
-    q = select(Exam)
-    if coordinator_id:
-        q = q.where(Exam.coordinator_id == coordinator_id)
-    if student_external_id:
-        q = q.where(Exam.student_external_id == student_external_id)
-    if status:
-        q = q.where(Exam.status == status)
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar() or 0
-    items = (
-        await db.execute(q.order_by(Exam.created_at.desc()).offset(offset).limit(limit))
-    ).scalars().all()
-    return list(items), total
-
-
-# ---------------------------------------------------------------------------
-# Student Document
-# ---------------------------------------------------------------------------
-
-
-async def create_student_document(
-    db: AsyncSession,
-    *,
-    student_external_id: str,
-    coordinator_external_id: str,
-    document_type: str,
-    description: str,
-    file_path: str | None = None,
-) -> StudentDocument:
-    doc = StudentDocument(
-        student_external_id=student_external_id,
-        coordinator_external_id=coordinator_external_id,
-        document_type=document_type,
-        description=description,
-        file_path=file_path,
-    )
-    db.add(doc)
-    await db.flush()
-    logger.info("student_document.created", id=doc.id)
-    return doc
-
-
-async def submit_document_to_institution(
-    db: AsyncSession,
-    document_id: str,
-) -> StudentDocument | None:
-    from datetime import UTC, datetime
-
-    doc = (
-        await db.execute(select(StudentDocument).where(StudentDocument.id == document_id))
-    ).scalar_one_or_none()
-    if not doc:
-        return None
-    doc.submitted_to_institution = True
-    doc.submitted_at = datetime.now(UTC)
-    await db.flush()
-    logger.info("student_document.submitted", id=document_id)
-    return doc
-
-
-async def list_student_documents(
-    db: AsyncSession,
-    *,
-    student_external_id: str | None = None,
-    coordinator_external_id: str | None = None,
-    document_type: str | None = None,
-    offset: int = 0,
-    limit: int = 50,
-) -> tuple[list[StudentDocument], int]:
-    q = select(StudentDocument)
-    if student_external_id:
-        q = q.where(StudentDocument.student_external_id == student_external_id)
-    if coordinator_external_id:
-        q = q.where(StudentDocument.coordinator_external_id == coordinator_external_id)
-    if document_type:
-        q = q.where(StudentDocument.document_type == document_type)
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar() or 0
-    items = (
-        await db.execute(q.order_by(StudentDocument.created_at.desc()).offset(offset).limit(limit))
-    ).scalars().all()
-    return list(items), total
-
-
-# ---------------------------------------------------------------------------
-# Diploma
-# ---------------------------------------------------------------------------
-
-
-async def create_diploma(
-    db: AsyncSession,
-    *,
-    student_external_id: str,
-    coordinator_external_id: str,
-) -> Diploma:
-    diploma = Diploma(
-        student_external_id=student_external_id,
-        coordinator_external_id=coordinator_external_id,
-        status=DiplomaStatus.PENDING.value,
-    )
-    db.add(diploma)
-    await db.flush()
-    logger.info("diploma.created", id=diploma.id)
-    return diploma
-
-
-async def graduate_student(
-    db: AsyncSession,
-    diploma_id: str,
-    *,
-    diploma_photo_path: str,
-    history_path: str | None = None,
-    notes: str | None = None,
-) -> Diploma | None:
-    from datetime import UTC, datetime
-
-    diploma = (
-        await db.execute(select(Diploma).where(Diploma.id == diploma_id))
-    ).scalar_one_or_none()
-    if not diploma:
-        return None
-    diploma.status = DiplomaStatus.GRADUATED.value
-    diploma.diploma_photo_path = diploma_photo_path
-    if history_path:
-        diploma.history_path = history_path
-    if notes:
-        diploma.notes = notes
-    diploma.graduated_at = datetime.now(UTC)
-    await db.flush()
-
-    # Trigger coordinator commission asynchronously (fire-and-forget)
-    if not diploma.commission_triggered:
-        try:
-            from app.integrations import trigger_coordinator_commission
-
-            result = await trigger_coordinator_commission(
-                coordinator_external_id=str(diploma.coordinator_external_id),
-                diploma_id=diploma.id,
-            )
-            if result is not None:
-                diploma.commission_triggered = True
-                await db.flush()
-        except Exception:
-            logger.warning("commission.trigger_error", diploma_id=diploma_id, exc_info=True)
-
-    logger.info("student.graduated", id=diploma_id)
-    return diploma
-
-
-async def list_diplomas(
-    db: AsyncSession,
-    *,
-    student_external_id: str | None = None,
-    coordinator_external_id: str | None = None,
-    status: str | None = None,
-    offset: int = 0,
-    limit: int = 50,
-) -> tuple[list[Diploma], int]:
-    q = select(Diploma)
-    if student_external_id:
-        q = q.where(Diploma.student_external_id == student_external_id)
-    if coordinator_external_id:
-        q = q.where(Diploma.coordinator_external_id == coordinator_external_id)
-    if status:
-        q = q.where(Diploma.status == status)
-    total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar() or 0
-    items = (
-        await db.execute(q.order_by(Diploma.created_at.desc()).offset(offset).limit(limit))
-    ).scalars().all()
-    return list(items), total

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import niquests
+import httpx
 
 from app.config import get_settings
 from app.utils.logging import get_logger
@@ -31,12 +31,11 @@ class ProfilesClient:
         self._timeout = timeout
 
     async def __aenter__(self) -> ProfilesClient:
-        self._session = niquests.AsyncSession()
-        self._session.headers.update({"Accept": "application/json"})
+        self._session = httpx.AsyncClient(headers={"Accept": "application/json"})
         return self
 
     async def __aexit__(self, *args: object) -> None:
-        await self._session.close()
+        await self._session.aclose()
 
     # ── Profiles ───────────────────────────────────
 
@@ -77,7 +76,7 @@ class ProfilesClient:
         *,
         json: dict | None = None,
         params: dict | None = None,
-    ) -> niquests.Response:
+    ) -> httpx.Response:
         url = f"{self._base}{path}"
         safe_url = _redact_cpf_from_url(url)
         safe = _sanitize_log_body(json, {"cpf"})

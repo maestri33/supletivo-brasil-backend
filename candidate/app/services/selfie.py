@@ -63,7 +63,7 @@ async def _verify_selfie(external_id: str) -> tuple[bool, str | None]:
     claramente nao tem pessoa levanta ValidationError.
     """
     image_url = (
-        f"{settings.documents_base_url}/api/v1/documentos/{external_id}/imagens/{SELFIE_SLOT}"
+        f"{settings.documents_base_url}/api/v1/documents/{external_id}/images/{SELFIE_SLOT}"
     )
     try:
         async with httpx.AsyncClient(

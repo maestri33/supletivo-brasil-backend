@@ -11,7 +11,6 @@ from uuid import UUID, uuid4
 from sqlalchemy import (
     JSON,
     DateTime,
-    ForeignKey,
     Integer,
     String,
     Text,
@@ -28,14 +27,11 @@ class WebhookLog(Base):
         PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
     )
 
+    # external_id: UUID opaco referenciando o usuário no serviço auth (§4 da
+    # CONVENTION). Sem FK cross-schema; nullable porque webhook publico pode
+    # chegar antes/independente do usuario.
     external_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=False),
-        ForeignKey(
-            "auth.users.external_id",
-            ondelete="SET NULL",
-            onupdate="CASCADE",
-            name="webhook_logs_external_id_fkey",
-        ),
         index=True,
         nullable=True,
     )

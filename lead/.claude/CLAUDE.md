@@ -84,7 +84,7 @@ lead/app/
 - ❌ Alterar fluxo de checkout/pagamento sem aprovação humana.
 - ❌ Deixar de verificar idempotência em webhooks de pagamento.
 - ❌ Logar dados de pagamento completos (mascarar/omitir).
-- ❌ Importar modelo de outro serviço — usar shadow table read-only.
+- ❌ Importar modelo de outro serviço. Sem shadow table. Use `external_id` (§4).
 - ❌ Commitar template de notificação sem revisar o conteúdo (vai para o cliente).
 - Comentário/doc em **pt-br** e verdadeiro; logs técnicos em inglês.
 

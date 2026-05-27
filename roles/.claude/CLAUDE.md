@@ -28,8 +28,9 @@
    deduplicar e consolidar aqui.
 5. **Transições de role** devem ser atômicas e auditáveis. Sempre logue quem
    mudou, de qual role para qual, e por quê.
-6. **Cada serviço, seu schema.** Schema `roles`. FK cross-schema via shadow
-   table (`Table` read-only, §4).
+6. **Cada serviço, seu schema.** Schema `roles`. Referências a `auth.users`
+   são via `external_id` UUID opaco (§4) — sem FK cross-schema, sem shadow
+   table.
 7. **Toda mudança de modelo → migração Alembic.**
 
 ## 3. Stack
@@ -65,14 +66,16 @@ roles/app/
 - **Tipos de endpoint (§5):** endpoints de gerenciamento de roles são
   **desmilitarizados** (consumidos internamente). Qualquer endpoint de consulta
   pública deve ser avaliado caso a caso.
-- **Lista de papéis:** candidato, lead, promoter, student, coordinator, staff, admin.
-  Regras de transição devem ser configuráveis (idealmente no DB, não hardcoded).
+- **Lista de papéis e transições** vivem no `.env` do app roles (§8) — NÃO em
+  tabela. A tabela `roles.user_roles` guarda apenas quem (external_id) tem qual
+  role agora + histórico. Lista atual: lead, candidate, training, promoter,
+  student, coordinator, staff, admin (configurável via `.env`).
 
 ## 6. O que NÃO fazer
 
 - ❌ Permitir transição de role sem validação de regra de negócio.
 - ❌ Duplicar tabela de roles no `auth` — consolidar aqui.
-- ❌ Importar modelo de outro serviço — usar shadow table read-only.
+- ❌ Importar modelo de outro serviço. Sem shadow table. Use `external_id` (§4).
 - ❌ Expor lista completa de roles/users em endpoint público.
 - Comentário/doc em **pt-br** e verdadeiro; logs técnicos em inglês.
 - Não usar `Base.metadata.create_all()` em produção.

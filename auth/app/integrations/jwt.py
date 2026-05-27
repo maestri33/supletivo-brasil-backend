@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import niquests
+import httpx
 
 from app.config import get_settings
 from app.utils.logging import get_logger
@@ -25,12 +25,11 @@ class JWTClient:
         self._timeout = timeout
 
     async def __aenter__(self) -> JWTClient:
-        self._session = niquests.AsyncSession()
-        self._session.headers.update({"Accept": "application/json"})
+        self._session = httpx.AsyncClient(headers={"Accept": "application/json"})
         return self
 
     async def __aexit__(self, *args: object) -> None:
-        await self._session.close()
+        await self._session.aclose()
 
     # ── Tokens ──────────────────────────────────────
 
@@ -68,7 +67,7 @@ class JWTClient:
         *,
         json: dict | None = None,
         params: dict | None = None,
-    ) -> niquests.Response:
+    ) -> httpx.Response:
         url = f"{self._base}{path}"
         safe = _sanitize_log_body(json, {"refresh_token", "access_token", "token"})
         logger.debug(f"[jwt] {method} {url}" + (f" body={safe}" if safe else ""))

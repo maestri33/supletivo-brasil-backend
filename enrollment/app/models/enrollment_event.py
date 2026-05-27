@@ -22,14 +22,9 @@ class EnrollmentEvent(Base):
 
     external_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey(
-            "auth.users.external_id",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-            name="enrollment_events_external_id_fkey",
-        ),
         index=True,
         nullable=False,
+        comment="UUID opaco do matriculando (referência lógica, sem FK §4)",
     )
 
     event: Mapped[str] = mapped_column(String(64), nullable=False, index=True)

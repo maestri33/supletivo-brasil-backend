@@ -21,9 +21,3 @@ class UserRead(APIModel):
     created_at: datetime
 
 
-class UserRoleRead(APIModel):
-    """Role atribuida a um usuario."""
-
-    role: str
-    assigned_at: datetime
-    revoked_at: datetime | None = None

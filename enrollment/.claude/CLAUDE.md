@@ -68,7 +68,7 @@ enrollment/app/
 ## 6. O que NÃO fazer
 
 - Não duplicar lead sem verificação de idempotência.
-- Não importar modelo de outro serviço — usar shadow table read-only.
+- Não importar modelo de outro serviço. Sem shadow table. Use `external_id` (§4).
 - Não logar PII.
 - Comentário/doc em **pt-br** e verdadeiro; logs técnicos em inglês.
 - Não usar `Base.metadata.create_all()` em produção.

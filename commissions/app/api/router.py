@@ -2,9 +2,9 @@
 
 from fastapi import APIRouter
 
+from app.api.demilitarized.batches import router as batches_router
+from app.api.demilitarized.commissions import router as commissions_router
 from app.api.health import router as health_router
-from app.api.commissions import router as commissions_router
-from app.api.batches import router as batches_router
 
 api_router = APIRouter()
 

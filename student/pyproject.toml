@@ -55,3 +55,6 @@ ignore = [
     "B008",    # Depends(...) em default e o padrao FastAPI
     "N818",    # DomainError etc. seguem convencao nossa
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"app/metrics.py" = ["E501", "I001"]

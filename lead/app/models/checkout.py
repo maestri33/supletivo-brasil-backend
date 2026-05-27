@@ -3,7 +3,7 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import BigInteger, Boolean, Date, ForeignKey, SmallInteger, String, Text
+from sqlalchemy import BigInteger, Boolean, Date, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,15 +18,10 @@ class Checkout(Base, TimestampMixin):
 
     external_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey(
-            "auth.users.external_id",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-            name="checkouts_external_id_fkey",
-        ),
         unique=True,
         index=True,
         nullable=False,
+        comment="UUID opaco do usuário (referência lógica, sem FK §4)",
     )
 
     # Cartao (infinitepay)

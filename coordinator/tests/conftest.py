@@ -12,7 +12,7 @@ import os
 import tempfile
 from collections.abc import AsyncIterator
 from pathlib import Path
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

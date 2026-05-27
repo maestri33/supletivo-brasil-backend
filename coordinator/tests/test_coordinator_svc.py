@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.coordinator import Coordinator, CoordinatorStatus
+from app.models.coordinator import CoordinatorStatus
 from app.services import (
     create_coordinator,
     get_coordinator,

@@ -15,15 +15,11 @@ UUIDStr = PG_UUID(as_uuid=False).with_variant(String(36), "sqlite")
 class CNH(Base, TimestampMixin):
     __tablename__ = "cnh"
 
-    id: Mapped[str] = mapped_column(
-        UUIDStr,
-        primary_key=True,
-        default=lambda: str(uuid4()),
-    )
-    numero: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    categoria: Mapped[str | None] = mapped_column(String(5), nullable=True)
-    data_nascimento: Mapped[str | None] = mapped_column(Date, nullable=True)
-    validade: Mapped[str | None] = mapped_column(Date, nullable=True)
-    registro_nacional: Mapped[str | None] = mapped_column(String(30), nullable=True)
-    foto_frente: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    foto_verso: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True, default=lambda: str(uuid4()))
+    number: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    date_of_birth: Mapped[str | None] = mapped_column(Date, nullable=True)
+    expires_on: Mapped[str | None] = mapped_column(Date, nullable=True)
+    national_register: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    front_photo: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    back_photo: Mapped[str | None] = mapped_column(String(500), nullable=True)

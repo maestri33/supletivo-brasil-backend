@@ -10,7 +10,7 @@ Receptor de webhook do serviço `lead`: quando um Lead atinge o status `COMPLETE
 
 - 1 migração Alembic presente (0001 — cria `enrollment.enrollment_events`).
 - 3 endpoints implementados (webhook POST + 2 de auditoria GET).
-- Testes E2E presentes e cobrindo os cenários principais (persistência, idempotência, FK, 404).
+- Testes E2E presentes e cobrindo os cenários principais (persistência, idempotência, 404).
 - Toda a lógica de matrícula descrita no TODO está ausente: coleta de perfil, endereço, documentos, dados educacionais, selfie, status de progressão, notificação ao coordenador do polo e promoção a `student`.
 
 ## Estrutura
@@ -69,7 +69,7 @@ Ausentes (previstos pela convenção): `services/`, `integrations/`, `utils/`.
 | Coluna | Tipo | Constraint | Descrição |
 |--------|------|------------|-----------|
 | `id` | `BIGINT` | PK, autoincrement | Identificador sequencial |
-| `external_id` | `UUID` | NOT NULL, INDEX, FK → `auth.users.external_id` (RESTRICT/CASCADE) | Referência cross-schema ao usuário |
+| `external_id` | `UUID` | NOT NULL, INDEX | Referência lógica ao usuário em `auth.users.external_id` (§4, sem FK cross-schema) |
 | `event` | `VARCHAR(64)` | NOT NULL, INDEX | Tipo do evento (ex.: `lead.completed`) |
 | `promoter_external_id` | `UUID` | NULLABLE, INDEX | UUID do promotor que indicou o lead |
 | `payload` | `JSONB` | NOT NULL | Corpo bruto do webhook |
@@ -78,14 +78,10 @@ Ausentes (previstos pela convenção): `services/`, `integrations/`, `utils/`.
 
 **Unique implícita lógica:** deduplicação por `(external_id, event)` feita em código (sem constraint UNIQUE no banco — risco de race condition).
 
-**Shadow table cross-schema:**
-
-```python
-# db.py — shadow auth.users para resolver FK cross-schema
-auth_users = Table("users", metadata,
-    Column("external_id", PG_UUID(as_uuid=True), primary_key=True),
-    schema="auth")
-```
+**Referência cross-schema:** sem shadow table e sem FK cross-schema (§4).
+`external_id` é UUID opaco; validação de existência, quando necessária, é via HTTP
+ao `auth`. `enrollment/app/db.py` ainda declara `Table("users", schema="auth")`
+como stub legado — pendência a remover (ver "Desvios da CONVENTION").
 
 ## Integrações
 

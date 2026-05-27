@@ -23,8 +23,9 @@
 3. **Stack fixa (§2).** FastAPI + SQLAlchemy 2.0 async + asyncpg + Alembic +
    Pydantic v2 + httpx.AsyncClient + structlog + pydantic-settings.
 4. **Config via `.env`** (pydantic-settings). `DATABASE_URL` obrigatório.
-5. **Cada serviço, seu schema.** Schema `auth`. FK cross-schema via shadow table
-   read-only em `db.py` (§4).
+5. **Cada serviço, seu schema.** Schema `auth`. NÃO mantém tabela de roles —
+   roles vivem no app `roles` (§8). NÃO usa shadow table nem FK cross-schema —
+   referências a outros serviços são `external_id` UUID opaco (§4).
 6. **Provisionamento atômico.** Na criação de usuário, provisiona Profile,
   Contato, Documentos e Endereço em sequência (best-effort, §12). Email é
   deferido.
@@ -47,7 +48,7 @@ auth/app/
 │   ├── atomic.py        # operações atômicas
 │   ├── log.py           # log de eventos
 │   └── deps.py          # dependências compartilhadas
-├── models/              # user.py (User + UserRole)
+├── models/              # user.py (User — roles vivem no app roles, §8)
 ├── integrations/        # jwt.py, notify.py, otp.py, profiles.py, roles.py,
 │                        # address.py, documents.py
 └── utils/               # logging.py (structlog), validation.py
@@ -80,7 +81,7 @@ uv run alembic upgrade head                    # aplica
 ## 6. O que NÃO fazer
 
 - Não usar `Base.metadata.create_all()` em produção.
-- Não importar modelo de outro serviço — usar shadow table read-only.
+- Não importar modelo de outro serviço. Sem shadow table. Use `external_id` (§4).
 - Não logar PII (CPF, telefone, endereço completo).
 - Não conectar no banco de outro serviço.
 - Comentário/doc em **pt-br** e verdadeiro; logs técnicos em inglês.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import niquests
+import httpx
 
 from app.config import get_settings
 from app.utils.logging import get_logger
@@ -23,12 +23,11 @@ class OTPClient:
         self._timeout = timeout
 
     async def __aenter__(self) -> OTPClient:
-        self._session = niquests.AsyncSession()
-        self._session.headers.update({"Accept": "application/json"})
+        self._session = httpx.AsyncClient(headers={"Accept": "application/json"})
         return self
 
     async def __aexit__(self, *args: object) -> None:
-        await self._session.close()
+        await self._session.aclose()
 
     async def create(self, external_id: str) -> dict:
         """POST /api/v1/otp — gera OTP e envia via Notify."""
@@ -51,7 +50,7 @@ class OTPClient:
         *,
         json: dict | None = None,
         params: dict | None = None,
-    ) -> niquests.Response:
+    ) -> httpx.Response:
         url = f"{self._base}{path}"
         safe = _sanitize_log_body(json, {"code"})
         logger.debug(f"[otp] {method} {url}" + (f" body={safe}" if safe else ""))

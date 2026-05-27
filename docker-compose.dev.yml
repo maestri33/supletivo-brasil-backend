@@ -195,6 +195,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: documents
       REDIS_URL: redis://redis:6379/0
+      MEDIA_ROOT: /data/media
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
@@ -323,6 +324,14 @@ services:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: lead
       REDIS_URL: redis://redis:6379/0
+      AUTH_BASE_URL: http://auth:8000
+      JWT_BASE_URL: http://jwt:8000
+      NOTIFY_BASE_URL: http://notify:8000
+      PROFILES_BASE_URL: http://profiles:8000
+      ROLES_BASE_URL: http://roles:8000
+      INFINITEPAY_BASE_URL: http://infinitepay:8000
+      ASAAS_BASE_URL: http://asaas:8000
+      PROMOTER_DEFAULT: "00000000-0000-0000-0000-000000000000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
@@ -344,6 +353,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: notify
       REDIS_URL: redis://redis:6379/0
+      WHATSAPP_API_BASE_URL: "http://10.1.20.200:80"
+      WHATSAPP_GLOBAL_API_KEY: "ePha2omaLeLFlpeel8YtTlIGN35VD9wEvR7H6uPN"
+      WHATSAPP_INSTANCE_NAME: "default"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
@@ -449,6 +461,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: staff
       REDIS_URL: redis://redis:6379/0
+      JWT_BASE_URL: http://jwt:8000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
@@ -470,6 +483,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: student
       REDIS_URL: redis://redis:6379/0
+      JWT_BASE_URL: http://jwt:8000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
@@ -491,6 +505,12 @@ services:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: training
       REDIS_URL: redis://redis:6379/0
+      AI_BASE_URL: http://ai:8000
+      ROLES_BASE_URL: http://roles:8000
+      NOTIFY_BASE_URL: http://notify:8000
+      JWT_BASE_URL: http://jwt:8000
+      AI_TIMEOUT: "60"
+      HTTP_TIMEOUT: "10"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 15s
@@ -576,10 +596,10 @@ services:
       loki:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "http://localhost:9080/ready", "-O", "/dev/null"]
-      interval: 15s
+      test: ["CMD", "pidof", "promtail"]
+      interval: 30s
       timeout: 5s
-      retries: 5
+      retries: 3
       start_period: 10s
     deploy:
       resources:
