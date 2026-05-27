@@ -1,0 +1,54 @@
+# =============================================================================
+# alert-rules.yml — Prometheus alerting rules for Supletivo
+# =============================================================================
+# Rules are grouped by category.
+# =============================================================================
+
+groups:
+
+  - name: supletivo_health
+    interval: 15s
+    rules:
+
+      # ── Health flapping ──
+      # Triggers when up == 0 for 3 consecutive evaluations (45s)
+      - alert: ServiceDown
+        expr: up == 0
+        for: 45s
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is DOWN"
+          description: "{{ $labels.job }} has been unreachable for over 45 seconds."
+          runbook_url: "https://wiki.internal/supletivo/on-call"
+
+      # ── Health flapping recovery ──
+      # Flapping = alternating up/down rapidly
+      - alert: ServiceFlapping
+        expr: changes(up[5m]) > 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} is FLAPPING"
+          description: "{{ $labels.job }} changed state {{ $value }} times in the last 5 minutes."
+
+  - name: supletivo_errors
+    interval: 1m
+    rules:
+
+      # ── High error rate ──
+      # Error rate > 1% over 5 minutes
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m])) by (job)
+            /
+            sum(rate(http_requests_total[5m])) by (job)
+            * 100
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} error rate > 1%"
+          description: "{{ $labels.job }} has {{ $value | humanizePercentage }} error rate over 5 minutes."

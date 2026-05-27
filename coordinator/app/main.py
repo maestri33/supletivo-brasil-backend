@@ -1,22 +1,19 @@
 """Entrypoint FastAPI — coordinator (Parte B — Sprint futuro)."""
 
 from fastapi import FastAPI
-
+from app.api.health import router as health_router
 from app.config import get_settings
+from app.metrics import setup_metrics
+from app.utils.logging import configure_logging
 
 settings = get_settings()
 
+configure_logging()
+
 app = FastAPI(title=settings.service_name, version=settings.version)
+app.include_router(health_router)
+setup_metrics(app)
 
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "service": settings.service_name}
-
-
-@app.get("/ready")
-async def ready():
-    return {"status": "ready", "service": settings.service_name}
 
 
 if __name__ == "__main__":

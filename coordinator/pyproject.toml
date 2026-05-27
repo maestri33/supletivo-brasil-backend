@@ -12,7 +12,10 @@ description = "Microsserviço de gestão de coordenadores de polo (Parte B - Spr
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
+    "uvicorn[standard,
+    "prometheus-client>=0.20",,
+    "structlog>=24.1",
+]>=0.32",
     "pydantic>=2.8",
     "pydantic-settings>=2.5",
 ]
