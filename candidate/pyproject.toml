@@ -25,6 +25,7 @@ dependencies = [
     "structlog>=24.4",
     "pyjwt>=2.9",
     "cryptography>=44",
+    "slowapi>=0.1.9",
 ]
 
 [dependency-groups]

@@ -25,6 +25,7 @@ dependencies = [
     "anyio>=4.13.0",
     "elevenlabs>=2.45.0",
     "dnspython>=2.8.0",
+    "slowapi>=0.1.9",
 ]
 
 [dependency-groups]

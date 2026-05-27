@@ -18,6 +18,7 @@ dependencies = [
     "pydantic-settings>=2.5",
     "alembic>=1.13",
     "asyncpg>=0.31.0",
+    "slowapi>=0.1.9",
 ]
 
 [dependency-groups]

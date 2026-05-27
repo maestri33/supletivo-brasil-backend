@@ -24,6 +24,7 @@ dependencies = [
     "niquests>=3.0.0",
     "httpx>=0.28.0",
     "fastapi-structured-logging>=1.0.0",
+    "slowapi>=0.1.9",
 ]
 
 [project.optional-dependencies]

@@ -23,6 +23,7 @@ dependencies = [
     "httpx>=0.27",
     "structlog>=24.4",
     "pyjwt>=2.9",
+    "slowapi>=0.1.9",
 ]
 
 [dependency-groups]

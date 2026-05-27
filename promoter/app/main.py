@@ -16,6 +16,9 @@ from app.db import close_db
 from app.exceptions import DomainError
 from app.utils.logging import configure_logging, get_logger
 from app.metrics import setup_metrics
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 settings = get_settings()
 configure_logging()
@@ -37,6 +40,16 @@ app = FastAPI(
     version=settings.app_version,
     lifespan=lifespan,
 )
+
+# ── Rate limiting (slowapi) ─────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+
+# ── SlowAPI middleware ──────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+from slowapi.middleware import SlowAPIMiddleware
+app.add_middleware(SlowAPIMiddleware)
+
 
 
 @app.exception_handler(DomainError)

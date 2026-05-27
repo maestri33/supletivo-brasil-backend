@@ -24,6 +24,9 @@ from app.utils.logging import configure_logging
 def _cors_origins() -> list[str]:
     """CORS origins: dev/staging permite *, prod exige CORS_ORIGINS (COD-18 P0.2)."""
     import os as _os
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
     env = _os.getenv("ENV", _os.getenv("ENVIRONMENT", "development"))
     if env in ("development", "dev", "staging"):
         return ["*"]
@@ -58,6 +61,16 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# ── Rate limiting (slowapi) ─────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+
+# ── SlowAPI middleware ──────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+from slowapi.middleware import SlowAPIMiddleware
+app.add_middleware(SlowAPIMiddleware)
+
 
 app.add_middleware(
     CORSMiddleware,

@@ -18,6 +18,7 @@ dependencies = [
     "pydantic-settings>=2.5",
     "structlog>=24.4",
     "alembic>=1.13",
+    "slowapi>=0.1.9",
 ]
 
 [dependency-groups]

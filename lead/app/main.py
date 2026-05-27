@@ -111,5 +111,82 @@ async def status():
 
 if __name__ == "__main__":
     import uvicorn
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+# ── Rate limiting (slowapi) ─────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+
+# ── SlowAPI middleware ──────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+from slowapi.middleware import SlowAPIMiddleware
+app.add_middleware(SlowAPIMiddleware)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=bool(settings.CORS_ORIGINS),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.add_middleware(
+    AccessLogMiddleware,
+    config=AccessLogConfig(
+        exclude_paths_if_ok_or_missing={"/health", "/ready", "/status"},
+    ),
+)
+
+app.include_router(auth_router)
+app.include_router(webhooks_router)
+app.include_router(leads_crud_router)
+app.include_router(checkouts_crud_router)
+app.include_router(captured_router)
+app.include_router(waiting_router)
+app.include_router(checkout_router)
+app.include_router(completed_router)
+app.include_router(health_router)
+setup_metrics(app)
+
+
+
+# ── Media estatico (QR Codes PIX + imagens) ─────────────────────────────────
+# Serve /api/v1/public/media/<...> a partir do volume lead_media. O prefixo
+# /api/v1/public/* casa com o matcher do Caddy listener PUBLICO (:8081), entao
+# imagens ficam acessiveis via Tailscale Funnel / dominio publico sem precisar
+# adicionar rota nova no proxy.
+#
+# Acesso: aberto publico (qualquer URL conhecida baixa o arquivo). Nao colocar
+# nada sensivel aqui — recibos, contratos, etc. devem ir por endpoint signed
+# ou JWT-gated em /api/v1/authenticated/*.
+_media_dir = Path(settings.MEDIA_DIR)
+(_media_dir / "qrcodes").mkdir(parents=True, exist_ok=True)
+(_media_dir / "images").mkdir(parents=True, exist_ok=True)
+app.mount("/api/v1/public/media", StaticFiles(directory=str(_media_dir)), name="media")
+
+
+# ── Health endpoints (root, sem prefixo) ────────────────────────────────────
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "service": settings.SERVICE_NAME}
+
+
+@app.get("/ready")
+async def ready():
+    return {"status": "ok", "service": settings.SERVICE_NAME}
+
+
+@app.get("/status")
+async def status():
+    return {"status": "ok", "service": settings.SERVICE_NAME}
+
+
+if __name__ == "__main__":
+    import uvicorn
 
     uvicorn.run(app, host=settings.HOST, port=settings.PORT)

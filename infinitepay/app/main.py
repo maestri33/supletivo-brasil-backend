@@ -20,6 +20,9 @@ from app.exceptions import DomainError
 from app.utils.logging import configure_logging, log_event
 from app.workers import outbound_queue
 from app.metrics import setup_metrics
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 
 @asynccontextmanager
@@ -79,6 +82,16 @@ def create_app() -> FastAPI:
         summary="Cria checkouts InfinitePay, recebe webhooks e reenvia eventos internos.",
         lifespan=lifespan,
     )
+
+# ── Rate limiting (slowapi) ─────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+
+# ── SlowAPI middleware ──────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+from slowapi.middleware import SlowAPIMiddleware
+app.add_middleware(SlowAPIMiddleware)
+
 
     _origins = _cors_origins()
     app.add_middleware(

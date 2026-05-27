@@ -23,6 +23,7 @@ dependencies = [
     "structlog>=24.4",
     "fastapi-structured-logging>=1.0",
     "pyjwt[crypto]>=2.10",
+    "slowapi>=0.1.9",
 ]
 
 [dependency-groups]

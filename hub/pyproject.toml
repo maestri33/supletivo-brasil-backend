@@ -22,6 +22,7 @@ dependencies = [
     "fastapi-structured-logging>=1.0",
     "httpx>=0.27",
     "pyjwt[crypto]>=2.10",
+    "slowapi>=0.1.9",
 ]
 
 [dependency-groups]

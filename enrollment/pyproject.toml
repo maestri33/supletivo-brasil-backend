@@ -21,6 +21,7 @@ dependencies = [
     "pydantic-settings>=2.5",
     "structlog>=24.4",
     "fastapi-structured-logging>=1.0",
+    "slowapi>=0.1.9",
 ]
 
 [dependency-groups]

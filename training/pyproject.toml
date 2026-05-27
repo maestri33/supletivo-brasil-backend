@@ -21,6 +21,7 @@ dependencies = [
     "pydantic-settings>=2.5",
     "python-multipart>=0.0.9",
     "structlog>=24.4",
+    "slowapi>=0.1.9",
 ]
 
 [dependency-groups]
