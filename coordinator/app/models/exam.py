@@ -26,9 +26,7 @@ class ExamStatus(str, enum.Enum):
 class Exam(Base, TimestampMixin):
     __tablename__ = "exams"
 
-    id: Mapped[str] = mapped_column(
-        UUIDStr, primary_key=True, default=lambda: str(uuid4())
-    )
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True, default=lambda: str(uuid4()))
     coordinator_id: Mapped[str] = mapped_column(
         UUIDStr, nullable=False, comment="FK logica -> coordinator.coordinators"
     )
@@ -48,8 +46,7 @@ class Exam(Base, TimestampMixin):
         Integer, nullable=True, comment="Nota do aluno (0-100)"
     )
     max_score: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=100, server_default="100",
-        comment="Nota maxima"
+        Integer, nullable=False, default=100, server_default="100", comment="Nota maxima"
     )
     result_notes: Mapped[str | None] = mapped_column(
         Text, nullable=True, comment="Observacoes da correcao"

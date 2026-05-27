@@ -26,9 +26,7 @@ class CoordinatorStatus(str, enum.Enum):
 class Coordinator(Base, TimestampMixin):
     __tablename__ = "coordinators"
 
-    id: Mapped[str] = mapped_column(
-        UUIDStr, primary_key=True, default=lambda: str(uuid4())
-    )
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True, default=lambda: str(uuid4()))
     external_id: Mapped[str] = mapped_column(
         UUIDStr, nullable=False, unique=True, comment="FK logica -> auth.users"
     )

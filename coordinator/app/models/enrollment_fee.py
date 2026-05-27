@@ -27,9 +27,7 @@ class FeeStatus(str, enum.Enum):
 class EnrollmentFee(Base, TimestampMixin):
     __tablename__ = "enrollment_fees"
 
-    id: Mapped[str] = mapped_column(
-        UUIDStr, primary_key=True, default=lambda: str(uuid4())
-    )
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True, default=lambda: str(uuid4()))
     coordinator_id: Mapped[str] = mapped_column(
         UUIDStr, nullable=False, comment="FK logica -> coordinator.coordinators"
     )
@@ -39,12 +37,8 @@ class EnrollmentFee(Base, TimestampMixin):
     description: Mapped[str] = mapped_column(
         String(300), nullable=False, comment="Descricao da taxa"
     )
-    amount: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2), nullable=False, comment="Valor da taxa"
-    )
-    due_date: Mapped[date | None] = mapped_column(
-        Date, nullable=True, comment="Data de vencimento"
-    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, comment="Valor da taxa")
+    due_date: Mapped[date | None] = mapped_column(Date, nullable=True, comment="Data de vencimento")
     status: Mapped[FeeStatus] = mapped_column(
         Enum(FeeStatus, name="fee_status"),
         nullable=False,
@@ -54,9 +48,7 @@ class EnrollmentFee(Base, TimestampMixin):
     payment_external_id: Mapped[str | None] = mapped_column(
         String(200), nullable=True, comment="ID do pagamento no gateway (Asaas)"
     )
-    notes: Mapped[str | None] = mapped_column(
-        Text, nullable=True, comment="Observacoes"
-    )
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True, comment="Observacoes")
 
     def __repr__(self) -> str:
         return f"<EnrollmentFee {self.id} amount={self.amount} status={self.status.value}>"

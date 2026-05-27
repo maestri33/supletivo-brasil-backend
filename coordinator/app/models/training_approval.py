@@ -25,9 +25,7 @@ class ApprovalStatus(str, enum.Enum):
 class TrainingApproval(Base, TimestampMixin):
     __tablename__ = "training_approvals"
 
-    id: Mapped[str] = mapped_column(
-        UUIDStr, primary_key=True, default=lambda: str(uuid4())
-    )
+    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True, default=lambda: str(uuid4()))
     coordinator_id: Mapped[str] = mapped_column(
         UUIDStr, nullable=False, comment="FK logica -> coordinator.coordinators"
     )

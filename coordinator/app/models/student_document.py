@@ -7,7 +7,7 @@ histórico, etc.) e enviá-los à instituição de ensino.
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 

@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     database_url: str = "postgresql+asyncpg://v7m:v7m@postgres:5432/v7m"
     database_schema: str = "coordinator"
+    # ── Integrations ──
+    commissions_service_url: str = "http://commissions:8014"
+    roles_service_url: str = "http://roles:8000"
+    hub_service_url: str = "http://hub:8000"
+    coordinator_commission_cents: int = 50
 
 
 @lru_cache
