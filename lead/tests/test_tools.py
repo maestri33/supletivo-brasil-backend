@@ -19,6 +19,7 @@ import pytest
 from pytest import MonkeyPatch
 
 from app.db import async_session_maker
+from app.integrations.asaas import AsaasClient
 from app.models import Checkout, Lead, LeadStatus, Message
 
 pytestmark = pytest.mark.asyncio
@@ -284,6 +285,7 @@ class TestCreatePixCheckout:
 
         eid = str(uuid4())
         ext_uuid = uuid4()
+        fake_png_b64 = base64.b64encode(b"fake_png_bytes").decode()
 
         # Mock da resposta do Asaas
         mock_charge = MagicMock()
@@ -292,14 +294,15 @@ class TestCreatePixCheckout:
         mock_charge.due_date = "2026-06-10"
         mock_pix = MagicMock()
         mock_pix.payload = "00020126580014br.gov.bcb.pix0136..."
-        mock_pix.encoded_image = base64.b64encode(b"fake_png_bytes").decode()
+        mock_pix.encoded_image = fake_png_b64
         mock_charge.pix = mock_pix
 
         with (
-            patch("app.tools.create_checkout.settings") as mock_settings,
             patch("app.tools.create_checkout.settings.PIX_DEFAULT_DUE_DAYS", None),
-            patch(
-                "app.integrations.asaas.AsaasClient.create_charge_pix",
+            patch("app.tools.create_checkout.settings.PIX_DEFAULT_AMOUNT", 999.99),
+            patch("app.tools.create_checkout.settings.PIX_DEFAULT_DESCRIPTION", "Test"),
+            patch.object(
+                AsaasClient, "create_charge_pix",
                 new_callable=AsyncMock,
                 return_value=mock_charge,
             ),
@@ -316,7 +319,7 @@ class TestCreatePixCheckout:
         assert checkout.payment_method == "pix"
         assert checkout.provider_payment_id == "pay_pix_abc"
         assert checkout.is_paid is False
-        assert encoded_b64 is not None
+        assert encoded_b64 == fake_png_b64
 
     async def test_http_error_bubbles_up(self):
         """HTTPStatusError do asaas → levanta PixCheckoutError."""
@@ -613,7 +616,7 @@ class TestNotifyAndTrack:
         assert msg.message_id == 42
         assert msg.status == "pending"
         assert msg.external_id == uuid4().__class__(eid)
-        mock_send.assert_awaited_once()
+        mock_client.send_message.assert_awaited_once()
 
     async def test_404_creates_skipped_message(self):
         """404 do notify → Message com status=skipped."""
@@ -740,7 +743,8 @@ class TestSavePixQrPng:
 
     def test_creates_directory_if_not_exists(self, tmp_path):
         """Diretório qrcodes/ é criado se não existir."""
-        from app.tools.qrcode import save_pix_qr_png
+        # This test verifies the REAL _qr_dir() creates directories.
+        from app.tools.qrcode import _qr_dir, save_pix_qr_png
 
         png_bytes = b"\x89PNG\r\n\x1a\n" + b"x" * 50
         encoded = base64.b64encode(png_bytes).decode()
@@ -748,10 +752,18 @@ class TestSavePixQrPng:
         qr_dir = tmp_path / "nonexistent" / "qrcodes"
         assert not qr_dir.exists()
 
-        with patch("app.tools.qrcode._qr_dir", return_value=qr_dir):
-            save_pix_qr_png(str(uuid4()), encoded)
+        with patch("app.tools.qrcode.settings.MEDIA_DIR", str(tmp_path / "nonexistent")):
+            # _qr_dir uses MEDIA_DIR, so patching settings.MEDIA_DIR means
+            # _qr_dir() will call tmp_path / "nonexistent" / "qrcodes" and
+            # create it via mkdir(parents=True, exist_ok=True)
+            d = _qr_dir()
+            # Now save the QR
+            url = save_pix_qr_png(str(uuid4()), encoded)
 
+        assert d.exists()
         assert qr_dir.exists()
+        assert url.startswith("/api/v1/public/media/qrcodes/")
+        assert url.endswith(".png")
 
 
 class TestMakeDataUri:
@@ -786,8 +798,12 @@ class TestAbsoluteQrUrl:
         with patch("app.tools.qrcode.settings.LEAD_PUBLIC_BASE_URL", "http://lead.example.com"):
             url = absolute_qr_url("/media/qrcodes/abc.png")
 
+        # Legacy /media/ prefix rewritten to /api/v1/public/media/
         assert url == "http://lead.example.com/api/v1/public/media/qrcodes/abc.png"
-        assert "media/qrcodes" not in url
+        # The result contains the correct public prefix, not the legacy one
+        assert "/api/v1/public/media/" in url
+        assert url.startswith("http://lead.example.com")
+        assert url.endswith("abc.png")
 
 
 class TestQrDir:
