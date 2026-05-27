@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     # Fernet key p/ cifrar o external_id no webhook_url (rota publica)
     webhook_encryption_key: str = ""
 
+    # Internal admin API key — required for /health/integration (COD-91)
+    internal_api_key: str = Field(default="", validation_alias="INTERNAL_API_KEY")
+
     # Seguranca de webhook — HMAC secret + IP allow-list
     infinitepay_webhook_secret: str | None = Field(
         default=None, validation_alias="INFINITEPAY_WEBHOOK_SECRET"
