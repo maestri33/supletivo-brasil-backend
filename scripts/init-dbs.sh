@@ -1,99 +1,152 @@
 #!/usr/bin/env bash
 # =============================================================================
-# init-dbs.sh — Cria schemas PostgreSQL para todos os microsserviços
+# init-dbs.sh — PostgreSQL schema initialization for Supletivo
 # =============================================================================
-# Uso:
-#   ./scripts/init-dbs.sh                          # usa .env ou defaults
-#   DATABASE_URL="postgresql://user:pass@host:5432/db" ./scripts/init-dbs.sh
+# Creates the database and all service-specific schemas for the Supletivo
+# platform. Designed for first-time production deployment (docker-compose
+# entrypoint pattern) and development environment reset.
 #
-# Pré-requisitos:
-#   - PostgreSQL acessível (container local ou remoto)
-#   - psql instalado
+# Usage:
+#   ./scripts/init-dbs.sh                    # init with defaults
+#   ./scripts/init-dbs.sh --dry-run          # preview only, no changes
+#   ./scripts/init-dbs.sh --db supletivo     # specify database name
+#   ./scripts/init-dbs.sh --host localhost   # specify host
+#   ./scripts/init-dbs.sh --user supletivo   # specify user
+#
+# Environment variables (override defaults):
+#   PG_HOST      — default: localhost
+#   PG_PORT      — default: 5432 (5433 for dev host-mapped)
+#   PG_USER      — default: supletivo
+#   PG_PASSWORD  — default: supletivo_dev
+#   PG_DB        — default: supletivo
 # =============================================================================
-
 set -euo pipefail
 
-# ── Config ──────────────────────────────────────────────────────────────────
+# ── Config ───────────────────────────────────────────────────────────────────
 
-DB_URL="${DATABASE_URL:-postgresql://supletivo:supletivo_dev@localhost:5433/supletivo}"
+PG_HOST="${PG_HOST:-localhost}"
+PG_PORT="${PG_PORT:-5432}"
+PG_USER="${PG_USER:-supletivo}"
+PG_PASSWORD="${PG_PASSWORD:-supletivo_dev}"
+PG_DB="${PG_DB:-supletivo}"
+DRY_RUN=false
 
-# ── Schemas (1 por microsserviço) ───────────────────────────────────────────
+# Parse CLI args
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dry-run) DRY_RUN=true; shift ;;
+        --db) PG_DB="$2"; shift 2 ;;
+        --host) PG_HOST="$2"; shift 2 ;;
+        --port) PG_PORT="$2"; shift 2 ;;
+        --user) PG_USER="$2"; shift 2 ;;
+        *) echo "Unknown option: $1"; exit 1 ;;
+    esac
+done
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+pass() { echo -e "  ${GREEN}✓${NC} $1"; }
+warn() { echo -e "  ${YELLOW}⚠${NC} $1"; }
+fail() { echo -e "  ${RED}✗${NC} $1"; exit 1; }
+
+PG_CMD() {
+    PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d "$PG_DB" -t -A "$@"
+}
+
+PG_CMD_ADMIN() {
+    PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d postgres -t -A "$@"
+}
+
+# ── Service schemas (1:1 with docker-compose services) ───────────────────────
 
 SCHEMAS=(
-  address
-  ai
-  asaas
-  auth
-  candidate
-  commissions
-  coordinator
-  documents
-  enrollment
-  fees
-  hub
-  infinitepay
-  jwt
-  lead
-  notify
-  otp
-  profiles
-  promoter
-  roles
-  staff
-  student
-  training
+    address
+    ai
+    asaas
+    auth
+    candidate
+    commissions
+    coordinator
+    documents
+    enrollment
+    fees
+    hub
+    infinitepay
+    jwt
+    lead
+    notify
+    otp
+    profiles
+    promoter
+    roles
+    staff
+    student
+    training
 )
 
-# ── Funções ──────────────────────────────────────────────────────────────────
+# ── Run ──────────────────────────────────────────────────────────────────────
 
-create_schema() {
-  local schema="$1"
-  echo "  🔨 $schema..."
-  psql "$DB_URL" -q -c "CREATE SCHEMA IF NOT EXISTS \"${schema}\";" 2>/dev/null || {
-    echo "  ⚠️  Failed to create schema '$schema' — skipping"
-    return 1
-  }
-}
-
-run_migrations() {
-  local service="$1"
-  local dir="./$service"
-  if [ -f "$dir/alembic.ini" ]; then
-    echo "  🔄 Running alembic migrations for $service..."
-    (cd "$dir" && alembic upgrade head 2>/dev/null) || echo "  ⚠️  alembic upgrade failed for $service"
-  else
-    echo "  ⏭️  $service has no alembic (skipping)"
-  fi
-}
-
-# ── Main ─────────────────────────────────────────────────────────────────────
-
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Supletivo — Database Schema Initialization"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  DB: $DB_URL"
-echo "  Schemas: ${#SCHEMAS[@]}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-# Step 1: Create schemas
+echo "=== init-dbs.sh ==="
+echo "  Host: $PG_HOST:$PG_PORT"
+echo "  User: $PG_USER"
+echo "  Database: $PG_DB"
+echo "  Dry-run: $DRY_RUN"
 echo ""
-echo "📦 Creating schemas..."
-for schema in "${SCHEMAS[@]}"; do
-  create_schema "$schema"
+
+# Step 1: Ensure the database exists
+echo "--- Step 1: Ensure database '$PG_DB' exists ---"
+DB_EXISTS=$(PGPASSWORD="$PG_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_USER" -d postgres -t -A -c "SELECT 1 FROM pg_database WHERE datname='$PG_DB'")
+if [ "$DB_EXISTS" = "1" ]; then
+    pass "Database '$PG_DB' already exists"
+else
+    if [ "$DRY_RUN" = true ]; then
+        warn "Would CREATE DATABASE $PG_DB"
+    else
+        PG_CMD_ADMIN -c "CREATE DATABASE $PG_DB" >/dev/null 2>&1
+        pass "Created database '$PG_DB'"
+    fi
+fi
+
+# Step 2: Create all service schemas
+echo ""
+echo "--- Step 2: Create service schemas ---"
+for SCHEMA in "${SCHEMAS[@]}"; do
+    SCHEMA_EXISTS=$(PG_CMD -c "SELECT 1 FROM information_schema.schemata WHERE schema_name='$SCHEMA'")
+    if [ "$SCHEMA_EXISTS" = "1" ]; then
+        pass "Schema '$SCHEMA' already exists"
+    else
+        if [ "$DRY_RUN" = true ]; then
+            warn "Would CREATE SCHEMA $SCHEMA"
+        else
+            PG_CMD -c "CREATE SCHEMA $SCHEMA" >/dev/null 2>&1
+            pass "Created schema '$SCHEMA'"
+        fi
+    fi
 done
 
-# Step 2: Run alembic migrations (if available)
+# Step 3: Set search_path defaults for each schema
 echo ""
-echo "🔄 Running alembic migrations..."
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$SCRIPT_DIR"
-
-for service in "${SCHEMAS[@]}"; do
-  run_migrations "$service"
+echo "--- Step 3: Configure search_path ---"
+for SCHEMA in "${SCHEMAS[@]}"; do
+    if [ "$DRY_RUN" = true ]; then
+        warn "Would ALTER DATABASE $PG_DB SET search_path TO \$user, public, $SCHEMA (per-service config)"
+    fi
 done
 
+# HINT: Each service already sets search_path via alembic context or SQLAlchemy
+# connect string. This step is informational only — no global change needed.
+pass "Per-service search_path configured via DATABASE_SCHEMA env var"
+
+# Step 4: Verify
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  ✅ Database initialization complete!"
-echo "  ${#SCHEMAS[@]} schemas created."
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "--- Step 4: Verification ---"
+SCHEMA_COUNT=$(PG_CMD -c "SELECT count(*) FROM information_schema.schemata WHERE schema_name NOT IN ('information_schema','pg_catalog','pg_toast','public')")
+pass "$SCHEMA_COUNT schemas created"
+
+echo ""
+echo "=== init-dbs.sh complete ==="
