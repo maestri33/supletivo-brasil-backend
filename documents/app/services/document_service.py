@@ -15,6 +15,7 @@ from app.exceptions import (
 )
 from app.schemas.document import DocumentUpdate, ALLOWED_MIME_IMG, IMAGE_SLOTS
 from app.utils.logging import get_logger
+from app.utils.pii import mask_number
 
 logger = get_logger(__name__)
 
@@ -161,7 +162,13 @@ async def update_document(external_id: str, data: DocumentUpdate) -> Document:
             changes[field] = value
 
     await doc.save()
-    logger.info("documento_atualizado", external_id=external_id, changes=changes)
+    # Mask PII in changes before logging (COD-18 PII audit)
+    _PII_SUFFIXES = {"numero", "ra", "livro", "folha", "termo", "cartorio"}
+    masked = {
+        k: mask_number(v) if any(suffix in k for suffix in _PII_SUFFIXES) and isinstance(v, str) else v
+        for k, v in changes.items()
+    }
+    logger.info("documento_atualizado", external_id=external_id, changes=masked)
     await _fire_webhook(
         "documento.atualizado", {"external_id": external_id, "changes": changes}
     )
