@@ -3,6 +3,7 @@
 import asyncio
 from logging.config import fileConfig
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 import app.models  # noqa: F401  (popula o metadata)
@@ -53,7 +54,11 @@ def do_run_migrations(connection):
 
 
 async def run_migrations_online() -> None:
-    connectable = create_async_engine(settings.database_url)
+    connectable = create_async_engine(settings.DATABASE_URL)
+    # Garante que o schema existe antes do primeiro upgrade num banco novo.
+    async with connectable.connect() as conn:
+        await conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{SCHEMA}"'))
+        await conn.commit()
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

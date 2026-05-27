@@ -1,8 +1,6 @@
 """Endpoint de registro — cria usuario e provisiona servicos."""
 
 from __future__ import annotations
-
-import logging
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks
@@ -17,17 +15,14 @@ from app.integrations.notify import NotifyClient
 from app.integrations.profiles import ProfilesClient
 from app.integrations.roles import RolesClient
 from app.models.user import User
+from app.schemas.auth import RegisterRequest
+from app.schemas.user import UserRead
+from app.utils.logconfig import get_logger
 from app.utils.validation import validate_cpf, validate_phone
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/register", tags=["register"])
-
-
-class RegisterRequest(BaseModel):
-    role: str
-    phone: str
-    cpf: str
 
 
 @router.post(

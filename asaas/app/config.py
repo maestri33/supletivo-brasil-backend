@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     )
 
     # Banco — Postgres central v7m com schema asaas
-    database_url: str = Field(validation_alias="ASAAS_APP_DB_URL")
+    database_url: str
     database_schema: str = "asaas"
 
     # Asaas — production-only por padrao; habilita sandbox via env

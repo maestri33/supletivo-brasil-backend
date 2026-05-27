@@ -13,6 +13,7 @@ import os
 # `DATABASE_URL` e obrigatorio (sem default no codigo). Placeholder
 # so permite importar app.config/app.db.
 os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://v7m:v7m@localhost:5432/v7m")
+os.environ.setdefault("JWT_BASE_URL", "http://localhost:8080")
 
 from collections.abc import AsyncIterator
 

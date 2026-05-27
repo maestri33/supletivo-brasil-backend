@@ -3,24 +3,18 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from pydantic import BaseModel
 
 from app.exceptions import ForbiddenError, UnauthorizedError
 from app.integrations.jwt import JWTClient
 from app.integrations.otp import OTPClient, OTPError
 from app.integrations.roles import RolesClient
+from app.schemas.auth import LoginRequest, TokenResponse
 
 router = APIRouter(prefix="/login", tags=["login"])
 
 
-class LoginRequest(BaseModel):
-    external_id: str
-    otp: str
-    role: str
-
-
 @router.post("", summary="Login — verifica role, valida OTP, emite JWT")
-async def login(data: LoginRequest) -> dict:
+async def login(data: LoginRequest) -> TokenResponse:
     # 1. Busca roles e verifica se a pedida esta entre elas
     user_roles = await _get_roles(data.external_id)
     if data.role not in user_roles:
@@ -36,7 +30,7 @@ async def login(data: LoginRequest) -> dict:
     async with JWTClient() as jwt:
         tokens = await jwt.issue(data.external_id, user_roles)
 
-    return tokens
+    return TokenResponse(**tokens)
 
 
 # ── Reusable ──────────────────────────────────────

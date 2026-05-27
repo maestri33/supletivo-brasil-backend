@@ -5,19 +5,20 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
+from app.schemas.health import HealthResponse
 
 router = APIRouter()
 
 
-@router.get("/health")
-async def health() -> dict:
-    return {"status": "ok", "service": "auth"}
+@router.get("/health", response_model=HealthResponse)
+async def health() -> HealthResponse:
+    return HealthResponse(ok=True)
 
 
-@router.get("/ready")
-async def ready(session: AsyncSession = Depends(get_session)) -> dict:  # noqa: B008
+@router.get("/ready", response_model=HealthResponse)
+async def ready(session: AsyncSession = Depends(get_session)) -> HealthResponse:  # noqa: B008
     try:
         await session.execute(text("SELECT 1"))
-        return {"status": "ready"}
+        return HealthResponse(ok=True)
     except Exception as exc:
-        return {"status": "not_ready", "detail": str(exc)}
+        return HealthResponse(ok=False, detail=str(exc))

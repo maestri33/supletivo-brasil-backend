@@ -8,6 +8,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import Conflict, DomainError, NotFound
+from app.utils.logging import get_logger
+from app.utils.pii import mask_phone as _mask_phone
 from app.models.contact import Contact
 from app.models.log import Log
 from app.models.message import Message
@@ -89,7 +91,7 @@ async def create_contact(session: AsyncSession, payload: ContactCreate) -> Conta
     )
     await session.commit()
     await session.refresh(contact)
-    log.info("contact.created", external_id=str(payload.external_id), phone=normalized_phone)
+    log.info("contact.created", external_id=str(payload.external_id), phone=_mask_phone(normalized_phone))
     return contact
 
 

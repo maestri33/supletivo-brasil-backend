@@ -43,6 +43,7 @@ from app.schemas.message import MessageSend, TestEmailRequest, TestEmailResult
 from app.services import template_service
 from app.services.contact_service import get_contact_by_external_id
 from app.utils.logging import get_logger
+from app.utils.pii import mask_email as _mask_email
 
 log = get_logger(__name__)
 
@@ -822,7 +823,7 @@ async def send_test_email(
     except Exception as exc:  # noqa: BLE001
         sent = False
         error = f"{type(exc).__name__}: {exc!r}"
-        log.error("email.test_failed", to=payload.to_email, error=error[:300])
+        log.error("email.test_failed", to=_mask_email(payload.to_email), error=error[:300])
 
     session.add(
         Log(

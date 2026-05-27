@@ -18,6 +18,6 @@ async def health() -> dict:
 async def ready(session: AsyncSession = Depends(get_session)) -> dict:  # noqa: B008
     try:
         await session.execute(text("SELECT 1"))
-        return {"status": "ready"}
+        return {"status": "ok", "db": "ok"}
     except Exception as exc:
-        return {"status": "not_ready", "detail": str(exc)}
+        return {"status": "not_ready", "db": "unreachable", "detail": str(exc)}

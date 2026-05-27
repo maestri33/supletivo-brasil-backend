@@ -1,5 +1,5 @@
 """Schemas Pydantic — hub (polo)."""
 
-from app.schemas.hub import HubCreate, HubRead, HubUpdate
+from app.schemas.hub import CoordinatorSet, HubCreate, HubRead, HubUpdate
 
-__all__ = ["HubRead", "HubCreate", "HubUpdate"]
+__all__ = ["CoordinatorSet", "HubRead", "HubCreate", "HubUpdate"]

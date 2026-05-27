@@ -137,11 +137,25 @@ docker compose -f docker-compose.dev.yml exec redis redis-cli ping
 
 ### 3.1 Banco de dados (Postgres)
 
+**Backup automatizado:** cron job `Supletivo DB Backup` roda `scripts/backup-pg.sh` diariamente às 03:00 UTC.
+Retenção: 7 dias. Backups salvos em `backups/backup-YYYY-MM-DDTHH-MM-SSZ.sql.gz`.
+
 ```bash
+# Backup manual (via script do projeto)
+DATABASE_URL="postgresql://supletivo:***@localhost:5432/supletivo" \
+  ./scripts/backup-pg.sh
+
+# Backup de schema específico
+./scripts/backup-pg.sh -s addresses,auth
+
+# Restore (dry-run primeiro!)
+./scripts/restore-pg.sh --latest          # dry run
+./scripts/restore-pg.sh --yes --latest    # executar
+
 # Credenciais reais (docker-compose.dev.yml)
 #   DB: supletivo  |  User: supletivo  |  Host: postgres:5432
 
-# Backup completo (todos os schemas) — rodar de dentro do container
+# Backup completo (todos os schemas) — direto no container
 docker compose -f docker-compose.dev.yml exec postgres \
   pg_dump -U supletivo -d supletivo -F c -f /tmp/backup_$(date +%Y%m%d_%H%M%S).dump
 
@@ -324,6 +338,8 @@ services:
 6. [ ] PR aprovado com checklist de conformidade completa
 7. [ ] Health check respondendo após deploy
 8. [ ] Logs sem erros nos primeiros 5 minutos
+9. [ ] Smoke test (health check): `./scripts/smoke-test.sh` — todas as 22 /health devem retornar 200
+10. [ ] Smoke test (full — staging apenas): `./scripts/smoke-test.sh --full` — caminho do dinheiro end-to-end
 
 ---
 

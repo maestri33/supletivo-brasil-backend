@@ -1,6 +1,5 @@
 """Serviço de Roles — motor de regras de transição (SQLAlchemy 2)."""
 
-import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -16,8 +15,22 @@ from app.db import async_session_maker, engine
 from app.exceptions import DomainError, NotFound, ValidationError
 from app.models.role_rule import RoleRule
 from app.models.user_role import UserRole
+from app.utils.logging import configure_logging, logger
+from app.metrics import setup_metrics
 
-logger = logging.getLogger("roles")
+
+def _cors_origins() -> list[str]:
+    """CORS origins: dev/staging permite *, prod exige CORS_ORIGINS (COD-18 P0.2)."""
+    import os as _os
+    env = _os.getenv("ENV", _os.getenv("ENVIRONMENT", "development"))
+    if env in ("development", "dev", "staging"):
+        return ["*"]
+    raw = _os.getenv("CORS_ORIGINS", "")
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return []
+
+
 started_at = datetime.now(timezone.utc)
 
 
@@ -46,6 +59,7 @@ async def _seed_if_empty() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    configure_logging()
     await _seed_if_empty()
     logger.info(f"Roles service started on port {settings.PORT}")
     yield
@@ -61,12 +75,14 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(router)
+setup_metrics(app)
+
 
 
 @app.exception_handler(DomainError)

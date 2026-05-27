@@ -13,6 +13,8 @@ from app.api.health import router as health_router
 from app.config import get_settings
 from app.db import close_db
 from app.exceptions import DomainError
+from app.metrics import setup_metrics
+from app.utils.logging import configure_logging
 
 settings = get_settings()
 logger = structlog.get_logger()
@@ -27,6 +29,8 @@ async def lifespan(app: FastAPI):
     await close_db()
     logger.info("service.shutdown", service=settings.service_name)
 
+
+configure_logging()
 
 app = FastAPI(title=settings.service_name, version=settings.app_version, lifespan=lifespan)
 
@@ -50,6 +54,8 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
 
 app.include_router(students_router)
 app.include_router(health_router)
+setup_metrics(app)
+
 
 
 @app.get("/health")

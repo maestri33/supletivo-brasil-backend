@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # Banco — Postgres central com schema proprio `candidate`.
     # Sem default: credencial de banco nunca fica hardcoded (CONVENTION Fase 1).
-    database_url: str = Field(validation_alias="CANDIDATE_APP_DB_URL")
+    database_url: str
     database_schema: str = "candidate"
 
     # URLs internas dos demais servicos (HTTP). Defaults apontam para os nomes

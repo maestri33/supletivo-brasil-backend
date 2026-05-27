@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import logging
-
 import httpx
 
 from app.config import get_settings
+from app.utils.logconfig import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AddressClient:

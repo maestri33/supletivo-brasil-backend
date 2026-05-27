@@ -18,18 +18,13 @@ from app.exceptions import IntegrationError, ValidationError
 from app.integrations.notify import NotifyClient, NotifyError
 from app.integrations.otp import OTPClient
 from app.integrations.profiles import ProfilesClient, ProfilesError
+from app.schemas.auth import CheckRequest
 from app.utils.validation import validate_cpf, validate_phone
 
 router = APIRouter(prefix="/check", tags=["check"])
 
 OTP_RATELIMIT_SECONDS = 30
 OTP_KEY_PREFIX = "otp:ratelimit:"
-
-
-class CheckRequest(BaseModel):
-    cpf: str | None = None
-    phone: str | None = None
-    external_id: str | None = None
 
 
 @router.post("", summary="Verifica CPF, phone ou external_id e dispara OTP se encontrado")

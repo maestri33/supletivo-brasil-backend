@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     )
 
     # Banco — Postgres central com schema student. Obrigatorio (sem default).
-    database_url: str = Field(validation_alias="STUDENT_APP_DB_URL")
+    database_url: str
     database_schema: str = "student"
 
     # Identidade do servico

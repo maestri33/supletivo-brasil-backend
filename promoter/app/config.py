@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # Banco — Postgres central com schema proprio `promoter`.
     # Sem default: credencial de banco nunca fica hardcoded (CONVENTION Fase 1).
-    database_url: str = Field(validation_alias="PROMOTER_APP_DB_URL")
+    database_url: str
     database_schema: str = "promoter"
 
     # URLs internas dos demais servicos (HTTP). Defaults apontam para os nomes

@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     port: int = 8015
     host: str = "0.0.0.0"
+    database_url: str = "postgresql+asyncpg://v7m:v7m@postgres:5432/v7m"
+    database_schema: str = "coordinator"
 
 
 @lru_cache

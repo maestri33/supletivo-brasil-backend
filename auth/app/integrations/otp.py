@@ -1,14 +1,11 @@
-"""Client HTTP para o OTP Service (otp.local)."""
-
 from __future__ import annotations
-
-import logging
 
 import niquests
 
 from app.config import get_settings
+from app.utils.logconfig import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class OTPClient:

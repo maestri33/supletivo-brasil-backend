@@ -17,6 +17,19 @@ from app.db import async_session_maker, close_db
 from app.exceptions import DomainError
 from app.services import metrics_service, template_service
 from app.utils.logging import configure_logging, get_logger
+from app.metrics import setup_metrics
+
+
+def _cors_origins() -> list[str]:
+    """CORS origins: dev/staging permite *, prod exige CORS_ORIGINS (COD-18 P0.2)."""
+    env = os.getenv("ENV", os.getenv("ENVIRONMENT", "development"))
+    if env in ("development", "dev", "staging"):
+        return ["*"]
+    raw = os.getenv("CORS_ORIGINS", "")
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return []
+
 
 settings = get_settings()
 configure_logging(settings.log_level, json_mode=settings.env != "dev")
@@ -45,10 +58,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_origins = _cors_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_origins,
+    allow_credentials=bool(_origins and _origins != ["*"]),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -101,6 +115,8 @@ async def status() -> dict:
 
 
 app.include_router(api_router, prefix="/api/v1")
+setup_metrics(app)
+
 
 os.makedirs("media", exist_ok=True)
 app.mount("/media", StaticFiles(directory="media"), name="media")

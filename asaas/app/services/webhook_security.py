@@ -19,10 +19,12 @@ import hmac
 import ipaddress
 import os
 
-from fastapi import Header, HTTPException, Request
+from fastapi import Depends, Header, HTTPException, Request
 
 from .. import config_store as cfg
+from ..db import get_session
 from ..utils.logging import log_event
+from ..utils.net import client_ip
 
 _HEADER = "asaas-signature"
 
@@ -81,7 +83,7 @@ def _verify_signature(body: bytes, secret: str, signature: str) -> bool:
 
 async def verify_hmac(
     request: Request,
-    db,
+    db = Depends(get_session),
     asaas_signature: str | None = Header(default=None, alias=_HEADER),
 ) -> None:
     """FastAPI dependency: valida HMAC-SHA256 do body contra o webhook secret.
@@ -95,6 +97,10 @@ async def verify_hmac(
     if not secret:
         # Sem secret = webhook mode not configured. Allow through so the
         # existing asaas_access_token check still applies (defense in depth).
+        env = os.getenv("ENV", os.getenv("ENVIRONMENT", "development"))
+        if env not in ("development", "dev", "staging"):
+            log_event("webhook_hmac_disabled", env=env, service="asaas",
+                      severity="WARNING")
         return
 
     body = await request.body()
@@ -114,7 +120,25 @@ async def verify_ip_allowlist(request: Request) -> None:
         # Explicitly disabled — allow all (dev/testing).
         return
 
-    ip = request.client.host if request.client else None
+    ip = client_ip(request)
     if not _ip_allowed(ip):
         log_event("webhook_ip_rejected", ip=ip)
         raise HTTPException(status_code=403, detail="ip_not_allowed")
+
+
+# ── Health check helper ────────────────────────────────────────────────────
+
+
+async def webhook_hmac_configured(db) -> bool:
+    """True se o webhook HMAC secret esta configurado para Asaas.
+
+    Retorna False quando o secret nao esta configurado e NAO estamos em dev/staging
+    — ou seja, webhook esta aceitando chamadas sem validar assinatura em producao.
+
+    Em dev/staging, retorna True mesmo sem secret (aceitavel em desenvolvimento).
+    """
+    env = os.getenv("ENV", os.getenv("ENVIRONMENT", "development"))
+    if env in ("development", "dev", "staging"):
+        return True
+    secret = await _get_webhook_secret(db)
+    return bool(secret)

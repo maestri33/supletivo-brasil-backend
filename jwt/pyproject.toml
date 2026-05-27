@@ -11,12 +11,13 @@ readme = "README.md"
 
 dependencies = [
     "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
-    "pyjwt[crypto]>=2.8",
-    "cryptography>=41",
+    "uvicorn[standard]>=0.34.0",
+    "prometheus-client>=0.20",
+    "sqlalchemy[asyncio]>=2.0",
     "pydantic>=2.8",
     "pydantic-settings>=2.5",
     "structlog>=24.4",
+    "alembic>=1.13",
 ]
 
 [dependency-groups]

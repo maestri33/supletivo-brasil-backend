@@ -10,8 +10,9 @@
 | Artefato | Estado | Notas |
 |---|---|---|
 | CONVENTION.md | ✓ completo | 202 linhas, §1–§15, checklist de revisão |
-| RUNBOOK.md | ✓ esqueleto | 289 linhas, 8 seções (§1 inventário, §2 subir/derrubar, §3 backup/restore, §4 rotacão segredos, §5 escalar, §6 on-call, §7 checklist deploy, §8 links) |
-| PULL_REQUEST_TEMPLATE.md | ✓ completo | 68 linhas, checklist §10 + §15, 22 serviços + infra |
+| RUNBOOK.md | ✓ Sprint 2 | ~320 linhas, 8 seções com dados reais do docker-compose.dev.yml |
+| PULL_REQUEST_TEMPLATE.md | ✓ completo | 68 linhas, checklist §15, 22 serviços + infra |
+| <app>/.env.example | 23 total | ✅ 20 ativos + 2 Parte B + 1 raiz (COD-14) |
 | wiki/<app>.md | 22/22 | ✅ Completo |
 | <app>/.claude/CLAUDE.md | 22/22 | ✅ Completo (commissions e coordinator com stub Parte B) |
 | <app>/README.md | 22/22 | ✅ Completo (commissions e coordinator com stub Parte B) |

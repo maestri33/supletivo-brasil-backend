@@ -13,9 +13,12 @@ from app.api.router import api_router
 from app.config import Environment, get_settings
 from app.exceptions import DomainError
 from app.utils import logging as logs_tool
+from app.utils.logconfig import configure_logging
+from app.metrics import setup_metrics
 
 settings = get_settings()
 
+configure_logging()
 fastapi_structured_logging.setup_logging(
     json_logs=(settings.ENVIRONMENT != Environment.DEVELOPMENT),
     log_level="DEBUG" if settings.ENVIRONMENT == Environment.DEVELOPMENT else "INFO",
@@ -58,6 +61,8 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+setup_metrics(app)
+
 
 # ── Structured access logging ───────────────────────────────
 

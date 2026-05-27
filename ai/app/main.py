@@ -10,6 +10,8 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.router import router
 from app.utils.media import MEDIA_ROOT
+from app.metrics import setup_metrics
+from app.utils.logging import configure_logging
 
 
 @asynccontextmanager
@@ -20,6 +22,8 @@ async def lifespan(app: FastAPI):
     yield
 
 
+configure_logging()
+
 app = FastAPI(
     title="ai",
     version="1.0.0",
@@ -27,4 +31,6 @@ app = FastAPI(
 )
 
 app.include_router(router)
+setup_metrics(app)
+
 app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")

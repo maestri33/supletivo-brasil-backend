@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 import dns.resolver
 
 from app.utils.logging import get_logger
+from app.utils.pii import mask_email as _mask_email
 
 log = get_logger(__name__)
 
@@ -105,10 +106,10 @@ async def validate_email(email: str, *, smtp_check: bool = False) -> EmailValida
         result.smtp_valid = valid
         result.smtp_detail = detail
         result.is_valid = valid
-        log.info("email.smtp_checked", email=email, valid=valid, detail=detail)
+        log.info("email.smtp_checked", email=_mask_email(email), valid=valid, detail=detail)
     else:
         # MX basta para considerar valido
         result.is_valid = has_mx
-        log.info("email.validated", email=email, domain=domain, has_mx=has_mx)
+        log.info("email.validated", email=_mask_email(email), domain=domain, has_mx=has_mx)
 
     return result

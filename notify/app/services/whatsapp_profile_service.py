@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.whatsapp import WhatsAppClient
 from app.models.contact import Contact
+from app.utils.logging import get_logger
+from app.utils.pii import mask_phone as _mask_phone
 from app.schemas.whatsapp import WhatsAppProfile
 from app.utils.logging import get_logger
 
@@ -59,7 +61,7 @@ async def _fetch_profile(phone: str, external_id: UUID) -> WhatsAppProfile:
                     if profile.description:
                         profile.description = biz.get("description") or profile.description
                 except Exception as exc:
-                    log.warning("business_profile_failed", phone=phone, error=str(exc))
+                    log.warning("business_profile_failed", phone=_mask_phone(phone), error=str(exc))
 
             log.info(
                 "whatsapp.profile_fetched",
@@ -68,7 +70,7 @@ async def _fetch_profile(phone: str, external_id: UUID) -> WhatsAppProfile:
             )
 
         except Exception as exc:
-            log.error("profile_fetch_failed", phone=phone, error=str(exc))
+            log.error("profile_fetch_failed", phone=_mask_phone(phone), error=str(exc))
             profile.error = str(exc)
 
     return profile

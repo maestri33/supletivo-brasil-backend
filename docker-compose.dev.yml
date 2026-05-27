@@ -51,7 +51,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: address
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,7 +68,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: ai
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -83,7 +83,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: asaas
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,7 +98,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: auth
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -113,7 +113,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: candidate
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -128,7 +128,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: commissions
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -143,7 +143,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: coordinator
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -158,7 +158,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: documents
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -173,7 +173,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: enrollment
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -205,7 +205,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: hub
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -220,7 +220,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: infinitepay
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -235,7 +235,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: jwt
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -250,7 +250,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: lead
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -265,7 +265,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: notify
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -280,7 +280,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: otp
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -295,7 +295,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: profiles
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -310,7 +310,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: promoter
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -325,7 +325,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: roles
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -340,7 +340,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: staff
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -355,7 +355,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: student
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -370,7 +370,7 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
       DATABASE_SCHEMA: training
-      REDIS_URL: redis://redis:***@postgres:5432/supletivo
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
@@ -401,7 +401,8 @@ services:
   loki:
     image: grafana/loki:3.0.0
     ports:
-      - "3100:3100"
+      - "3101:3100"
+      - "9097:9096"
     volumes:
       - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki_data:/loki
@@ -435,8 +436,48 @@ services:
       timeout: 5s
       retries: 5
 
+  # -- Secret manager (Infisical, §7 Q3) --
+
+  infisical-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: infisical
+      POSTGRES_USER: infisical
+      POSTGRES_PASSWORD: infisical_dev
+    volumes:
+      - infisical_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infisical -d infisical"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles: ["infisical"]
+
+  infisical:
+    image: infisical/infisical:latest
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      DB_CONNECTION_URI: "postgresql://infisical:***@infisical-db:5432/infisical"
+      AUTH_SECRET: "72d2111d72d33b57a5c48e430c65a0aa55d26edaa990a15d805d4eb0d8406181"
+      ENCRYPTION_KEY: "516c259954b28524af8e961159556d57dee53136c64cfdf85a3845fc511bbf49"
+      SITE_URL: "http://localhost:8080"
+      TELEMETRY_ENABLED: "false"
+    depends_on:
+      infisical-db:
+        condition: service_healthy
+    profiles: ["infisical"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:8080/api/status", "-O", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
 volumes:
   pgdata:
   prometheus_data:
   loki_data:
   grafana_data:
+  infisical_pgdata:

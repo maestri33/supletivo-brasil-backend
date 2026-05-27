@@ -1,100 +1,87 @@
-# hub
+# Hub Service — Wiki
 
-## Função
+> Fonte de verdade operacional do servico `hub`. Atualizado sempre que o servico
+> muda. §15 da CONVENTION.md.
 
-Gerencia os **polos (hubs)** — unidades físicas da operação educacional. Cada polo tem um nome, marca (ex.: Estácio, Wyden), endereço e coordenador. O hub é a entidade raiz que conecta promotores, alunos e coordenadores a uma localidade física.
+## O que faz
 
----
+Gerencia **polos (hubs)** — unidades fisicas da operacao educacional. Cada polo
+tem nome, marca (estacio/wyden), endereco e coordenador. Entidade raiz que conecta
+promotores, alunos e coordenadores a uma localidade.
 
-## Status
+## Como rodar
 
-**Em desenvolvimento (Milestone 1).** Spine funcional com health/ready/status. Model `Hub` implementado. Endpoints de CRUD e regras de negócio pendentes.
-
----
-
-## Estrutura
-
-```
-hub/
-├── app/
-│   ├── main.py          # FastAPI, lifespan, middlewares, health/ready/status
-│   ├── config.py         # Settings (pydantic-settings)
-│   ├── db.py             # engine async, Base, metadata com schema hub
-│   ├── exceptions.py     # DomainError
-│   ├── seed.py           # seed de dados iniciais
-│   └── models/
-│       ├── __init__.py   # reexport Hub
-│       └── hub.py        # model Hub
-├── alembic/
-├── tests/
-├── pyproject.toml
-└── Makefile
+```bash
+cd hub
+uv sync
+cp .env.example .env  # edite DATABASE_URL e JWT_BASE_URL
+uv run alembic upgrade head
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
----
+## Healthcheck
 
-## Modelo de dados
-
-### Tabela `hub.hub`
-
-| Coluna | Tipo | Constraints | Descrição |
-|---|---|---|---|
-| `id` | UUID | PK, default uuid4 | ID do polo |
-| `name` | String(120) | NOT NULL | Nome do polo |
-| `brand` | String(40) | NOT NULL, indexed | Marca (estacio, wyden) |
-| `address_external_id` | UUID | nullable, indexed | FK lógica para address |
-| `coordinator_external_id` | UUID | nullable, indexed | FK lógica para coordinator |
-| `created_at` | timestamptz | server_default now() | Criação |
-| `updated_at` | timestamptz | server_default now(), onupdate | Última atualização |
-
-**Marcas conhecidas:** `estacio`, `wyden` (validação no schema Pydantic, futuro).
-
----
+- `GET /health` — liveness (retorna `{"status":"ok"}`)
+- `GET /ready` — readiness (verifica conexao com banco)
+- `GET /status` — versao + uptime
 
 ## Endpoints
 
-### Health/Status (disponíveis)
+### Desmilitarizados (uso interno, sem auth)
 
-| Método | Rota | Descrição |
+| Metodo | Rota | Descricao |
 |--------|------|-----------|
-| GET | `/health` | Healthcheck simples |
-| GET | `/ready` | Readiness (testa conexão com DB) |
-| GET | `/status` | Versão, ambiente, uptime |
+| GET | `/api/v1/hubs` | Lista todos os polos (ordem alfabetica) |
+| GET | `/api/v1/hubs/{id}` | Busca polo por external_id |
 
-### Planejados (próximos milestones)
+### Autenticados (requer JWT com role admin/staff)
 
-| Método | Rota | Tipo | Descrição |
-|--------|------|------|-----------|
-| POST | `/api/v1/demilitarized/hubs` | Desmilitarizado | Criar polo (staff) |
-| GET | `/api/v1/demilitarized/hubs` | Desmilitarizado | Listar polos |
-| GET | `/api/v1/demilitarized/hubs/{id}` | Desmilitarizado | Detalhe do polo |
-| PATCH | `/api/v1/demilitarized/hubs/{id}` | Desmilitarizado | Atualizar polo |
-| DELETE | `/api/v1/demilitarized/hubs/{id}` | Desmilitarizado | Remover polo |
+| Metodo | Rota | Descricao |
+|--------|------|-----------|
+| POST | `/api/v1/hubs` | Cria polo |
+| PATCH | `/api/v1/hubs/{id}` | Edita polo |
+| PUT | `/api/v1/hubs/{id}/coordinator` | Define coordenador |
 
----
+## Modelo
 
-## Notas técnicas
+Tabela `hub.hub`:
 
-- **Sem FK cross-schema:** `address_external_id` e `coordinator_external_id` são UUID puro, nullable. Não usa shadow table — hub é registro fino.
-- **Schema:** `hub` (próprio, conforme CONVENTION §4).
-- **Engine:** async (`create_async_engine` + `asyncpg`).
-- **Naming convention:** padrão do projeto (copiado de `address/app/db.py`).
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | UUID PK | Identificador do polo |
+| name | varchar(120) | Nome do polo |
+| brand | varchar(40) | Marca (estacio, wyden) |
+| address_external_id | UUID nullable | Referencia logica ao address |
+| coordinator_external_id | UUID nullable | Referencia logica ao coordinator |
+| created_at | timestamptz | Criacao |
+| updated_at | timestamptz | Ultima atualizacao |
 
----
+## Marcas validas
 
-## Dependências
+`estacio`, `wyden`. Validadas no schema Pydantic. Para adicionar nova marca,
+altere `VALID_BRANDS` em `app/schemas/hub.py`.
 
-- **address** — endereço do polo (referência por external_id)
-- **coordinator** — coordenador do polo (referência por external_id, ainda não criado)
-- **staff** — quem cadastra e gerencia polos
+## Migracoes
 
----
+```bash
+uv run alembic revision --autogenerate -m "descricao"
+uv run alembic upgrade head
+```
 
-## Variáveis de ambiente
+## Testes
 
-| Variável | Descrição | Exemplo |
-|---|---|---|
-| `DATABASE_URL` | URL de conexão Postgres | `postgresql+asyncpg://...` |
-| `DATABASE_SCHEMA` | Schema do serviço | `hub` |
-| `ENV` | Ambiente | `dev` / `staging` / `prod` |
-| `LOG_LEVEL` | Nível de log | `INFO` |
+```bash
+# Requer Postgres de teste (testcontainers ou TEST_DATABASE_URL)
+uv run pytest -q
+```
+
+## Dependencias de outros servicos
+
+- `staff` chama os endpoints autenticados para criar/editar polos e definir coordenador
+- `candidate`, `promoter`, `student` leem polos via GET desmilitarizado
+
+## Nao faz
+
+- Nao gerencia enderecos (dominio do `address`)
+- Nao gerencia coordenadores (dominio do `coordinator`)
+- Nao tem endpoints publicos externos — uso interno apenas

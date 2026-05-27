@@ -2,12 +2,17 @@
 
 from fastapi import APIRouter, Query, Request
 
+from app.schemas.log import LogQuery, LogEntry
 from app.utils import logging as logs_tool
 
 router = APIRouter(prefix="/log", tags=["log"])
 
 
-@router.get("", summary="Consultar logs de chamadas (API + clients externos)")
+@router.get(
+    "",
+    summary="Consultar logs de chamadas (API + clients externos)",
+    response_model=list[LogEntry],
+)
 async def query_logs(
     request: Request,
     direction: str | None = Query(default=None, description="in | out"),

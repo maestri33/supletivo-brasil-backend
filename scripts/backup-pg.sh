@@ -13,19 +13,25 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H-%M-%SZ")
 DEFAULT_DB_URL="postgresql://supletivo:supletivo_dev@localhost:5432/supletivo"
 DB_URL="${DATABASE_URL:-$DEFAULT_DB_URL}"
 
-parse_url() {
+PARSE_URL() {
     local url="$1"
     local rest="${url#*://}"
     local user_pass="${rest%%@*}"
     local host_db="${rest#*@}"
-    local host_port="${host_db%%/*}"
+    local host_part="${host_db%%/*}"
     local dbname="${host_db#*/}"
-    PGUSER="${user_pass%%:*}"
-    PGPASSWORD="${user_pass#*:}"
-    PGHOST="${host_port%%:*}"
-    PGPORT="${host_port#*:}"
-    [ "$PGPORT" = "$PGHOST" ] && PGPORT="5432"
-    export PGUSER PGPASSWORD PGHOST PGPORT
+    local user="${user_pass%%:*}"
+    local pass="${user_pass#*:}"
+    [ "$user" = "$pass" ] && pass=""
+    [ -z "$host_part" ] && host_part="localhost:5432"
+    local host="${host_part%%:*}"
+    local port="${host_part#*:}"
+    [ "$port" = "$host" ] && port="5432"
+    PGHOST="$host"
+    PGPORT="$port"
+    PGUSER="$user"
+    PGPASSWORD="$pass"
+    export PGHOST PGPORT PGUSER PGPASSWORD
     echo "$dbname"
 }
 
@@ -40,7 +46,7 @@ while getopts "s:h" opt; do
     esac
 done
 
-DBNAME=$(parse_url "$DB_URL")
+DBNAME=$(PARSE_URL "$DB_URL")
 mkdir -p "$BACKUP_DIR"
 BACKUP_FILE="$BACKUP_DIR/backup-${TIMESTAMP}.sql.gz"
 

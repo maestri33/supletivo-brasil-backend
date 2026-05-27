@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     port: int = 8014
     host: str = "0.0.0.0"
 
+    database_url: str = "postgresql+asyncpg://v7m:v7m@postgres:5432/v7m"
+    database_schema: str = "commissions"
+
 
 @lru_cache
 def get_settings() -> Settings:

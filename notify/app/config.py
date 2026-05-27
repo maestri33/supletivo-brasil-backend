@@ -58,12 +58,6 @@ class Settings(BaseSettings):
     whatsapp_max_retries: int = 3
     whatsapp_retry_backoff_base_s: float = 1.0
 
-    # DeepSeek AI (geracao de titulos, edicao de templates, mensagens)
-    deepseek_api_key: str = ""
-    deepseek_base_url: str = "https://api.deepseek.com"
-    deepseek_default_model: str = "deepseek-v4-pro"
-    deepseek_default_temperature: float = 0.3
-
     # ElevenLabs TTS (text-to-speech)
     elevenlabs_api_key: str = ""
     elevenlabs_voice_id: str = "JBFqnCBsd6RMkjVDRZzb"

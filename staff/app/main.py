@@ -17,6 +17,8 @@ from app.api import authenticated_router
 from app.config import get_settings
 from app.db import async_session_maker, engine
 from app.exceptions import DomainError
+from app.metrics import setup_metrics
+from app.utils.logging import configure_logging
 
 settings = get_settings()
 _started_at = time.time()
@@ -35,6 +37,8 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
     logger.info("staff_stopped")
 
+
+configure_logging()
 
 app = FastAPI(
     title=settings.SERVICE_NAME,
@@ -69,6 +73,8 @@ app.add_middleware(fsl.AccessLogMiddleware, config=access_config)
 
 # ── Routers ────────────────────────────────────────────────────
 app.include_router(authenticated_router, prefix="/api/v1")
+setup_metrics(app)
+
 
 
 # ── Health endpoints ───────────────────────────────────────────

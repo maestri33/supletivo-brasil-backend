@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     # URL publica deste servico
     public_base_url: str = "https://ai.m33.live"
 
+    # Database
+    database_url: str = "postgresql+asyncpg://v7m:v7m@postgres:5432/v7m"
+    database_schema: str = "ai"
+
 
 @lru_cache
 def get_settings() -> Settings:

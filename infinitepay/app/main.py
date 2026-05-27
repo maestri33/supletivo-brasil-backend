@@ -4,6 +4,7 @@ Roda em: uvicorn app.main:app --host 0.0.0.0 --port 8000
 """
 
 import asyncio
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -18,6 +19,7 @@ from app.db import close_db
 from app.exceptions import DomainError
 from app.utils.logging import configure_logging, log_event
 from app.workers import outbound_queue
+from app.metrics import setup_metrics
 
 
 @asynccontextmanager
@@ -39,6 +41,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 pass
         log_event("service.shutdown")
         await close_db()
+
+
+def _cors_origins() -> list[str]:
+    """CORS origins: dev/staging permite *, prod exige CORS_ORIGINS (COD-18 P0.2)."""
+    env = os.getenv("ENV", os.getenv("ENVIRONMENT", "development"))
+    if env in ("development", "dev", "staging"):
+        return ["*"]
+    raw = os.getenv("CORS_ORIGINS", "")
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return []
 
 
 def create_app() -> FastAPI:
@@ -67,10 +80,11 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    _origins = _cors_origins()
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=_origins,
+        allow_credentials=bool(_origins and _origins != ["*"]),
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -81,6 +95,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router, tags=["health"])
     app.include_router(api_router)
+    setup_metrics(app)
     return app
 
 

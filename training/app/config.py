@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # Banco — Postgres central com schema proprio `training`.
     # Sem default: credencial de banco nunca fica hardcoded (CONVENTION Fase 1).
-    database_url: str = Field(validation_alias="TRAINING_APP_DB_URL")
+    database_url: str
     database_schema: str = "training"
 
     # Midia das materias (video/foto) armazenada no proprio training.

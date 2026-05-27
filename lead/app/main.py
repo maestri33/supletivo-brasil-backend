@@ -17,6 +17,8 @@ from app.api.demilitarized.webhooks import router as webhooks_router
 from app.api.demilitarized.leads import router as leads_crud_router
 from app.api.demilitarized.checkouts import router as checkouts_crud_router
 from app.api.health import router as health_router
+from app.metrics import setup_metrics
+from app.utils.logging import configure_logging
 from app.api.authenticated import (
     captured_router,
     waiting_router,
@@ -37,6 +39,8 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
     logger.info("service.shutdown", service=settings.SERVICE_NAME)
 
+
+configure_logging()
 
 app = FastAPI(
     title=settings.SERVICE_NAME,
@@ -68,6 +72,8 @@ app.include_router(waiting_router)
 app.include_router(checkout_router)
 app.include_router(completed_router)
 app.include_router(health_router)
+setup_metrics(app)
+
 
 
 # ── Media estatico (QR Codes PIX + imagens) ─────────────────────────────────

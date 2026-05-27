@@ -1,17 +1,28 @@
-from tortoise.models import Model
-from tortoise import fields
+"""Model CarteiraTrabalho — work permit."""
+
+from uuid import uuid4
+
+from sqlalchemy import String, Date
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db import Base
+from app.models._mixins import TimestampMixin
+
+UUIDStr = PG_UUID(as_uuid=False).with_variant(String(36), "sqlite")
 
 
-class CarteiraTrabalho(Model):
-    id = fields.IntField(pk=True)
-    numero = fields.CharField(max_length=30, null=True)
-    serie = fields.CharField(max_length=20, null=True)
-    uf = fields.CharField(max_length=2, null=True)
-    data_emissao = fields.DateField(null=True)
-    foto_frente = fields.CharField(max_length=500, null=True)
-    foto_verso = fields.CharField(max_length=500, null=True)
-    created_at = fields.DatetimeField(auto_now_add=True)
-    updated_at = fields.DatetimeField(auto_now=True)
+class CarteiraTrabalho(Base, TimestampMixin):
+    __tablename__ = "carteiras_trabalho"
 
-    class Meta:
-        table = "carteiras_trabalho"
+    id: Mapped[str] = mapped_column(
+        UUIDStr,
+        primary_key=True,
+        default=lambda: str(uuid4()),
+    )
+    numero: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    serie: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    uf: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    data_emissao: Mapped[str | None] = mapped_column(Date, nullable=True)
+    foto_frente: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    foto_verso: Mapped[str | None] = mapped_column(String(500), nullable=True)

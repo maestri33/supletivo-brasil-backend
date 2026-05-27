@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.db import close_db
 from app.exceptions import DomainError
 from app.utils.logging import configure_logging, get_logger
+from app.metrics import setup_metrics
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -45,3 +46,5 @@ async def _handle_domain_error(request: Request, exc: DomainError) -> JSONRespon
 
 
 app.include_router(api_router)
+setup_metrics(app)
+
