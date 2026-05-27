@@ -30,14 +30,18 @@ async def _get_jwks() -> dict:
     global _jwks_cache, _jwks_cached_at
     if _jwks_cache is not None and time.monotonic() - _jwks_cached_at < 300:
         return _jwks_cache  # type: ignore[return-value]
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            f"{settings.JWT_SERVICE_URL}/.well-known/jwks.json", timeout=5
-        )
-        resp.raise_for_status()
-        _jwks_cache = resp.json()
-        _jwks_cached_at = time.monotonic()
-        return _jwks_cache  # type: ignore[return-value]
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{settings.JWT_SERVICE_URL}/.well-known/jwks.json", timeout=5
+            )
+            resp.raise_for_status()
+            _jwks_cache = resp.json()
+            _jwks_cached_at = time.monotonic()
+            return _jwks_cache  # type: ignore[return-value]
+    except Exception as exc:
+        logger.error("jwks_fetch_failed", error=type(exc).__name__)
+        raise HTTPException(502, "Falha ao carregar chaves JWKS") from exc
 
 
 async def get_current_user(
