@@ -17,7 +17,7 @@ from app.config import Environment, get_settings
 from app.exceptions import DomainError
 from app.metrics import setup_metrics
 from app.utils import logging as logs_tool
-from app.utils.logconfig import configure_logging
+from app.utils.logging import configure_logging
 
 settings = get_settings()
 
@@ -111,6 +111,9 @@ SENSITIVE_FIELDS = {
     "token",
     "code",
     "key",
+    "cpf",
+    "phone",
+    "email",
 }
 
 

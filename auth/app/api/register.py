@@ -16,7 +16,7 @@ from app.integrations.profiles import ProfilesClient
 from app.integrations.roles import RolesClient
 from app.models.user import User
 from app.schemas.auth import RegisterRequest
-from app.utils.logconfig import get_logger
+from app.utils.logging import get_logger
 from app.utils.validation import validate_cpf, validate_phone
 
 logger = get_logger(__name__)
@@ -135,35 +135,38 @@ async def _provision(external_id: str, role: str, cpf: str, phone: str) -> None:
     Documentos e Endereco sao criados vazios (get-or-create) conforme o
     `auth/TODO`. Email nao e provisionado aqui — sua unicidade fica a cargo dos
     servicos a jusante quando o email for coletado.
+
+    Exception messages are NOT logged directly — they may contain PII (CPF,
+    phone) echoed by downstream services. Only the error type is logged.
     """
     try:
         async with RolesClient() as roles:
             await roles.assign(external_id, role)
     except Exception as exc:
-        logger.warning(f"[provision] roles falhou para {external_id}: {exc}")
+        logger.warning("[provision] roles falhou", external_id=external_id, error=type(exc).__name__)
 
     try:
         async with ProfilesClient() as profiles:
             await profiles.create(external_id, cpf)
     except Exception as exc:
-        logger.warning(f"[provision] profile falhou para {external_id}: {exc}")
+        logger.warning("[provision] profile falhou", external_id=external_id, error=type(exc).__name__)
 
     try:
         async with NotifyClient() as notify:
             await notify.create_contact(external_id, phone=phone)
     except Exception as exc:
-        logger.warning(f"[provision] contato falhou para {external_id}: {exc}")
+        logger.warning("[provision] contato falhou", external_id=external_id, error=type(exc).__name__)
 
     try:
         async with DocumentsClient() as documents:
             await documents.ensure(external_id)
     except Exception as exc:
-        logger.warning(f"[provision] documentos falhou para {external_id}: {exc}")
+        logger.warning("[provision] documentos falhou", external_id=external_id, error=type(exc).__name__)
 
     try:
         async with AddressClient() as address:
             await address.ensure(external_id)
     except Exception as exc:
-        logger.warning(f"[provision] endereco falhou para {external_id}: {exc}")
+        logger.warning("[provision] endereco falhou", external_id=external_id, error=type(exc).__name__)
 
     await dispatch_otp(external_id)

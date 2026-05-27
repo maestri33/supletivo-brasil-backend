@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from . import APIModel
 
@@ -19,6 +19,8 @@ class PaymentBatchResponse(APIModel):
         pix_transaction_id: Identificador da transação PIX associada, se houver.
         created_at: Data/hora de criação do registro.
     """
+
+    model_config = ConfigDict(from_attributes=True)
 
     id: int = Field(description="Identificador único do lote de pagamento.")
     week_of: str = Field(

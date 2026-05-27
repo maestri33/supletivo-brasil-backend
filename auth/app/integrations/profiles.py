@@ -5,9 +5,22 @@ from __future__ import annotations
 import niquests
 
 from app.config import get_settings
-from app.utils.logconfig import get_logger
+from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _sanitize_log_body(body: dict | None, sensitive: set[str]) -> dict | None:
+    """Remove sensitive fields from log output."""
+    if not isinstance(body, dict):
+        return body
+    return {k: ("***" if k in sensitive else v) for k, v in body.items()}
+
+
+def _redact_cpf_from_url(url: str) -> str:
+    """Replace CPF (11 digits) in URL paths with '***'."""
+    import re
+    return re.sub(r"/cpf/\d{11}", "/cpf/***", url)
 
 
 class ProfilesClient:
@@ -66,7 +79,9 @@ class ProfilesClient:
         params: dict | None = None,
     ) -> niquests.Response:
         url = f"{self._base}{path}"
-        logger.debug(f"[profiles] {method} {url}" + (f" body={json}" if json else ""))
+        safe_url = _redact_cpf_from_url(url)
+        safe = _sanitize_log_body(json, {"cpf"})
+        logger.debug(f"[profiles] {method} {safe_url}" + (f" body={safe}" if safe else ""))
         resp = await self._session.request(
             method,
             url,

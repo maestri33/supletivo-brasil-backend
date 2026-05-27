@@ -5,9 +5,16 @@ from __future__ import annotations
 import niquests
 
 from app.config import get_settings
-from app.utils.logconfig import get_logger
+from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _sanitize_log_body(body: dict | None, sensitive: set[str]) -> dict | None:
+    """Remove sensitive fields from log output."""
+    if not isinstance(body, dict):
+        return body
+    return {k: ("***" if k in sensitive else v) for k, v in body.items()}
 
 
 class RolesClient:
@@ -65,7 +72,8 @@ class RolesClient:
         params: dict | None = None,
     ) -> niquests.Response:
         url = f"{self._base}{path}"
-        logger.debug(f"[roles] {method} {url}" + (f" body={json}" if json else ""))
+        safe = _sanitize_log_body(json, set())
+        logger.debug(f"[roles] {method} {url}" + (f" body={safe}" if safe else ""))
         resp = await self._session.request(
             method,
             url,

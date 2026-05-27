@@ -1,8 +1,9 @@
 """Schemas de comissões para o serviço Commissions."""
 
 from datetime import datetime
+from uuid import UUID
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from . import APIModel
 
@@ -49,13 +50,15 @@ class CommissionResponse(APIModel):
         updated_at: Data/hora da última atualização.
     """
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int = Field(description="Identificador único da comissão.")
-    recipient_external_id: str = Field(
+    recipient_external_id: str | UUID = Field(
         description="Identificador externo do receptor."
     )
     recipient_role: str = Field(description="Função do receptor.")
     source_type: str = Field(description="Tipo de entidade de origem.")
-    source_external_id: str = Field(
+    source_external_id: str | UUID = Field(
         description="Identificador externo da entidade de origem."
     )
     amount_cents: int = Field(
