@@ -36,9 +36,7 @@ from sqlalchemy.pool import NullPool
 # Override DATABASE_URL antes de importar app.db: o .env pode conter URL
 # SQLite invalida (sqlite://data/app.db), e db.py tenta criar engine Postgres
 # no momento do import.  O engine real de teste e' criado no fixture `engine`.
-os.environ.setdefault(
-    "DATABASE_URL", "postgresql+asyncpg://skip:skip@localhost:5432/skip"
-)
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://skip:skip@localhost:5432/skip")
 
 from app.db import Base, get_session
 from app.main import app

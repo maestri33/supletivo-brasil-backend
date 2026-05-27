@@ -1,7 +1,7 @@
 """Entrypoint FastAPI — hub (polo).
 
-Milestone 1: só a spine (saúde + handler de erro). Rotas de negócio
-(read desmilitarizado, write autenticado) entram nos próximos milestones.
+M2: health + read desmilitarizado.
+M3: write autenticado (staff only).
 """
 
 import time
@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
-from app.api.hubs import router as hubs_router
+from app.api.hubs import authenticated, public
 from app.config import get_settings
 from app.db import async_session_maker, engine
 from app.exceptions import DomainError
@@ -49,7 +49,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(hubs_router)
+# Routers: public (desmilitarizado) + authenticated (staff JWT)
+app.include_router(public)
+app.include_router(authenticated)
 
 
 @app.exception_handler(DomainError)
@@ -60,7 +62,7 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
     )
 
 
-# ── Structured access logging (healthcheck só loga se falhar) ──
+# ── Structured access logging (healthcheck so loga se falhar) ──
 access_config = fsl.AccessLogConfig(
     log_level="info",
     exclude_paths_if_ok_or_missing={"/health", "/ready", "/status"},

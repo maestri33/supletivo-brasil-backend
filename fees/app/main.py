@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from app.api.authenticated import fees_router
 from app.api.demilitarized import webhooks_router
+from app.api.health import router as health_router
 from app.config import get_settings
 from app.db import async_session_maker, engine
 from app.exceptions import DomainError
@@ -36,6 +37,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 app.include_router(fees_router)
 app.include_router(webhooks_router)
+app.include_router(health_router)
 
 
 @app.exception_handler(DomainError)

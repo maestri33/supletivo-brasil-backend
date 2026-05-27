@@ -1,5 +1,5 @@
 """API de hubs (polos)."""
 
-from app.api.hubs import router as hubs_router
+from app.api.hubs import authenticated, public
 
-__all__ = ["hubs_router"]
+__all__ = ["public", "authenticated"]

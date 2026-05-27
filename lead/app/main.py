@@ -16,6 +16,7 @@ from app.api.public.auth import router as auth_router
 from app.api.demilitarized.webhooks import router as webhooks_router
 from app.api.demilitarized.leads import router as leads_crud_router
 from app.api.demilitarized.checkouts import router as checkouts_crud_router
+from app.api.health import router as health_router
 from app.api.authenticated import (
     captured_router,
     waiting_router,
@@ -66,6 +67,7 @@ app.include_router(captured_router)
 app.include_router(waiting_router)
 app.include_router(checkout_router)
 app.include_router(completed_router)
+app.include_router(health_router)
 
 
 # ── Media estatico (QR Codes PIX + imagens) ─────────────────────────────────
@@ -98,10 +100,10 @@ async def ready():
 
 @app.get("/status")
 async def status():
-    return {
-        "status": "ok",
-        "service": settings.SERVICE_NAME,
-        "version": settings.APP_VERSION,
-        "environment": settings.ENVIRONMENT,
-        "uptime_seconds": int((datetime.now(timezone.utc) - _started_at).total_seconds()),
-    }
+    return {"status": "ok", "service": settings.SERVICE_NAME}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host=settings.HOST, port=settings.PORT)

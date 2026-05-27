@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api.authenticated.me import router as me_router
 from app.api.demilitarized.promoters import router as promoters_router
+from app.api.health import router as health_router
 from app.api.public.auth import router as auth_router
 
 api_router = APIRouter()
@@ -16,3 +17,4 @@ api_router.include_router(me_router)
 
 # Desmilitarizadas (uso interno)
 api_router.include_router(promoters_router)
+api_router.include_router(health_router)

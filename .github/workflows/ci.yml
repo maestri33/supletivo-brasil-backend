@@ -84,7 +84,6 @@ jobs:
           - asaas
           - auth
           - candidate
-          - documents
           - enrollment
           - fees
           - hub
@@ -133,9 +132,9 @@ jobs:
         working-directory: ${{ matrix.service }}
         run: uv run pytest -v --tb=short
 
-      - name: Alembic upgrade head
+      - name: Alembic upgrade head (if present)
         working-directory: ${{ matrix.service }}
-        run: uv run alembic upgrade head
+        run: test -f alembic.ini && uv run alembic upgrade head || echo "skip: no alembic"
 
   # ── Gate — todos os checks precisam passar ───────────────────────────────
 

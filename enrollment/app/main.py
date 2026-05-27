@@ -11,6 +11,7 @@ from sqlalchemy import text
 
 from app.api.enrollments import router as enrollments_router
 from app.api.webhooks import router as webhooks_router
+from app.api.health import router as health_router
 from app.config import get_settings
 from app.db import async_session_maker, engine
 from app.exceptions import DomainError
@@ -48,6 +49,7 @@ app.add_middleware(
 
 app.include_router(webhooks_router)
 app.include_router(enrollments_router)
+app.include_router(health_router)
 
 
 @app.exception_handler(DomainError)

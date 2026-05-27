@@ -16,12 +16,12 @@
 | asaas | 80 | asaas | ativo (F5 concluída) | ✅ | ✅ |
 | auth | 80 | auth | ativo | ✅ | ✅ |
 | candidate | 80 | candidate | ativo | ✅ | ✅ |
-| commissions | — | commissions | **não criado** (Parte B) | ❌ | ✅ |
-| coordinator | — | coordinator | **não criado** (Parte B) | ❌ | ✅ |
+| commissions | — | commissions | **não criado** (Parte B) | ✅ | ✅ |
+| coordinator | — | coordinator | **não criado** (Parte B) | ✅ | ✅ |
 | documents | 80 | documents | ativo | ✅ | ✅ |
 | enrollment | 80 | enrollment | ativo | ✅ | ✅ |
 | fees | 80 | fees | ativo | ✅ | ✅ |
-| hub | — | hub | **não criado** (Parte B) | ❌ | ✅ |
+| hub | 80 | hub | ativo | ✅ | ✅ |
 | infinitepay | 80 | infinitepay | ativo (F5 concluída) | ✅ | ✅ |
 | jwt | — | jwt | ativo | ✅ | ✅ |
 | lead | 80 | lead | ativo (modelo de referência) | ✅ | ✅ |
@@ -30,11 +30,11 @@
 | profiles | 80 | profiles | ativo | ✅ | ✅ |
 | promoter | 80 | promoter | ativo | ✅ | ✅ |
 | roles | 80 | roles | ativo | ✅ | ✅ |
-| staff | — | staff | **não criado** (Parte B) | ❌ | ❌ |
-| student | — | student | **não criado** (Parte B) | ❌ | ❌ |
+| staff | — | staff | spine (Milestone 1) | ✅ | ✅ |
+| student | 80 | student | ativo (Milestone 1) | ✅ | ✅ |
 | training | 80 | training | ativo | ✅ | ✅ |
 
-**CLAUDE.md:** 17/22 (faltam 5 — todos Parte B) | **wiki.md:** 20/22 (faltam staff, student)
+**CLAUDE.md:** 22/22 ✅ | **wiki.md:** 22/22 ✅
 
 **Infraestrutura compartilhada:**
 - Postgres central (todas as services usam schemas distintos no mesmo DB)

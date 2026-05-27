@@ -17,6 +17,7 @@ K_ASAAS_API_KEY = "asaas_api_key"
 K_ASAAS_SECURITY_TOKEN = "asaas_security_token"  # token do mecanismo de seguranca
 K_ASAAS_WALLET_ID = "asaas_wallet_id"
 K_ASAAS_ACCOUNT_NAME = "asaas_account_name"
+K_ASAAS_WEBHOOK_SECRET = "asaas_webhook_secret"  # HMAC secret para validar webhooks
 
 # Notificacoes internas — 3 destinos separados por categoria de evento.
 # Compatibilidade: K_INTERNAL_URL (legado) e fallback quando o destino especifico
@@ -65,6 +66,11 @@ async def delete(db: AsyncSession, key: str) -> None:
         await db.flush()
 
 
+async def get_webhook_secret(db: AsyncSession) -> str | None:
+    """Retorna o webhook secret (HMAC) do config store, se configurado."""
+    return await get(db, K_ASAAS_WEBHOOK_SECRET)
+
+
 # ── Bootstrap via env ────────────────────────────────────────────────────────
 # Mapeia env var (Settings field) -> chave do asaas.config. Mantemos o nome
 # da chave do DB intacto (`asaas_api_key`, etc) — a env var apenas hidrata
@@ -78,6 +84,7 @@ _ENV_BOOTSTRAP = (
     ("asaas_internal_url_charge", K_INTERNAL_URL_CHARGE),
     ("asaas_internal_url_payout", K_INTERNAL_URL_PAYOUT),
     ("asaas_internal_url_scheduling", K_INTERNAL_URL_SCHEDULING),
+    ("asaas_webhook_secret", K_ASAAS_WEBHOOK_SECRET),
 )
 
 
@@ -124,6 +131,7 @@ async def all_status(db: AsyncSession) -> dict:
         "internal_url_charge": await get(db, K_INTERNAL_URL_CHARGE),
         "asaas_api_key": mask(await get(db, K_ASAAS_API_KEY)),
         "asaas_security_token": mask(await get(db, K_ASAAS_SECURITY_TOKEN)),
+        "asaas_webhook_secret": mask(await get(db, K_ASAAS_WEBHOOK_SECRET)),
         "asaas_wallet_id": await get(db, K_ASAAS_WALLET_ID),
         "asaas_account_name": await get(db, K_ASAAS_ACCOUNT_NAME),
     }

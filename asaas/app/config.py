@@ -46,6 +46,9 @@ class Settings(BaseSettings):
         default=None, validation_alias="ASAAS_INTERNAL_URL_SCHEDULING"
     )
 
+    # Webhook HMAC secret — mesma chave configurada no painel Asaas
+    asaas_webhook_secret: str | None = Field(default=None, validation_alias="ASAAS_WEBHOOK_SECRET")
+
     # Nonce TTL for external URL verification
     url_verify_nonce_ttl: int = 600
 

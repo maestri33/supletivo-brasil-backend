@@ -12,9 +12,9 @@
 | CONVENTION.md | ✓ completo | 202 linhas, §1–§15, checklist de revisão |
 | RUNBOOK.md | ✓ esqueleto | 289 linhas, 8 seções (§1 inventário, §2 subir/derrubar, §3 backup/restore, §4 rotacão segredos, §5 escalar, §6 on-call, §7 checklist deploy, §8 links) |
 | PULL_REQUEST_TEMPLATE.md | ✓ completo | 68 linhas, checklist §10 + §15, 22 serviços + infra |
-| wiki/<app>.md | 20/22 | Faltam: staff, student |
-| <app>/.claude/CLAUDE.md | 17/22 | 5 faltam (todos Parte B não criados) |
-| <app>/README.md | 17/22 | 5 faltam (todos Parte B) |
+| wiki/<app>.md | 22/22 | ✅ Completo |
+| <app>/.claude/CLAUDE.md | 22/22 | ✅ Completo (commissions e coordinator com stub Parte B) |
+| <app>/README.md | 22/22 | ✅ Completo (commissions e coordinator com stub Parte B) |
 
 ---
 
@@ -27,12 +27,12 @@
 | asaas | ativo (F5) | A | ✓ | ✓ | ✓ |
 | auth | ativo | A | ✓ | ✓ | ✓ |
 | candidate | ativo | A | ✓ | ✓ | ✓ |
-| commissions | não criado | B | ✗ | ✗ | ✓ |
-| coordinator | não criado | B | ✗ | ✗ | ✓ |
+| commissions | não criado | B | ✓ | ✓ | ✓ |
+| coordinator | não criado | B | ✓ | ✓ | ✓ |
 | documents | ativo | A | ✓ | ✓ | ✓ |
 | enrollment | ativo | A | ✓ | ✓ | ✓ |
 | fees | ativo | A | ✓ | ✓ | ✓ |
-| hub | não criado | B | ✗ | ✗ | ✓ |
+| hub | ativo | A | ✓ | ✓ | ✓ |
 | infinitepay | ativo (F5) | A | ✓ | ✓ | ✓ |
 | jwt | ativo | A | ✓ | ✓ | ✓ |
 | lead | ativo (ref.) | A | ✓ | ✓ | ✓ |
@@ -41,37 +41,35 @@
 | profiles | ativo | A | ✓ | ✓ | ✓ |
 | promoter | ativo | A | ✓ | ✓ | ✓ |
 | roles | ativo | A | ✓ | ✓ | ✓ |
-| staff | não criado | B | ✗ | ✗ | ✗ |
-| student | não criado | B | ✗ | ✗ | ✗ |
+| staff | ativo (spine) | A | ✓ | ✓ | ✓ |
+| student | ativo (M1) | A | ✓ | ✓ | ✓ |
 | training | ativo | A | ✓ | ✓ | ✓ |
 
 ### Gaps priorizados
 
 **P0 — Ativos sem CLAUDE.md (bloqueia trabalho dos agentes):**
-- Nenhum. Todos os 17 serviços ativos têm CLAUDE.md. ✓
+- Nenhum. Todos os 20 serviços com código têm CLAUDE.md. ✓
 
 **P1 — Wiki ausente para serviço ativo:**
-- Nenhum. Todos os 17 serviços ativos têm wiki/<app>.md. ✓
+- Nenhum. Todos os 22 serviços têm wiki/<app>.md. ✓
 
 **P2 — README.md ausente (não bloqueia, mas útil para devs humanos):**
-- Nenhum. Todos os 17 serviços ativos têm README.md. ✓
+- Nenhum. Todos os 22 serviços têm README.md. ✓
 
 **Parte B**
-- commissions, coordinator, hub, staff, student — criar CLAUDE.md + wiki.md + README.md junto com o código
+- commissions, coordinator — criar CLAUDE.md + wiki.md + README.md + código
 
 ---
 
 ## 3. wiki/<app>.md — Cobertura
 
-20/22 serviços têm wiki. Faltam:
-- **staff.md** — Parte B, criar quando o serviço nascer
-- **student.md** — Parte B, criar quando o serviço nascer
+**22/22 completos.** ✅ Todos os serviços têm wiki.
 
 ---
 
 ## 4. README.md — Cobertura
 
-17/22 serviços têm README.md. Faltam 5 (todos Parte B): commissions, coordinator, hub, staff, student.
+20/22 serviços têm README.md. Faltam 2: commissions, coordinator (ambos sem código ainda).
 
 Template padrão esperado (CONVENTION.md §3):
 ```markdown

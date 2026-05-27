@@ -19,6 +19,7 @@ from pathlib import Path
 _TMP_DB = Path(tempfile.mkdtemp(prefix="asaas-tests-")) / "test.db"
 os.environ["ASAAS_APP_DB_URL"] = f"sqlite+aiosqlite:///{_TMP_DB}"
 os.environ["DATABASE_SCHEMA"] = ""
+os.environ["ASAAS_WEBHOOK_ALLOWED_CIDRS"] = ""  # desabilita IP allow-list em teste
 
 from unittest.mock import AsyncMock  # noqa: E402
 

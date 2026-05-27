@@ -20,6 +20,8 @@ dependencies = [
     "pydantic-settings>=2.5",
     "structlog>=24.4",
     "fastapi-structured-logging>=1.0",
+    "httpx>=0.27",
+    "pyjwt[crypto]>=2.10",
 ]
 
 [dependency-groups]

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.authenticated import students_router
+from app.api.health import router as health_router
 from app.config import get_settings
 from app.db import close_db
 from app.exceptions import DomainError
@@ -48,6 +49,7 @@ async def domain_error_handler(request: Request, exc: DomainError) -> JSONRespon
 
 
 app.include_router(students_router)
+app.include_router(health_router)
 
 
 @app.get("/health")
