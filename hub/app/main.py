@@ -24,9 +24,6 @@ from app.utils.logging import configure_logging
 def _cors_origins() -> list[str]:
     """CORS origins: dev/staging permite *, prod exige CORS_ORIGINS (COD-18 P0.2)."""
     import os as _os
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
     env = _os.getenv("ENV", _os.getenv("ENVIRONMENT", "development"))
     if env in ("development", "dev", "staging"):
         return ["*"]
@@ -35,6 +32,10 @@ from slowapi.util import get_remote_address
         return [o.strip() for o in raw.split(",") if o.strip()]
     return []
 
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 settings = get_settings()
 _started_at = time.time()

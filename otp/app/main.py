@@ -22,14 +22,14 @@ from app.services.cleanup import cleanup_loop
 from app.services.queue import queue_loop
 from app.utils.logging import configure_logging, get_logger
 from app.metrics import setup_metrics
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 
 def _cors_origins() -> list[str]:
     """CORS origins: dev/staging permite *, prod exige CORS_ORIGINS (COD-18 P0.2)."""
     import os as _os
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
     env = _os.getenv("ENV", _os.getenv("ENVIRONMENT", "development"))
     if env in ("development", "dev", "staging"):
         return ["*"]
