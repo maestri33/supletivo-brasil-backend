@@ -1,0 +1,822 @@
+# Instincts generated from https://github.com/maestri33/supletivo-brasil-backend
+# Generated: 2026-05-27T11:12:48.728Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: supletivo-brasil-backend-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat, docs, fix, chore, refactor
+
+## Evidence
+
+- 47 commits analyzed
+- Detected conventional commit pattern
+- Examples: fix(asaas,infinitepay): desempate por id em order_by (paginacao + FIFO estaveis), docs(infinitepay): README enxuto + .claude/ (CLAUDE.md + memory)
+
+---
+id: supletivo-brasil-backend-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Commit Length
+
+## Action
+
+Write moderate-length commit messages (~68 characters)
+
+## Evidence
+
+- Average commit message length: 68 chars
+- Based on 47 commits
+
+---
+id: supletivo-brasil-backend-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: supletivo-brasil-backend-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: supletivo-brasil-backend-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: supletivo-brasil-backend-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.ts
+
+## Evidence
+
+- File pattern: *.test.ts
+- Consistent across test files
+
+---
+id: supletivo-brasil-backend-test-types
+trigger: "when planning tests for a feature"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Test Types
+
+## Action
+
+Write unit, integration tests to match project standards
+
+## Evidence
+
+- Test types detected: unit, integration
+- Coverage config: yes
+
+---
+id: supletivo-brasil-backend-workflow-database-migration
+trigger: "when modifying the database schema or adding tables"
+confidence: 0.7
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Workflow Database Migration
+
+## Action
+
+Follow the database-migration workflow:
+1. Create migration file
+2. Update schema definitions
+3. Generate/update types
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~4x per month
+- Files: **/schema.*
+
+---
+id: supletivo-brasil-backend-workflow-feature-development
+trigger: "when implementing a new feature"
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Workflow Feature Development
+
+## Action
+
+Follow the feature-development workflow:
+1. Add feature implementation
+2. Add tests for feature
+3. Update documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~16x per month
+- Files: **/*.test.*, **/api/**
+
+---
+id: supletivo-brasil-backend-workflow-test-driven-development
+trigger: "when adding new functionality"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Workflow Test Driven Development
+
+## Action
+
+Follow the test-driven-development workflow:
+1. Write failing test
+2. Implement code to pass test
+3. Refactor if needed
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: **/*.test.*, **/*.spec.*, src/**/*
+
+---
+id: supletivo-brasil-backend-workflow-refactoring
+trigger: "when refactoring code"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Workflow Refactoring
+
+## Action
+
+Follow the refactoring workflow:
+1. Ensure tests pass before refactor
+2. Refactor code structure
+3. Verify tests still pass
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: src/**/*
+
+---
+id: supletivo-brasil-backend-workflow-add-new-database-table
+trigger: "when doing add new database table"
+confidence: 0.7
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Workflow Add New Database Table
+
+## Action
+
+Follow the add-new-database-table workflow:
+1. Create or update model file (e.g., app/models/*.py)
+2. Create or update schema file (e.g., app/schemas/*.py)
+3. Create Alembic migration script (e.g., alembic/versions/*.py)
+4. Update service or API logic to use the new model/schema
+5. Update or add tests for the new model/resource
+6. Update documentation (wiki or service README)
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~4x per month
+- Files: */app/models/*.py, */app/schemas/*.py, */alembic/versions/*.py
+
+---
+id: supletivo-brasil-backend-workflow-add-api-endpoint
+trigger: "when doing add api endpoint"
+confidence: 0.8
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Workflow Add Api Endpoint
+
+## Action
+
+Follow the add-api-endpoint workflow:
+1. Create or update route file (e.g., app/api/*.py or app/api/<group>/*.py)
+2. Add or update schema for request/response (e.g., app/schemas/*.py)
+3. Register the route in the router or main API index
+4. Implement or update service logic if needed
+5. Add or update tests for the endpoint
+6. Update documentation (wiki or service README)
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~6x per month
+- Files: */app/api/**/*.py, */app/schemas/*.py, */app/services/*.py
+
+---
+id: supletivo-brasil-backend-workflow-service-scaffold-or-migration
+trigger: "when doing service scaffold or migration"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Workflow Service Scaffold Or Migration
+
+## Action
+
+Follow the service-scaffold-or-migration workflow:
+1. Create baseline directory structure (app/, tests/, alembic/, etc.)
+2. Add initial models, schemas, API routes, and config files
+3. Add initial Alembic migration(s)
+4. Add .env.example, README, and Makefile/Dockerfile
+5. Add or update test suite
+6. Add service documentation to wiki
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: */app/**, */alembic/**, */tests/**
+
+---
+id: supletivo-brasil-backend-workflow-add-or-update-health-and-env
+trigger: "when doing add or update health and env"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Workflow Add Or Update Health And Env
+
+## Action
+
+Follow the add-or-update-health-and-env workflow:
+1. Add or update app/api/health.py (or similar) in each service
+2. Add or update .env.example in each service
+3. Update docker-compose files to reference health endpoints
+4. Update wiki or RUNBOOK documentation
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: */app/api/health.py, */.env.example, docker-compose*.yml
+
+---
+id: supletivo-brasil-backend-workflow-add-or-update-observability-stack
+trigger: "when doing add or update observability stack"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Workflow Add Or Update Observability Stack
+
+## Action
+
+Follow the add-or-update-observability-stack workflow:
+1. Add or update logging config (e.g., structlog) in each service
+2. Add or update metrics endpoints and instrumentation
+3. Add or update Prometheus/Loki/Grafana config files
+4. Update docker-compose to include observability services
+5. Update RUNBOOK or wiki with observability docs
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: */app/utils/logging.py, */app/metrics.py, prometheus/*.yml
+
+---
+id: supletivo-brasil-backend-workflow-security-hardening-and-audit
+trigger: "when doing security hardening and audit"
+confidence: 0.6
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Workflow Security Hardening And Audit
+
+## Action
+
+Follow the security-hardening-and-audit workflow:
+1. Add or update PII masking utilities and apply to logging
+2. Add or update RBAC checks and role guard logic
+3. Add or update rate limiting (slowapi) configuration
+4. Add or update webhook/IP/HMAC security logic
+5. Document audit results and security policies in wiki
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~2x per month
+- Files: */app/utils/pii.py, */app/api/auth_guard.py, */app/main.py
+
+---
+id: supletivo-brasil-backend-workflow-test-suite-expansion-or-fix
+trigger: "when doing test suite expansion or fix"
+confidence: 0.65
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Workflow Test Suite Expansion Or Fix
+
+## Action
+
+Follow the test-suite-expansion-or-fix workflow:
+1. Add or update test files for new or existing features
+2. Fix flaky or broken tests
+3. Update coverage configs in pyproject.toml
+4. Update QA or coverage stats in wiki
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~3x per month
+- Files: */tests/*.py, */pyproject.toml, wiki/QA.md
+
+---
+id: supletivo-brasil-backend-workflow-documentation-and-wiki-update
+trigger: "when doing documentation and wiki update"
+confidence: 0.7
+domain: workflow
+source: repo-analysis
+source_repo: https://github.com/maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Workflow Documentation And Wiki Update
+
+## Action
+
+Follow the documentation-and-wiki-update workflow:
+1. Update or create service README.md
+2. Update or create wiki pages (architecture, conventions, runbook, etc.)
+3. Add or update .claude/ memory docs
+4. Document new processes, conventions, or audit results
+
+## Evidence
+
+- Workflow detected from commit patterns
+- Frequency: ~4x per month
+- Files: */README.md, wiki/*.md, */.claude/**
+
+---
+id: supletivo-brasil-backend-instinct-file-naming-camelCase
+trigger: "When creating a new Python file in the codebase."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct File Naming CamelCase
+
+## Action
+
+Name the file using camelCase (e.g., myFile.py).
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.files = camelCase
+
+---
+id: supletivo-brasil-backend-instinct-function-naming-camelCase
+trigger: "When defining a new function."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Function Naming CamelCase
+
+## Action
+
+Name the function using camelCase (e.g., myFunction).
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.functions = camelCase
+
+---
+id: supletivo-brasil-backend-instinct-class-naming-pascalCase
+trigger: "When defining a new class."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Class Naming PascalCase
+
+## Action
+
+Name the class using PascalCase (e.g., MyClass).
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.classes = PascalCase
+
+---
+id: supletivo-brasil-backend-instinct-constant-naming-screaming-snake
+trigger: "When defining a constant."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Constant Naming Screaming Snake
+
+## Action
+
+Name the constant using SCREAMING_SNAKE_CASE (e.g., MY_CONSTANT).
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.constants = SCREAMING_SNAKE_CASE
+
+---
+id: supletivo-brasil-backend-instinct-imports-relative
+trigger: "When importing modules within a package."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Imports Relative
+
+## Action
+
+Use relative imports.
+
+## Evidence
+
+- Pattern in codeStyle.importStyle = relative
+
+---
+id: supletivo-brasil-backend-instinct-exports-named
+trigger: "When exporting functions or classes from a module."
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Exports Named
+
+## Action
+
+Use named exports.
+
+## Evidence
+
+- Pattern in codeStyle.exportStyle = named
+
+---
+id: supletivo-brasil-backend-instinct-test-file-pattern
+trigger: "When creating a new test file."
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Test File Pattern
+
+## Action
+
+Name the test file using the pattern *.test.ts.
+
+## Evidence
+
+- Pattern in testing.filePattern = *.test.ts
+
+---
+id: supletivo-brasil-backend-instinct-test-types
+trigger: "When writing tests."
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Test Types
+
+## Action
+
+Include both unit and integration tests as appropriate.
+
+## Evidence
+
+- Pattern in testing.testTypes = [unit, integration]
+
+---
+id: supletivo-brasil-backend-instinct-test-coverage-config
+trigger: "When adding new tests or test files."
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Test Coverage Config
+
+## Action
+
+Ensure coverage configuration is updated (e.g., pyproject.toml).
+
+## Evidence
+
+- Pattern in testing.coverageConfig = true
+- Workflow: test-suite-expansion-or-fix
+
+---
+id: supletivo-brasil-backend-instinct-git-commit-conventional
+trigger: "When making a git commit."
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Git Commit Conventional
+
+## Action
+
+Use Conventional Commits format with prefixes: feat, fix, docs, chore, refactor.
+
+## Evidence
+
+- Pattern in commits.prefixes
+- Examples in commits.examples
+
+---
+id: supletivo-brasil-backend-instinct-git-commit-length
+trigger: "When writing a commit message."
+confidence: 0.7
+domain: git
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Git Commit Length
+
+## Action
+
+Keep commit messages concise, around 68 characters on average.
+
+## Evidence
+
+- Pattern in commits.averageLength = 68
+
+---
+id: supletivo-brasil-backend-instinct-add-new-database-table
+trigger: "When introducing a new entity or resource in a service's database."
+confidence: 0.95
+domain: workflow
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Add New Database Table
+
+## Action
+
+Follow the workflow: model → schema → migration → service logic → tests → docs.
+
+## Evidence
+
+- Workflow: add-new-database-table
+- Example commit sequences and files
+
+---
+id: supletivo-brasil-backend-instinct-add-api-endpoint
+trigger: "When exposing a new REST endpoint."
+confidence: 0.93
+domain: workflow
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Add Api Endpoint
+
+## Action
+
+Follow the workflow: route → schema → register route → service logic → tests → docs.
+
+## Evidence
+
+- Workflow: add-api-endpoint
+- Example commit sequences and files
+
+---
+id: supletivo-brasil-backend-instinct-service-scaffold-or-migration
+trigger: "When starting a new microservice or migrating to a new stack."
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Service Scaffold Or Migration
+
+## Action
+
+Scaffold baseline directories and files, add initial models, schemas, API, migrations, config, tests, and docs.
+
+## Evidence
+
+- Workflow: service-scaffold-or-migration
+- Example commit sequences and files
+
+---
+id: supletivo-brasil-backend-instinct-add-or-update-health-and-env
+trigger: "When ensuring all services have health checks and documented environment variables."
+confidence: 0.88
+domain: workflow
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Add Or Update Health And Env
+
+## Action
+
+Add/update health.py and .env.example, update docker-compose and documentation.
+
+## Evidence
+
+- Workflow: add-or-update-health-and-env
+- Example commit sequences and files
+
+---
+id: supletivo-brasil-backend-instinct-add-or-update-observability-stack
+trigger: "When improving or standardizing logging, metrics, and monitoring infrastructure."
+confidence: 0.85
+domain: workflow
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Add Or Update Observability Stack
+
+## Action
+
+Add/update logging config, metrics endpoints, observability configs, docker-compose, and docs.
+
+## Evidence
+
+- Workflow: add-or-update-observability-stack
+- Example commit sequences and files
+
+---
+id: supletivo-brasil-backend-instinct-security-hardening-and-audit
+trigger: "When addressing security audit findings or proactively hardening services."
+confidence: 0.87
+domain: workflow
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Security Hardening And Audit
+
+## Action
+
+Add/update PII masking, RBAC, rate limiting, webhook security, and document audits.
+
+## Evidence
+
+- Workflow: security-hardening-and-audit
+- Example commit sequences and files
+
+---
+id: supletivo-brasil-backend-instinct-test-suite-expansion-or-fix
+trigger: "When increasing test coverage, fixing flaky tests, or adding new integration tests."
+confidence: 0.9
+domain: workflow
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Test Suite Expansion Or Fix
+
+## Action
+
+Add/fix tests, update coverage config, and QA documentation.
+
+## Evidence
+
+- Workflow: test-suite-expansion-or-fix
+- Example commit sequences and files
+
+---
+id: supletivo-brasil-backend-instinct-documentation-and-wiki-update
+trigger: "When code, infra, or process changes require updated documentation."
+confidence: 0.92
+domain: workflow
+source: repo-analysis
+source_repo: maestri33/supletivo-brasil-backend
+---
+
+# Supletivo Brasil Backend Instinct Documentation And Wiki Update
+
+## Action
+
+Update README, wiki pages, .claude/ memory docs, and document new processes.
+
+## Evidence
+
+- Workflow: documentation-and-wiki-update
+- Example commit sequences and files
+
