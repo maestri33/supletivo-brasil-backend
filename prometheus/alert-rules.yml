@@ -32,6 +32,32 @@ groups:
           summary: "{{ $labels.job }} is FLAPPING"
           description: "{{ $labels.job }} changed state {{ $value }} times in the last 5 minutes."
 
+      # ── Prolonged down (10+ min) ──
+      # Escalation: if still down after 10 minutes, page
+      - alert: ServiceProlongedDown
+        expr: up == 0
+        for: 10m
+        labels:
+          severity: critical
+          escalation: true
+        annotations:
+          summary: "{{ $labels.job }} DOWN for 10+ minutes"
+          description: "{{ $labels.job }} has been unreachable for over 10 minutes. Requires immediate intervention."
+
+  - name: supletivo_resource
+    interval: 1m
+    rules:
+
+      # ── Absent metric (no data) ──
+      - alert: ServiceAbsent
+        expr: absent(up{job=~".+"})
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Metric data missing"
+          description: "No up metric data received for any service in 5 minutes. Possible Prometheus config issue."
+
   - name: supletivo_errors
     interval: 1m
     rules:

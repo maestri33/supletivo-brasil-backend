@@ -183,21 +183,57 @@ uv run python -c "import app; print('OK')"
 
 ---
 
-## 9. Incident Response (Sprint 4)
+## 9. Incident Response
 
-### Service Down
-1. Check Grafana: `http://localhost:3000/d/supletivo-health`
-2. Check service logs: `docker compose logs <service>`
-3. Check if DB/Redis is healthy: `docker compose ps postgres redis`
-4. Restart service: `docker compose restart <service>`
+### Alert Triage Flow
+```
+Alert received (Grafana / Prometheus Alertmanager)
+    │
+    ├── ServiceDown (45s) ──────────────→ Check §9.1
+    ├── ServiceFlapping (5min) ──────────→ Check §9.1
+    ├── ServiceProlongedDown (10min) ────→ Check §9.1 + escalate to on-call
+    ├── HighErrorRate (>1%, 5min) ──────→ Check §9.2
+    ├── ServiceAbsent (5min) ───────────→ Check §9.3
+    └── Disk / Backup alert ────────────→ Check §9.4
+```
 
-### High Error Rate (>1%)
+### 9.1 Service Down / Flapping
+
+**Immediate (first 45s):**
+1. Check Grafana health dashboard: `http://localhost:3000/d/supletivo-health`
+2. Check which service(s) are affected
+3. Check service logs: `docker compose logs --tail=50 <service>`
+4. Check if DB/Redis is healthy: `docker compose ps postgres redis`
+
+**If isolated to one service:**
+5. Restart service: `docker compose restart <service>`
+6. Wait 15s, verify `/health` endpoint responds: `curl -s http://localhost:<port>/health`
+7. If still down, check recent deployment: `git log --oneline -5`
+
+**If multiple services are down:**
+5. Check Postgres: `docker compose logs --tail=30 postgres`
+6. Check Redis: `docker compose logs --tail=30 redis`
+7. Verify network: `docker compose ps`
+8. Full restart if needed: `docker compose down && docker compose up -d`
+
+**Escalation (10+ min down — ServiceProlongedDown):**
+- Page on-call engineer
+- Consider rollback of latest deployment
+- If infrastructure issue, check Proxmox VM status
+
+### 9.2 High Error Rate (>1%)
 1. Identify affected service from Grafana Error Rate panel
 2. Check recent logs: `docker compose logs --tail=100 <service>`
 3. Check if a recent deployment caused regression
 4. Rollback if needed: `git revert HEAD && docker compose up -d --build <service>`
 
-### Disk / Backup Alert
+### 9.3 Service Absent (metric data gap)
+1. Check Prometheus target status: `http://localhost:9090/targets`
+2. Verify Prometheus config: `docker compose exec prometheus promtool check config /etc/prometheus/prometheus.yml`
+3. Check if Prometheus container is running: `docker compose ps prometheus`
+4. Restart Prometheus if needed: `docker compose restart prometheus`
+
+### 9.4 Disk / Backup Alert
 1. Check backup dir: `ls -lh backups/`
 2. Verify cron ran: `tail -20 backups/cron.log`
 3. Free space: `df -h`
