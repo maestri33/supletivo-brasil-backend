@@ -285,11 +285,103 @@ jobs:
           echo ""
           echo "=================== COVERAGE GATE PASSED ==================="
 
+  # ── E2E smoke: money path ────────────────────────────────────────────────
+
+  e2e-smoke:
+    name: E2E smoke (money path)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: supletivo
+          POSTGRES_USER: supletivo
+          POSTGRES_PASSWORD: supletivo_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U supletivo -d supletivo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      LEAD_BASE_URL: http://localhost:8000
+      ENROLLMENT_BASE_URL: http://localhost:8003
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_ci@localhost:5432/supletivo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install deps (lead + enrollment)
+        working-directory: ./lead
+        run: uv sync --frozen 2>/dev/null || uv sync
+
+      - name: Run migrations (lead)
+        working-directory: ./lead
+        run: |
+          DATABASE_SCHEMA=lead uv run alembic upgrade head
+
+      - name: Start lead service
+        working-directory: ./lead
+        run: |
+          DATABASE_SCHEMA=lead nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/lead.log 2>&1 &
+          echo "PID=$!"
+          # Wait for readiness
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              echo "lead ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Install deps (enrollment)
+        working-directory: ./enrollment
+        run: uv sync --frozen 2>/dev/null || uv sync
+
+      - name: Run migrations (enrollment)
+        working-directory: ./enrollment
+        run: |
+          DATABASE_SCHEMA=enrollment uv run alembic upgrade head
+
+      - name: Start enrollment service
+        working-directory: ./enrollment
+        run: |
+          DATABASE_SCHEMA=enrollment nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8003 > /tmp/enrollment.log 2>&1 &
+          echo "PID=$!"
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:8003/health > /dev/null 2>&1; then
+              echo "enrollment ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Install E2E test deps
+        run: |
+          uv tool install pytest pytest-asyncio httpx structlog
+
+      - name: Run E2E smoke
+        run: |
+          uvx pytest tests/e2e/money_path -v --tb=short -x 2>&1
+
+      - name: Upload logs on failure
+        if: failure()
+        run: |
+          echo "=== LEAD LOGS ==="
+          tail -50 /tmp/lead.log
+          echo "=== ENROLLMENT LOGS ==="
+          tail -50 /tmp/enrollment.log
+
   # ── Gate — todos os checks precisam passar ───────────────────────────────
 
   ci-gate:
     name: CI Gate
-    needs: [lint, test, coverage-gate]
+    needs: [lint, test, coverage-gate, e2e-smoke]
     if: always()
     runs-on: ubuntu-latest
     steps:

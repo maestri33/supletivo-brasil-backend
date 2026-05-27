@@ -127,7 +127,7 @@ Fluxo: `lead create → checkout → asaas PIX charge → webhook paid → enrol
 - [x] ~~CI pipeline com coverage gate~~ — **concluído Sprint 4** (GitHub Actions + cobertura XML + threshold enforcement)
 - [x] Coverage gate: <60% money path = PR rejected
 - [ ] Regression suite automatizada asaas/infinitepay
-- [ ] E2E smoke: lead → checkout → PIX sandbox asaas → webhook → enrollment
+- [x] E2E smoke: lead → checkout → enrollment — **CI job added** (tests/e2e/money_path/ + GH Actions e2e-smoke job)
 
 ## 5. Test Conventions
 
