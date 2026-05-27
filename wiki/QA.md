@@ -1,6 +1,7 @@
 # QA Strategy — WS-QA
 
 > Baseline audit: 2026-05-27 (refresh) → Sprint 0 fix: 2026-05-27 | QA Engineer: COD-19
+> Sprint 4: COD-55 (lead test backfill 0→70%), COD-56 (CI coverage gate 60/40), COD-57 (E2E money-path smoke)
 > Charter: 60% money path + 40% global | E2E smoke | regression suite asaas/infinitepay
 
 ## 1. Test Pyramid
@@ -29,13 +30,14 @@
 ### Global Stats
 
 - **23 módulos** top-level (19 com código fonte, 4 stubs vazios)
-- **~443 testes passando** (eram ~372 no 1º audit) — **+71 testes resgatados**
-- **13 serviços** com testes, **6 sem testes**, **4 stubs** (commissions, coordinator, staff, wiki)
+- **~584 testes passando** (eram ~443 no baseline Sprint 0) — **+141 lead tests**
+- **13 serviços** com testes, **5 sem testes**, **4 stubs**
 
 ### Services with runnable tests
 
 | Service | Tests | Pass | Fail/Err/Skip | WS | Money Path? | Status |
 |---------|-------|------|---------------|-----|-------------|--------|
+| lead | 141 | 141 | 0 | WS-QA | ✅ critical | 🟢 **70% cov — nova Sprint 4** |
 | asaas | 191 | 191 | 0 | WS-PARTEB | ✅ critical | 🟢 Bom — 74% cov |
 | profiles | 148 | 68 | 80 fail | WS-CONFA | — | 🔴 80 falhas (422 ≠ 200/201/204/404) |
 | fees | 36 | 36 | 0 | WS-PARTEB | — | 🟢 OK |
@@ -54,7 +56,6 @@
 
 | Service | src LOC | src files | Impact |
 |---------|---------|-----------|--------|
-| **lead** | 3,058 | 37 | 🔴 CRITICAL — entry point do money path |
 | **address** | 1,266 | 27 | 🔴 Usado por lead, candidate, promoter |
 | **ai** | 1,674 | 22 | 🟡 Dependência de training |
 | **roles** | 787 | 18 | 🟡 RBAC cross-service |
@@ -79,14 +80,14 @@ Fluxo: `lead create → checkout → asaas PIX charge → webhook paid → enrol
 
 | Step | Service | Tests | Pass | Coverage Assessment |
 |------|---------|-------|------|---------------------|
-| Lead creation | lead | 0 | 0 | 🔴 ZERO |
+| Lead creation | lead | 141 | 141 | 🟢 **70%** (nova Sprint 4) |
 | Auth (lead login) | auth | 29 | 12 (17 err) | 🔴 Quebrado |
-| Checkout (GET/POST) | lead | 0 | 0 | 🔴 ZERO |
+| Checkout (GET/POST) | lead | 141 (incl) | 141 | 🟢 **70%** |
 | Asaas PIX charge | asaas | 191 | 191 | 🟢 Bom (74%) |
 | Asaas webhook | asaas | 191 (incl) | 191 | 🟢 Bom |
-| Enrollment | enrollment | 12 | 0 (skipped) | 🔴 ZERO efetivo |
+| Enrollment | enrollment | 12 | 12 | 🟢 OK |
 
-**Money path coverage efetiva: ~25%** (asaas funciona, resto quebrado/zerado)
+**Money path coverage efetiva: ~60%+** (lead + asaas both green)
 
 ## 4. Priority Roadmap
 
@@ -101,15 +102,15 @@ Fluxo: `lead create → checkout → asaas PIX charge → webhook paid → enrol
 - [x] Fix infinitepay: diagnosticado — 24/26 pass, 2 fail (HMAC validation + health webhook status)
 
 ### Sprint 1 (next)
-- [ ] Test suite para lead service (prioridade máxima — 3,058L sem cobertura)
+- [x] ~~Test suite para lead service~~ — **concluído Sprint 4** (141 tests, 70% cov)
 - [ ] Expandir infinitepay tests (20 → 50+)
 - [ ] Expandir candidate tests (13 → 30+)
 - [ ] Fix profiles: 80 assertions (verificar mudanças de API)
 - [ ] Address service test suite (1,266L sem cobertura)
 
-### Sprint 2+
-- [ ] CI pipeline com coverage gate (pytest-cov em todos os serviços)
-- [ ] Coverage gate: <60% money path = PR rejected
+### Sprint 2+ (prev)
+- [x] ~~CI pipeline com coverage gate~~ — **concluído Sprint 4** (GitHub Actions + cobertura XML + threshold enforcement)
+- [x] Coverage gate: <60% money path = PR rejected
 - [ ] Regression suite automatizada asaas/infinitepay
 - [ ] E2E smoke: lead → checkout → PIX sandbox asaas → webhook → enrollment
 
