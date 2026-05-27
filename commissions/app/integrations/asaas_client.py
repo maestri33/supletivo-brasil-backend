@@ -2,12 +2,21 @@
 
 CONVENTION §12: asaas is the ONLY authorized payout provider.
 This client wraps the internal Asaas service (not the external Asaas API directly).
+
+Endpoints used (internal asaas service, NOT the public Asaas API):
+- POST /api/v1/payout          — execute a PIX payout to a beneficiary
+- GET  /api/v1/payout/{id}     — check payout status
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+import httpx
+
 from app.config import get_settings
+from app.integrations import BaseClient, IntegrationError, request_with_retry
+
+_DEFAULT_TIMEOUT = 30.0
 
 
 @dataclass
@@ -20,17 +29,30 @@ class PayoutResult:
     error: str | None = None
 
 
-class AsaasPayoutClient:
+def _make_default_client() -> httpx.AsyncClient:
+    """Create a default httpx client from settings (internal asaas service)."""
+    settings = get_settings()
+    return httpx.AsyncClient(
+        base_url=settings.asaas_base_url,
+        timeout=_DEFAULT_TIMEOUT,
+    )
+
+
+class AsaasPayoutClient(BaseClient):
     """HTTP client to the internal Asaas service for PIX payouts.
 
     The Asaas service (asaas/) exposes internal endpoints for payout operations.
     This client calls those endpoints, not the external Asaas API directly.
+
+    In dev/test mode, returns mock success without making HTTP calls.
+
+    If no httpx.AsyncClient is provided, one is created from settings
+    (asaas_base_url) for backward compatibility with callers that don't
+    use dependency injection.
     """
 
-    def __init__(self, base_url: str | None = None, api_key: str | None = None) -> None:
-        settings = get_settings()
-        self._base_url = (base_url or settings.asaas_base_url).rstrip("/")
-        self._api_key = api_key or settings.asaas_api_key
+    def __init__(self, client: httpx.AsyncClient | None = None) -> None:
+        super().__init__(client or _make_default_client())
 
     async def request_pix_payout(
         self,
@@ -53,6 +75,7 @@ class AsaasPayoutClient:
         """
         # — In dev/test mode, skip real API call —
         if get_settings().env in ("dev", "test"):
+            self.log.info("payout_mock", pix_key=pix_key, amount_cents=amount_cents)
             return PayoutResult(
                 success=True,
                 asaas_transfer_id="mock_transfer_id",
@@ -60,14 +83,34 @@ class AsaasPayoutClient:
                 error=None,
             )
 
-        # TODO: Real Asaas API call when prod credentials are available
-        # The asaas service at asaas_base_url has a /pay endpoint for payouts.
-        # This will be implemented when asaas production credentials are onboarded.
-        return PayoutResult(
-            success=True,
-            asaas_transfer_id="pending_real_implementation",
-            pix_transaction_id="pending_real_implementation",
-        )
+        # Real call to internal asaas service
+        body = {
+            "pix_key": pix_key,
+            "amount_cents": amount_cents,
+            "description": description,
+        }
+
+        try:
+            resp = await request_with_retry(
+                self.client, "POST", "/api/v1/payout", json=body
+            )
+            data = resp.json()
+            self.log.info(
+                "payout_success",
+                transfer_id=data.get("transfer_id"),
+                pix_tx=data.get("pix_transaction_id"),
+            )
+            return PayoutResult(
+                success=True,
+                asaas_transfer_id=data.get("transfer_id"),
+                pix_transaction_id=data.get("pix_transaction_id"),
+            )
+        except IntegrationError as exc:
+            self.log.error("payout_failed", error=str(exc))
+            return PayoutResult(
+                success=False,
+                error=str(exc),
+            )
 
     async def get_payout_status(self, asaas_transfer_id: str) -> dict:
         """Check the status of a previously submitted payout transfer.
@@ -81,4 +124,19 @@ class AsaasPayoutClient:
         if get_settings().env in ("dev", "test"):
             return {"status": "CONFIRMED", "transfer_id": asaas_transfer_id}
 
-        return {"status": "PENDING", "transfer_id": asaas_transfer_id}
+        try:
+            resp = await request_with_retry(
+                self.client, "GET", f"/api/v1/payout/{asaas_transfer_id}"
+            )
+            return resp.json()
+        except IntegrationError as exc:
+            self.log.error(
+                "payout_status_failed",
+                transfer_id=asaas_transfer_id,
+                error=str(exc),
+            )
+            return {
+                "status": "ERROR",
+                "transfer_id": asaas_transfer_id,
+                "error": str(exc),
+            }

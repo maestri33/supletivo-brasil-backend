@@ -31,9 +31,8 @@ class Settings(BaseSettings):
     processing_cron_hour: int = 18  # sexta-feira as 18h America/Sao_Paulo
     processing_cron_timezone: str = "America/Sao_Paulo"
 
-    # ── Asaas ────────────────────────────────────────────────────
-    asaas_base_url: str = "https://api-sandbox.asaas.com"
-    asaas_api_key: str = ""
+    # ── Asaas (internal service, CONVENTION §12) ─────────────────
+    asaas_base_url: str = "http://asaas:8000"
 
     # ── Webhook ──────────────────────────────────────────────────
     commissions_webhook_token: str = ""
