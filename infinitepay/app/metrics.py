@@ -17,7 +17,14 @@ from __future__ import annotations
 import time
 
 try:
-    from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Gauge, Histogram, generate_latest
+    from prometheus_client import (
+        CONTENT_TYPE_LATEST,
+        CollectorRegistry,
+        Counter,
+        Gauge,
+        Histogram,
+        generate_latest,
+    )
 except ImportError:
     prometheus_client = None  # type: ignore[assignment]
     CONTENT_TYPE_LATEST = "text/plain"
@@ -105,14 +112,18 @@ def setup_metrics(app) -> None:
             elapsed = time.monotonic() - start
             if _http_duration is not None:
                 try:
-                    _http_duration.labels(method=request.method, path=request.url.path).observe(elapsed)
+                    _http_duration.labels(
+                        method=request.method, path=request.url.path
+                    ).observe(elapsed)
                 except Exception:
                     pass
             raise
         elapsed = time.monotonic() - start
         if _http_duration is not None:
             try:
-                _http_duration.labels(method=request.method, path=request.url.path).observe(elapsed)
+                _http_duration.labels(
+                    method=request.method, path=request.url.path
+                ).observe(elapsed)
             except Exception:
                 pass
         return response
