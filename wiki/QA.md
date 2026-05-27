@@ -111,9 +111,13 @@ Fluxo: `lead create → checkout → asaas PIX charge → webhook paid → enrol
 - [x] New `tests/test_integrations.py`: 20 testes para request_with_retry, AuthClient, NotifyClient, ProfilesClient, notify handlers
 - [x] Integrations coverage: `__init__.py` 40%→**100%**, `auth.py` 42%→**100%**, `notify.py` 21%→**100%**, `profiles.py` 45%→**100%**
 - [x] `notify/handlers.py` coverage: 13%→**55%**
+- [x] **COD-56** — CI coverage gate 60/40 implemented in `.github/workflows/ci.yml`:
+   - Coverage job runs `pytest --cov --cov-report=xml` for 20 services
+   - Coverage gate aggregates XML reports and enforces 60% for money-path (lead, asaas, infinitepay, enrollment, candidate, training), 40% for all others
+   - Final `ci-gate` blocks PR if lint, test, or coverage-gate fails
 
 ### Sprint 1 (next)
-- [x] ~~Test suite para lead service~~ — **concluído Sprint 4** (141 tests, 70% cov)
+- [x] ~~Test suite para lead service~~ — **concluído Sprint 4** (161 tests, 76% cov, 3,058 LOC — COD-55)
 - [ ] Expandir infinitepay tests (20 → 50+)
 - [ ] Expandir candidate tests (13 → 30+)
 - [ ] Fix profiles: 80 assertions (verificar mudanças de API)
