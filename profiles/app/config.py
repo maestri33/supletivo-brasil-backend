@@ -20,7 +20,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     port: int = 8000
 
-    database_url: str = "postgresql+asyncpg://v7m:v7m@postgres:5432/v7m"
+    # Obrigatório — vem do .env (sem default; nada de credencial hardcoded).
+    database_url: str
     database_schema: str = "profiles"
 
     cors_origins: str = "*"

@@ -6,7 +6,6 @@ Cobre:
 - Canonicalização: representação interna para dedup/busca
 """
 
-import pytest
 from httpx import AsyncClient
 
 VALID_CPF = "52998224725"

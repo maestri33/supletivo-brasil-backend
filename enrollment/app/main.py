@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app.api.enrollments import router as enrollments_router
 from app.api.webhooks import router as webhooks_router
 from app.config import get_settings
 from app.db import async_session_maker, engine
@@ -39,10 +40,14 @@ app = FastAPI(
 )
 
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(webhooks_router)
+app.include_router(enrollments_router)
 
 
 @app.exception_handler(DomainError)

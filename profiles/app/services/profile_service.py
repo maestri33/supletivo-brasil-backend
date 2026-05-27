@@ -1,8 +1,9 @@
 """Serviço de Profile — CRUD atômico (SQLAlchemy 2)."""
 
+import re
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -202,8 +203,6 @@ async def list_profiles(
             stmt = stmt.where(func.lower(Profile.name).like(func.lower(pattern)))
 
     if cpf:
-        import re
-
         digits = re.sub(r"[^0-9]", "", cpf)
         if digits:
             stmt = stmt.where(Profile.cpf.like(f"{digits}%"))

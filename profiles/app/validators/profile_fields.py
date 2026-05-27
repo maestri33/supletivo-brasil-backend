@@ -30,7 +30,7 @@ def validate_gender(value: str | None) -> str | None:
 # ── Blood type ─────────────────────────────────────────────────────────
 
 _BLOOD_ALIASES = {
-    "a+": "A+", "a positivo": "A+", "a positivo": "A+", "a positivo": "A+",
+    "a+": "A+", "a positivo": "A+",
     "a-": "A-", "a negativo": "A-",
     "b+": "B+", "b positivo": "B+",
     "b-": "B-", "b negativo": "B-",

@@ -150,8 +150,7 @@ Status válidos: `pending`, `sent`, `failed`, `skipped`.
 | Serviço | Client | Descrição |
 |---------|--------|-----------|
 | WhatsApp (Evolution GO v2) | `integrations/whatsapp.py` → `WhatsAppClient` | Envio de texto, áudio, imagem; resolve número BR |
-| Mailcow/SMTP | `integrations/mailcow.py` → `MailcowSMTPClient` | Envio de e-mail via SMTP STARTTLS (porta 587); acesso à API admin Mailcow opcional |
-| SMTP legado | `integrations/smtp.py` | **DEPRECATED** — mail merge API (`http://mail:8000`); marcado para remoção |
+| E-mail | `integrations/smtp.py` → `SMTPClient` | Envio SMTP genérico (STARTTLS, porta 587) + helpers opcionais de API admin Mailcow |
 
 Todas as chamadas HTTP usam `integrations/http_client.py` com retry configurável.
 
@@ -160,8 +159,7 @@ Todas as chamadas HTTP usam `integrations/http_client.py` com retry configuráve
 ## Pendências
 
 ### TODOs no código
-1. **`integrations/smtp.py` linha 10** — `TODO: Remova, integracao descontinuada`. O arquivo e a classe SMTPClient ainda existem; deveriam ser removidos.
-2. **`integrations/mailcow.py` linha 18** — `TODO: mude o nome`, pois o cliente é SMTP genérico com helpers Mailcow, não exclusivo Mailcow. Nome sugerido: `SMTPClient` ou `MailServerClient`. Dados fixos devem ir para ENV.
+- ✅ **Resolvidos (2026-05-24):** removido o `smtp.py` legado (mail merge API); o cliente Mailcow foi renomeado para `SMTPClient` em `integrations/smtp.py` (envio SMTP genérico + helpers admin Mailcow), e os dados de infra (`mailcow_smtp_host`/`mailcow_api_url`) saíram dos defaults do `config.py` para o `.env` (§12).
 
 ### Migração de IA — parcial/não validada
 - `integrations/deepseek.py`, `integrations/elevenlabs.py` e `integrations/gemini.py` foram **removidos** do diretório `integrations/` (não existem mais).
@@ -173,7 +171,6 @@ Todas as chamadas HTTP usam `integrations/http_client.py` com retry configuráve
 ### Desvios da CONVENTION
 - **Aninhamento** (`notify/notify/app`): viola §3 ("Sem aninhamento de nome").
 - **PK inteira** em todas as tabelas: a convenção §4 determina `PK = UUID`. Todas as tabelas usam `Integer` autoincrement.
-- **`smtp.py`** (integration legada ainda presente): violação de §9 (sem código morto).
 - **Env vars órfãs** no `config.py` para providers removidos: violação de §9 (sem ruído).
 - **Sem testes** para `messages/send`, `whatsapp` e `instructions`: cobertura parcial.
 - **`media/`** local com arquivos de áudio/imagem versionados no repositório: violação de §9 (dados locais não devem ser versionados).

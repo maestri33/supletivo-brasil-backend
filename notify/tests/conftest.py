@@ -244,8 +244,6 @@ def _isolate_external_io(monkeypatch):
       em formato 55+DDD+numero sem chamar Evolution API.
     - `validate_email` (DNS+SMTP): retorna formato+MX validos para
       qualquer email que contenha `@` e `.`.
-    - `SMTPClient.configure_smtp` / `send_single_email`: noop, retorna
-      payload faking sucesso.
     - `DeepSeekClient.edit_html_template`: retorna HTML inalterado +
       um marcador (`<!-- edited -->`) para os testes verificarem que
       passou pela IA sem precisar de API key.
@@ -278,30 +276,11 @@ def _isolate_external_io(monkeypatch):
         "app.services.contact_service.validate_email_full", fake_validate_email,
     )
 
-    # SMTPClient (legacy/service mail): no-op p/ caso seja invocado
+    # SMTPClient (envio direto): no-op — testes nao tocam SMTP real
     from app.integrations import smtp as smtp_mod
 
-    async def fake_configure_smtp(self, **_):
-        return {"status": "configured"}
-
-    async def fake_send_single_email(
-        self, *, to_email, subject, sender_name, html_content
-    ):
-        return {
-            "sent": [to_email],
-            "summary": {"sent": 1, "failed": 0, "invalid": 0},
-        }
-
-    monkeypatch.setattr(smtp_mod.SMTPClient, "configure_smtp", fake_configure_smtp)
-    monkeypatch.setattr(
-        smtp_mod.SMTPClient, "send_single_email", fake_send_single_email,
-    )
-
-    # MailcowSMTPClient (direto): no-op — testes nao tocam SMTP real
-    from app.integrations import mailcow as mailcow_mod
-
-    async def fake_mailcow_send_email(
-        self, to_email, subject, html_body, *, plain_body=None, attachments=None,
+    async def fake_smtp_send_email(
+        self, to_email, subject, html_body, *, plain_body=None, attachments=None
     ):
         return {
             "to": to_email,
@@ -310,9 +289,7 @@ def _isolate_external_io(monkeypatch):
             "refused": {},
         }
 
-    monkeypatch.setattr(
-        mailcow_mod.MailcowSMTPClient, "send_email", fake_mailcow_send_email,
-    )
+    monkeypatch.setattr(smtp_mod.SMTPClient, "send_email", fake_smtp_send_email)
 
     # AIClient: noop para nao precisar do servico ai em testes
     from app.integrations import ai as ai_mod

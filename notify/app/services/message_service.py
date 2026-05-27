@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db import async_session_maker
 from app.integrations.ai import AIClient
-from app.integrations.mailcow import MailcowSMTPClient
+from app.integrations.smtp import SMTPClient
 from app.integrations.profiles import ProfilesClient
 from app.integrations.whatsapp import WhatsAppClient
 from app.models.log import Log
@@ -406,7 +406,7 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
             whatsapp_media_url: str | None = None
             email_media_url: str | None = None
             # Bytes da imagem p/ CID inline embed no email (vide MIME
-            # multipart/related em MailcowSMTPClient.send_email).
+            # multipart/related em SMTPClient.send_email).
             inline_email_images: dict[str, tuple[bytes, str]] = {}
 
             if payload.media_url:
@@ -692,7 +692,7 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                 # o service `mail` Docker (que conflitava credenciais via
                 # configure_smtp e mascarava 535 como ReadTimeout).
                 try:
-                    mc = MailcowSMTPClient()
+                    mc = SMTPClient()
                     await mc.send_email(
                         to_email=contact.email,
                         subject=title,
@@ -774,7 +774,7 @@ async def send_test_email(
     smtp_response: dict | None = None
     error: str | None = None
     try:
-        mc = MailcowSMTPClient()
+        mc = SMTPClient()
         smtp_response = await mc.send_email(
             to_email=payload.to_email,
             subject=payload.title,
