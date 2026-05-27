@@ -1,10 +1,10 @@
 """Endpoint de registro — cria usuario e provisiona servicos."""
 
 from __future__ import annotations
+
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks
-from pydantic import BaseModel
 
 from app.api.check import dispatch_otp, lookup_cpf, lookup_phone
 from app.api.deps import DbSession
@@ -16,7 +16,6 @@ from app.integrations.profiles import ProfilesClient
 from app.integrations.roles import RolesClient
 from app.models.user import User
 from app.schemas.auth import RegisterRequest
-from app.schemas.user import UserRead
 from app.utils.logconfig import get_logger
 from app.utils.validation import validate_cpf, validate_phone
 

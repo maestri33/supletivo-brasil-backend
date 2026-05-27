@@ -8,7 +8,6 @@ import niquests
 from fastapi import APIRouter, Depends, Request
 
 from app.api.auth_guard import require_admin
-
 from app.config import get_settings
 
 router = APIRouter(prefix="/atomic", tags=["atomic"])

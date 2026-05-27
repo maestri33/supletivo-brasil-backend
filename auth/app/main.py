@@ -3,31 +3,29 @@
 import time
 from contextlib import asynccontextmanager
 
-import fastapi_structured_logging
 import redis.asyncio as aioredis
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
-from app.api.router import api_router
-from app.config import Environment, get_settings
-from app.exceptions import DomainError
-from app.utils import logging as logs_tool
-from app.utils.logconfig import configure_logging
-from app.metrics import setup_metrics
+from fastapi_structured_logging import AccessLogConfig, AccessLogMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from app.api.router import api_router
+from app.config import Environment, get_settings
+from app.exceptions import DomainError
+from app.metrics import setup_metrics
+from app.utils import logging as logs_tool
+from app.utils.logconfig import configure_logging
+
 settings = get_settings()
 
-configure_logging()
-fastapi_structured_logging.setup_logging(
+# ── Structlog config (CONVENTION §2) ──────────────────────────
+configure_logging(
+    level="DEBUG" if settings.ENVIRONMENT == Environment.DEVELOPMENT else "INFO",
     json_logs=(settings.ENVIRONMENT != Environment.DEVELOPMENT),
-    log_level="DEBUG" if settings.ENVIRONMENT == Environment.DEVELOPMENT else "INFO",
 )
-
-logger = fastapi_structured_logging.get_logger()
 
 
 @asynccontextmanager
@@ -62,6 +60,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 from slowapi.middleware import SlowAPIMiddleware
+
 app.add_middleware(SlowAPIMiddleware)
 
 
@@ -79,14 +78,14 @@ setup_metrics(app)
 
 # ── Structured access logging ───────────────────────────────
 
-access_config = fastapi_structured_logging.AccessLogConfig(
+access_config = AccessLogConfig(
     log_level="info",
     exclude_paths={"/health", "/ready", "/api/v1/log"},
     custom_fields={"app_version": settings.APP_VERSION},
 )
 
 app.add_middleware(
-    fastapi_structured_logging.AccessLogMiddleware,
+    AccessLogMiddleware,
     config=access_config,
 )
 

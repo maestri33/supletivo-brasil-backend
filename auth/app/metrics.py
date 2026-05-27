@@ -4,7 +4,13 @@ from __future__ import annotations
 import time
 
 try:
-    from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Histogram, generate_latest
+    from prometheus_client import (
+        CONTENT_TYPE_LATEST,
+        CollectorRegistry,
+        Counter,
+        Histogram,
+        generate_latest,
+    )
 except ImportError:
     prometheus_client = None  # type: ignore[assignment]
     CONTENT_TYPE_LATEST = "text/plain"

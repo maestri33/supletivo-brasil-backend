@@ -13,7 +13,13 @@ from __future__ import annotations
 from fastapi import APIRouter, BackgroundTasks, Request
 from pydantic import BaseModel
 
-from app.api.check import dispatch_otp, lookup_cpf, lookup_phone, try_acquire_otp_slot, _obfuscate_timing
+from app.api.check import (
+    _obfuscate_timing,
+    dispatch_otp,
+    lookup_cpf,
+    lookup_phone,
+    try_acquire_otp_slot,
+)
 from app.exceptions import ValidationError
 from app.utils.validation import validate_cpf, validate_phone
 

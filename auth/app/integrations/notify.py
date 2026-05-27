@@ -10,6 +10,13 @@ from app.utils.logconfig import get_logger
 logger = get_logger(__name__)
 
 
+def _sanitize_log_body(body: dict | None, sensitive: set[str]) -> dict | None:
+    """Remove sensitive fields from log output."""
+    if not isinstance(body, dict):
+        return body
+    return {k: ("***" if k in sensitive else v) for k, v in body.items()}
+
+
 class NotifyClient:
     """Async HTTP client para o Notify Service — contacts."""
 
@@ -72,7 +79,8 @@ class NotifyClient:
         params: dict | None = None,
     ) -> niquests.Response:
         url = f"{self._base}{path}"
-        logger.debug(f"[notify] {method} {url}" + (f" body={json}" if json else ""))
+        safe = _sanitize_log_body(json, {"phone", "email"})
+        logger.debug(f"[notify] {method} {url}" + (f" body={safe}" if safe else ""))
         resp = await self._session.request(
             method,
             url,

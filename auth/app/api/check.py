@@ -12,7 +12,6 @@ import asyncio
 import random
 
 from fastapi import APIRouter, BackgroundTasks, Request
-from pydantic import BaseModel
 
 from app.exceptions import IntegrationError, ValidationError
 from app.integrations.notify import NotifyClient, NotifyError

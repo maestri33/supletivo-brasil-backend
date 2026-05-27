@@ -3,8 +3,7 @@
 from fastapi import APIRouter, Depends, Query, Request
 
 from app.api.auth_guard import require_admin
-
-from app.schemas.log import LogQuery, LogEntry
+from app.schemas.log import LogEntry
 from app.utils import logging as logs_tool
 
 router = APIRouter(prefix="/log", tags=["log"])
