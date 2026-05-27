@@ -44,14 +44,23 @@ class TokenResponse(APIModel):
     """Resposta de login com tokens JWT."""
 
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
 
 
 class CheckResponse(APIModel):
-    """Resposta uniforme de /check — sempre mesma estrutura."""
+    """Resposta de /check.
+
+    Funil simplificado: retorna `found` + `external_id` quando achou,
+    e `whatsapp_valid` quando o check foi por phone — front decide
+    OTP (found=true) vs CPF (found=false, whatsapp_valid=true).
+    """
 
     otp_sent: bool = True
     otp_wait: int | None = None
+    found: bool | None = None
+    external_id: str | None = None
+    whatsapp_valid: bool | None = None
 
 
 class OTPSentResponse(APIModel):

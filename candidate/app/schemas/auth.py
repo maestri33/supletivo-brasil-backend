@@ -17,6 +17,7 @@ class CheckResponse(APIModel):
     found: bool
     external_id: UUID | None = None
     valid: bool | None = None
+    whatsapp_valid: bool | None = None
     otp_wait: int | None = None
 
 

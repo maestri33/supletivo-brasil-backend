@@ -42,8 +42,6 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection):
-    # Garante o schema antes do Alembic criar a alembic_version dentro dele.
-    connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{SCHEMA}"'))
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
@@ -57,6 +55,9 @@ def do_run_migrations(connection):
 
 async def run_migrations_online() -> None:
     connectable = create_async_engine(settings.database_url)
+    async with connectable.connect() as conn:
+        await conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{SCHEMA}"'))
+        await conn.commit()
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

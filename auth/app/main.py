@@ -96,7 +96,7 @@ app.add_middleware(
 async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail, "code": exc.code},
+        content={"detail": exc.detail, "code": exc.code, **exc.extra},
     )
 
 

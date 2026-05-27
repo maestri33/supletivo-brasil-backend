@@ -25,6 +25,7 @@ async def login(data: LoginRequest) -> TokenResponse:
         raise ForbiddenError(
             f"Usuario nao possui a role '{data.role}'.",
             code="ROLE_NOT_HELD",
+            extra={"requested_role": data.role, "held_roles": user_roles},
         )
 
     # 2. Verify OTP

@@ -8,10 +8,17 @@ O handler global em main.py converte DomainError em JSONResponse.
 class DomainError(Exception):
     """Base para todas as excecoes de dominio."""
 
-    def __init__(self, detail: str, status_code: int = 400, code: str = "DOMAIN_ERROR") -> None:
+    def __init__(
+        self,
+        detail: str,
+        status_code: int = 400,
+        code: str = "DOMAIN_ERROR",
+        extra: dict | None = None,
+    ) -> None:
         self.detail = detail
         self.status_code = status_code
         self.code = code
+        self.extra = extra or {}
         super().__init__(detail)
 
 
@@ -55,8 +62,13 @@ class UnauthorizedError(DomainError):
 class ForbiddenError(DomainError):
     """Acesso proibido (403)."""
 
-    def __init__(self, detail: str = "Acesso proibido", code: str = "FORBIDDEN") -> None:
-        super().__init__(detail, 403, code)
+    def __init__(
+        self,
+        detail: str = "Acesso proibido",
+        code: str = "FORBIDDEN",
+        extra: dict | None = None,
+    ) -> None:
+        super().__init__(detail, 403, code, extra)
 
 
 class IntegrationError(DomainError):

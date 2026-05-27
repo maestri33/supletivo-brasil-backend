@@ -30,7 +30,7 @@ async def register(
     cpf: str,
     hub_external_id: str,
 ) -> tuple[str, bool]:
-    """Registra o usuario no auth (role=lead) e cria o Candidate local.
+    """Registra o usuario no auth (role=candidate) e cria o Candidate local.
 
     Retorna (external_id, created). Idempotente: re-register do mesmo usuario
     reaproveita o Candidate existente.

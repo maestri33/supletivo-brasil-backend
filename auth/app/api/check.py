@@ -162,50 +162,52 @@ async def _check_external_id(
     external_id: str, bg: BackgroundTasks, redis, request: Request
 ) -> dict:
     result = await lookup_external_id(external_id)
-    if result["found"]:
+    found = bool(result["found"])
+    eid = external_id if found else None
+    if found:
         rkey = external_id
     else:
         rkey = _anon_key(request)
-        await _obfuscate_timing()
 
     wait = await try_acquire_otp_slot(redis, rkey)
     if wait is not None:
-        return {"otp_wait": wait}
+        return {"otp_wait": wait, "found": found, "external_id": eid}
 
-    bg.add_task(dispatch_otp, external_id if result["found"] else rkey)
-    logger.info("otp_dispatched_via_external_id", external_id=external_id[:8] if result["found"] else rkey[:16])
-    return {"otp_sent": True}
+    bg.add_task(dispatch_otp, external_id if found else rkey)
+    logger.info("otp_dispatched_via_external_id", external_id=external_id[:8] if found else rkey[:16])
+    return {"otp_sent": True, "found": found, "external_id": eid}
 
 
 async def _check_cpf(cpf: str, bg: BackgroundTasks, redis, request: Request) -> dict:
     result = await lookup_cpf(cpf)
-    if result["found"]:
-        rkey = result["external_id"]
+    found = bool(result["found"])
+    eid = result.get("external_id") if found else None
+    if found:
+        rkey = eid
     else:
         rkey = _anon_key(request)
-        await _obfuscate_timing()
 
     wait = await try_acquire_otp_slot(redis, rkey)
     if wait is not None:
-        return {"otp_wait": wait}
+        return {"otp_wait": wait, "found": found, "external_id": eid}
 
-    # Sempre agenda dispatch — quando usuario nao existe,
-    # dispatch_otp falha silenciosamente.
     bg.add_task(dispatch_otp, rkey)
-    return {"otp_sent": True}
+    return {"otp_sent": True, "found": found, "external_id": eid}
 
 
 async def _check_phone(phone: str, bg: BackgroundTasks, redis, request: Request) -> dict:
     result = await lookup_phone(phone)
-    if result["found"]:
-        rkey = result["external_id"]
+    found = bool(result["found"])
+    eid = result.get("external_id") if found else None
+    whatsapp_valid = result.get("phone_valid")
+    if found:
+        rkey = eid
     else:
         rkey = _anon_key(request)
-        await _obfuscate_timing()
 
     wait = await try_acquire_otp_slot(redis, rkey)
     if wait is not None:
-        return {"otp_wait": wait}
+        return {"otp_wait": wait, "found": found, "external_id": eid, "whatsapp_valid": whatsapp_valid}
 
     bg.add_task(dispatch_otp, rkey)
-    return {"otp_sent": True}
+    return {"otp_sent": True, "found": found, "external_id": eid, "whatsapp_valid": whatsapp_valid}
