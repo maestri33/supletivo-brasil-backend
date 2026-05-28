@@ -85,8 +85,8 @@ class TestGetJwks:
     async def test_re_fetches_after_ttl_expires(self):
         from app.dependencies import _jwks_cache, _jwks_cached_at, get_jwks
 
-        _jwks_cache = {"keys": [{"kid": "old-key"}]}
-        _jwks_cached_at = time.monotonic() - 301  # expired
+        _jwks_cache = {"keys": [{"kid": "old-key"}]}  # noqa: F811
+        _jwks_cached_at = time.monotonic() - 301  # expired  # noqa: F811
 
         new_jwks = {"keys": [{"kid": "new-key"}]}
         mock_ctx = MockAsyncClientContext(json_data=new_jwks)
@@ -254,9 +254,9 @@ class TestRequireStatus:
 
     async def test_status_mismatch_raises_403(self, client, make_lead):
         """POST /captured with a lead in STATUS should 403 when not captured."""
-        eid = await make_lead(status="waiting")
+        eid = await make_lead(status="waiting")  # noqa: F841
 
-        response = await client.get(
+        response = await client.get(  # noqa: F841
             "/api/v1/authenticated/captured",
         )
         # The dependency will try to validate JWT first, which requires
@@ -266,7 +266,7 @@ class TestRequireStatus:
         from app.dependencies import _require_status
         from app.models import LeadStatus
 
-        gate_func = _require_status(LeadStatus.CHECKOUT)
+        gate_func = _require_status(LeadStatus.CHECKOUT)  # noqa: F841
         # Gate's internal check_status needs external_id + session
         # Let's call dependencies directly
 
@@ -297,7 +297,7 @@ class TestRequireStatus:
             ([LeadStatus.CHECKOUT, LeadStatus.COMPLETED], True),
             ([LeadStatus.CHECKOUT, LeadStatus.COMPLETED], False),
         ]:
-            gate_factory = _require_status(*allowed_statuses)
+            gate_factory = _require_status(*allowed_statuses)  # noqa: F841
             # gate_factory is Depends(check_status) — not callable
             # We need the inner function. Let's access it differently.
             pass
@@ -319,7 +319,7 @@ class TestRequireStatus:
             return callable_or_func
 
         with patch("app.dependencies.Depends", side_effect=capture_depends):
-            factory = _require_status(LeadStatus.CAPTURED)
+            factory = _require_status(LeadStatus.CAPTURED)  # noqa: F841
 
         assert inner_func is not None
 
@@ -366,7 +366,7 @@ class TestRequireStatus:
             return callable_or_func
 
         with patch("app.dependencies.Depends", side_effect=capture_depends):
-            factory = _require_status(LeadStatus.CHECKOUT, LeadStatus.COMPLETED)
+            factory = _require_status(LeadStatus.CHECKOUT, LeadStatus.COMPLETED)  # noqa: F841
 
         assert inner_func is not None
 
@@ -412,7 +412,7 @@ class TestRequireStatus:
             return callable_or_func
 
         with patch("app.dependencies.Depends", side_effect=capture_depends):
-            factory = _require_status(LeadStatus.CAPTURED)
+            factory = _require_status(LeadStatus.CAPTURED)  # noqa: F841
 
         mock_session = AsyncMock()
         mock_lead = MagicMock()

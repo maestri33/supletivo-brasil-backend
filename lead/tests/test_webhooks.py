@@ -115,7 +115,7 @@ class TestInfinitepayWebhook:
     ):
         """Pagamento confirmado → checkout.is_paid=true + lead → COMPLETED."""
         eid = uuid4()
-        lead_id = await make_lead(external_id=eid, status="checkout")
+        lead_id = await make_lead(external_id=eid, status="checkout")  # noqa: F841
         await make_checkout(external_id=eid, payment_method="credit_card", provider="infinitepay")
 
         with (

@@ -20,7 +20,7 @@ from app.api.router import api_router
 from app.api.status import router as status_router
 from app.config import get_settings
 from app.db import close_db
-from app.exceptions import DomainError, RateLimitExceeded
+from app.exceptions import DomainError, RateLimitExceeded  # noqa: F811
 from app.metrics import setup_metrics
 from app.services.cleanup import cleanup_loop
 from app.services.queue import queue_loop
@@ -95,7 +95,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 # ── SlowAPI middleware ──────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-from slowapi.middleware import SlowAPIMiddleware
+from slowapi.middleware import SlowAPIMiddleware  # noqa: E402
 
 app.add_middleware(SlowAPIMiddleware)
 

@@ -32,9 +32,9 @@ def _cors_origins() -> list[str]:
     return []
 
 
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+from slowapi import Limiter, _rate_limit_exceeded_handler  # noqa: E402
+from slowapi.errors import RateLimitExceeded  # noqa: E402
+from slowapi.util import get_remote_address  # noqa: E402
 
 settings = get_settings()
 _started_at = time.time()
@@ -68,7 +68,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 # ── SlowAPI middleware ──────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-from slowapi.middleware import SlowAPIMiddleware
+from slowapi.middleware import SlowAPIMiddleware  # noqa: E402
 
 app.add_middleware(SlowAPIMiddleware)
 

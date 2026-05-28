@@ -99,10 +99,10 @@ async def clear_logs(redis) -> None:
 
 # ── Structlog configuration (CONVENTION §2) ──────────────────────────
 
-import logging
-import sys
+import logging  # noqa: E402
+import sys  # noqa: E402
 
-import structlog
+import structlog  # noqa: E402
 
 
 def configure_logging(level: str = "INFO", json_logs: bool = True) -> None:

@@ -3,7 +3,7 @@
 Revision ID: 0001
 Revises:
 Create Date: 2026-05-27
-"""
+"""  # noqa: N999
 
 from collections.abc import Sequence
 

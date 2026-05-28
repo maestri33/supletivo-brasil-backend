@@ -432,7 +432,7 @@ class TestCreatePixCheckoutForLead:
         """Fluxo feliz: busca context → cria PIX → persiste → transiciona lead."""
         from app.tools.create_checkout import create_pix_checkout_for_lead
 
-        eid = str(uuid4())
+        eid = str(uuid4())  # noqa: F841
         ext_uuid = uuid4()
         await make_lead(external_id=ext_uuid, status="captured")
 

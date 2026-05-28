@@ -171,7 +171,7 @@ class TestCurrentByKind:
     async def test_returns_most_recent(self, session: AsyncSession):
         from app.services.address_service import create_address, current_by_kind
 
-        addr1 = await create_address(
+        addr1 = await create_address(  # noqa: F841
             session,
             AddressCreate(
                 external_id=TEST_EXTERNAL_ID,

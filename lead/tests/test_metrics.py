@@ -85,8 +85,8 @@ class TestMetricsFallback:
 
         # These should be no-op functions that accept any args
         registry = CollectorRegistry()
-        counter = Counter("test", "help", registry=registry)
-        hist = Histogram("test_h", "help", registry=registry)
+        counter = Counter("test", "help", registry=registry)  # noqa: F841
+        hist = Histogram("test_h", "help", registry=registry)  # noqa: F841
         assert registry is None or True  # Should not crash
 
 

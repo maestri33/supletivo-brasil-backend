@@ -30,7 +30,7 @@ os.environ.setdefault("DATABASE_SCHEMA", "")
 os.environ.setdefault("ENV", "dev")
 os.environ.setdefault("ENVIRONMENT", "dev")
 
-from app.main import app as fastapi_app
+from app.main import app as fastapi_app  # noqa: E402
 
 SKIP_REASON = (
     "Suíte legada pré-migração SQLAlchemy. Aguardando reescrita com testcontainers-postgres."
