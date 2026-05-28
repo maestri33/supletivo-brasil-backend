@@ -57,7 +57,9 @@ async def test_all_services_healthy():
     async with httpx.AsyncClient(timeout=5) as client:
         for name, url in services.items():
             resp = await client.get(url)
-            assert resp.status_code == 200, f"{name} health check failed: {resp.status_code}"
+            assert resp.status_code == 200, (
+                f"{name} health check failed: {resp.status_code}"
+            )
 
 
 # ── Lead registration ────────────────────────────────────────────────────────
@@ -73,7 +75,9 @@ async def test_lead_registration():
             "/api/v1/public/register",
             json={"phone": TEST_PHONE, "cpf": TEST_CPF, "ref": None},
         )
-    assert resp.status_code in (201, 409), f"register failed: {resp.status_code} {resp.text}"
+    assert resp.status_code in (201, 409), (
+        f"register failed: {resp.status_code} {resp.text}"
+    )
     data = resp.json()
     # If 201 CREATED, we get back an external_id
     if resp.status_code == 201:
@@ -93,7 +97,9 @@ async def test_check_lead_triggers_otp():
     assert resp.status_code == 200, f"check failed: {resp.status_code} {resp.text}"
     data = resp.json()
     # Auth responds with otp_sent or otp_wait
-    assert "otp_sent" in data or "otp_wait" in data, f"unexpected check response: {data}"
+    assert "otp_sent" in data or "otp_wait" in data, (
+        f"unexpected check response: {data}"
+    )
 
 
 # ── Lead readback (demilitarized) ────────────────────────────────────────────
@@ -167,7 +173,9 @@ async def test_captured_checkout_flow():
 async def test_enrollment_accessible():
     """Enrollment service should be accessible and return valid schema."""
     async with httpx.AsyncClient(base_url=ENROLLMENT_URL, timeout=10) as client:
-        resp = await client.get("/api/v1/enrollments/00000000-0000-0000-0000-000000000000")
+        resp = await client.get(
+            "/api/v1/enrollments/00000000-0000-0000-0000-000000000000"
+        )
     # Expect 404 or similar — the endpoint exists and validates
     assert resp.status_code in (404, 200, 422), (
         f"enrollment get returned {resp.status_code}: {resp.text[:200]}"

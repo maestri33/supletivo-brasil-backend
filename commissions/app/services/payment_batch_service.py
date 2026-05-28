@@ -7,6 +7,7 @@ Handles:
 - Dispatching PIX payouts via Asaas client
 - Idempotent weekly processing (no duplicate batches for the same week)
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -99,9 +100,7 @@ class PaymentBatchService:
             bonus_total = 0
 
             # Calculate promoter bonus
-            bonus_total = await self._calculate_promoter_bonus(
-                pending, week_of, base_total
-            )
+            bonus_total = await self._calculate_promoter_bonus(pending, week_of, base_total)
 
             # Update batch totals
             batch.total_cents = base_total + bonus_total
@@ -204,9 +203,7 @@ class PaymentBatchService:
         stmt = select(Commission).order_by(Commission.created_at.desc())
         if status:
             try:
-                stmt = stmt.where(
-                    Commission.status == CommissionStatus(status)
-                )
+                stmt = stmt.where(Commission.status == CommissionStatus(status))
             except ValueError:
                 pass
         stmt = stmt.limit(limit).offset(offset)
@@ -220,9 +217,7 @@ class PaymentBatchService:
         stmt = select(func.count(Commission.id))
         if status:
             try:
-                stmt = stmt.where(
-                    Commission.status == CommissionStatus(status)
-                )
+                stmt = stmt.where(Commission.status == CommissionStatus(status))
             except ValueError:
                 pass
         result = await self._session.execute(stmt)

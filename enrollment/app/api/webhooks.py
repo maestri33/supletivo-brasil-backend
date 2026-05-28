@@ -32,6 +32,7 @@ async def _promote_to_enrollment(external_id: UUID) -> None:
     ) as http:
         await RolesClient(http).promote(str(external_id), "enrollment")
 
+
 logger = structlog.get_logger()
 
 router = APIRouter(prefix="/api/v1", tags=["webhooks"])

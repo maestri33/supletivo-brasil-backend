@@ -95,9 +95,7 @@ def upgrade() -> None:
             server_default="1",
         ),
         sa.Column("result", sa.String(length=20), nullable=True),
-        sa.Column(
-            "corrected_by_external_id", postgresql.UUID(as_uuid=True), nullable=True
-        ),
+        sa.Column("corrected_by_external_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("corrected_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("notes", sa.String(length=500), nullable=True),
         sa.Column(
@@ -132,17 +130,11 @@ def upgrade() -> None:
         "student_diplomas",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("student_id", postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column(
-            "issued_by_external_id", postgresql.UUID(as_uuid=True), nullable=True
-        ),
+        sa.Column("issued_by_external_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("issued_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("picked_up_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column(
-            "pickup_photo_external_id", postgresql.UUID(as_uuid=True), nullable=True
-        ),
-        sa.Column(
-            "commission_triggered_at", sa.DateTime(timezone=True), nullable=True
-        ),
+        sa.Column("pickup_photo_external_id", postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column("commission_triggered_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -174,14 +166,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(
-        "student_diplomas_student_id_idx", table_name="student_diplomas", schema=SCHEMA
-    )
+    op.drop_index("student_diplomas_student_id_idx", table_name="student_diplomas", schema=SCHEMA)
     op.drop_table("student_diplomas", schema=SCHEMA)
 
-    op.drop_index(
-        "student_exams_student_id_idx", table_name="student_exams", schema=SCHEMA
-    )
+    op.drop_index("student_exams_student_id_idx", table_name="student_exams", schema=SCHEMA)
     op.drop_table("student_exams", schema=SCHEMA)
 
     op.drop_index(

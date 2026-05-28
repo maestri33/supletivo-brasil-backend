@@ -91,6 +91,7 @@ def create_app() -> FastAPI:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     from slowapi.middleware import SlowAPIMiddleware
+
     app.add_middleware(SlowAPIMiddleware)
 
     # -- CORS --
@@ -120,9 +121,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router, tags=["health"])
     # COD-91: integration_health is admin-only (requires X-Internal-Api-Key).
     # Mounted under /api/v1/demilitarized to make the internal nature explicit.
-    app.include_router(
-        integration_health_router, prefix="/api/v1/demilitarized", tags=["health"]
-    )
+    app.include_router(integration_health_router, prefix="/api/v1/demilitarized", tags=["health"])
     app.include_router(api_router)
     setup_metrics(app)
     return app

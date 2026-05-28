@@ -82,9 +82,7 @@ class Submission(Base, TimestampMixin):
         index=True,
     )
 
-    __table_args__ = (
-        Index("submissions_external_material_idx", "external_id", "material_id"),
-    )
+    __table_args__ = (Index("submissions_external_material_idx", "external_id", "material_id"),)
 
     def __repr__(self) -> str:
         return (

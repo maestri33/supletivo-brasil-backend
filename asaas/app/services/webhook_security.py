@@ -83,7 +83,7 @@ def _verify_signature(body: bytes, secret: str, signature: str) -> bool:
 
 async def verify_hmac(
     request: Request,
-    db = Depends(get_session),
+    db=Depends(get_session),
     asaas_signature: str | None = Header(default=None, alias=_HEADER),
 ) -> None:
     """FastAPI dependency: valida HMAC-SHA256 do body contra o webhook secret.
@@ -99,8 +99,7 @@ async def verify_hmac(
         # existing asaas_access_token check still applies (defense in depth).
         env = os.getenv("ENV", os.getenv("ENVIRONMENT", "development"))
         if env not in ("development", "dev", "staging"):
-            log_event("webhook_hmac_disabled", env=env, service="asaas",
-                      severity="WARNING")
+            log_event("webhook_hmac_disabled", env=env, service="asaas", severity="WARNING")
         return
 
     body = await request.body()

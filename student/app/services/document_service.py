@@ -50,9 +50,7 @@ async def submit_document(
         )
     )
     if existing is not None:
-        raise DocumentAlreadyExists(
-            f"Aluno ja' enviou documento do tipo {document_type.value}"
-        )
+        raise DocumentAlreadyExists(f"Aluno ja' enviou documento do tipo {document_type.value}")
 
     doc = StudentDocument(
         student_id=student.id,
@@ -66,9 +64,7 @@ async def submit_document(
     return doc
 
 
-async def list_documents(
-    session: AsyncSession, *, student: Student
-) -> list[StudentDocument]:
+async def list_documents(session: AsyncSession, *, student: Student) -> list[StudentDocument]:
     res = await session.scalars(
         select(StudentDocument)
         .where(StudentDocument.student_id == student.id)
@@ -131,9 +127,7 @@ async def validate_document_async(student_id: UUID, document_id: UUID) -> None:
     Se a IA cair, doc fica em `pending` e o fluxo nao quebra (§14).
     """
     async with async_session_maker() as session:
-        doc = await session.scalar(
-            select(StudentDocument).where(StudentDocument.id == document_id)
-        )
+        doc = await session.scalar(select(StudentDocument).where(StudentDocument.id == document_id))
         if doc is None:
             logger.warning("ai.validate.doc_missing", document_id=str(document_id))
             return

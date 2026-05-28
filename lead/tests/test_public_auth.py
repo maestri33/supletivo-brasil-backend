@@ -15,12 +15,12 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.config import Settings
 
 pytestmark = pytest.mark.asyncio
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def anyio_backend():
@@ -28,6 +28,7 @@ def anyio_backend():
 
 
 # ── POST /api/v1/public/check ───────────────────────────────────────────────
+
 
 class TestCheck:
     """POST /api/v1/public/check — verifica lead e dispara OTP."""
@@ -87,6 +88,7 @@ class TestCheck:
 
 # ── POST /api/v1/public/register ────────────────────────────────────────────
 
+
 class TestRegister:
     """POST /api/v1/public/register — cadastra novo lead."""
 
@@ -95,8 +97,12 @@ class TestRegister:
         external_id = uuid4()
         with (
             patch("app.api.public.auth.AuthClient.register", new_callable=AsyncMock) as mock_reg,
-            patch("app.api.public.auth.notify_lead_captured", new_callable=AsyncMock) as mock_notify,
-            patch("app.api.public.auth.notify_promoter_captured", new_callable=AsyncMock) as mock_notify_promo,
+            patch(
+                "app.api.public.auth.notify_lead_captured", new_callable=AsyncMock
+            ) as mock_notify,
+            patch(
+                "app.api.public.auth.notify_promoter_captured", new_callable=AsyncMock
+            ) as mock_notify_promo,
         ):
             mock_reg.return_value = {"external_id": str(external_id)}
 
@@ -114,8 +120,11 @@ class TestRegister:
             from app.models import Lead, LeadStatus
             from app.db import async_session_maker
             from sqlalchemy import select
+
             async with async_session_maker() as session:
-                lead = (await session.execute(select(Lead).where(Lead.external_id == external_id))).scalar_one_or_none()
+                lead = (
+                    await session.execute(select(Lead).where(Lead.external_id == external_id))
+                ).scalar_one_or_none()
                 assert lead is not None
                 assert lead.status == LeadStatus.CAPTURED
 
@@ -142,8 +151,11 @@ class TestRegister:
             from app.models import Lead
             from app.db import async_session_maker
             from sqlalchemy import select
+
             async with async_session_maker() as session:
-                lead = (await session.execute(select(Lead).where(Lead.external_id == external_id))).scalar_one_or_none()
+                lead = (
+                    await session.execute(select(Lead).where(Lead.external_id == external_id))
+                ).scalar_one_or_none()
                 assert lead is not None
                 assert lead.promoter_external_id == ref_id
 
@@ -176,7 +188,9 @@ class TestRegister:
         external_id = uuid4()
         with (
             patch("app.api.public.auth.AuthClient.register", new_callable=AsyncMock) as mock_reg,
-            patch("app.api.public.auth.notify_lead_captured", new_callable=AsyncMock) as mock_notify,
+            patch(
+                "app.api.public.auth.notify_lead_captured", new_callable=AsyncMock
+            ) as mock_notify,
             patch("app.api.public.auth.notify_promoter_captured", new_callable=AsyncMock),
         ):
             mock_reg.return_value = {"external_id": str(external_id)}
@@ -203,12 +217,18 @@ class TestRegister:
             from app.models import Lead
             from app.db import async_session_maker
             from sqlalchemy import select
+
             async with async_session_maker() as session:
-                leads = (await session.execute(select(Lead).where(Lead.external_id == external_id))).scalars().all()
+                leads = (
+                    (await session.execute(select(Lead).where(Lead.external_id == external_id)))
+                    .scalars()
+                    .all()
+                )
                 assert len(leads) == 1  # Apenas 1 lead
 
 
 # ── POST /api/v1/public/login ───────────────────────────────────────────────
+
 
 class TestLogin:
     """POST /api/v1/public/login — valida OTP e retorna tokens."""
@@ -250,12 +270,15 @@ class TestLogin:
 
 # ── POST /api/v1/public/refresh ─────────────────────────────────────────────
 
+
 class TestRefresh:
     """POST /api/v1/public/refresh — renova tokens JWT."""
 
     async def test_refresh_success(self, client):
         """Refresh com token valido retorna novos tokens."""
-        with patch("app.api.public.auth.JwtClient.refresh_token", new_callable=AsyncMock) as mock_refresh:
+        with patch(
+            "app.api.public.auth.JwtClient.refresh_token", new_callable=AsyncMock
+        ) as mock_refresh:
             mock_refresh.return_value = {
                 "access_token": "eyJnew_access",
                 "refresh_token": "rt_new",
@@ -272,7 +295,9 @@ class TestRefresh:
 
     async def test_refresh_invalid_token(self, client):
         """Refresh token invalido → 4xx."""
-        with patch("app.api.public.auth.JwtClient.refresh_token", new_callable=AsyncMock) as mock_refresh:
+        with patch(
+            "app.api.public.auth.JwtClient.refresh_token", new_callable=AsyncMock
+        ) as mock_refresh:
             mock_refresh.side_effect = httpx.HTTPStatusError(
                 "401 Unauthorized",
                 request=httpx.Request("POST", "/api/v1/refresh"),

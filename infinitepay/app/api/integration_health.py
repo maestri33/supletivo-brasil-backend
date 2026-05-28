@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import structlog
 from fastapi import APIRouter, Depends
-
 from fastapi.responses import JSONResponse
 
 from app.api.deps import require_internal_api_key

@@ -174,7 +174,9 @@ async def _check_external_id(
         return {"otp_wait": wait, "found": found, "external_id": eid}
 
     bg.add_task(dispatch_otp, external_id if found else rkey)
-    logger.info("otp_dispatched_via_external_id", external_id=external_id[:8] if found else rkey[:16])
+    logger.info(
+        "otp_dispatched_via_external_id", external_id=external_id[:8] if found else rkey[:16]
+    )
     return {"otp_sent": True, "found": found, "external_id": eid}
 
 
@@ -207,7 +209,12 @@ async def _check_phone(phone: str, bg: BackgroundTasks, redis, request: Request)
 
     wait = await try_acquire_otp_slot(redis, rkey)
     if wait is not None:
-        return {"otp_wait": wait, "found": found, "external_id": eid, "whatsapp_valid": whatsapp_valid}
+        return {
+            "otp_wait": wait,
+            "found": found,
+            "external_id": eid,
+            "whatsapp_valid": whatsapp_valid,
+        }
 
     bg.add_task(dispatch_otp, rkey)
     return {"otp_sent": True, "found": found, "external_id": eid, "whatsapp_valid": whatsapp_valid}

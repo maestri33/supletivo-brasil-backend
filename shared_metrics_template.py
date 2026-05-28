@@ -12,7 +12,14 @@ from typing import Callable
 
 try:
     import prometheus_client
-    from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Gauge, Histogram, generate_latest
+    from prometheus_client import (
+        CONTENT_TYPE_LATEST,
+        CollectorRegistry,
+        Counter,
+        Gauge,
+        Histogram,
+        generate_latest,
+    )
 except ImportError:
     prometheus_client = None
 
@@ -44,7 +51,9 @@ def _make_counter(name: str, doc: str, labels: tuple[str, ...]) -> Counter | Cal
     return Counter(name, doc, labels, registry=_get_registry())
 
 
-def _make_histogram(name: str, doc: str, labels: tuple[str, ...]) -> Histogram | Callable:
+def _make_histogram(
+    name: str, doc: str, labels: tuple[str, ...]
+) -> Histogram | Callable:
     if prometheus_client is None:
         return _stub
     return Histogram(name, doc, labels, registry=_get_registry())
@@ -89,12 +98,20 @@ def setup_metrics(app, service: str) -> None:
         from starlette.responses import Response
 
         if prometheus_client is None:
-            return Response("prometheus_client not installed\n", status_code=503, media_type="text/plain")
+            return Response(
+                "prometheus_client not installed\n",
+                status_code=503,
+                media_type="text/plain",
+            )
         try:
             data = generate_latest(_get_registry())
-            return Response(content=data.decode("utf-8"), media_type=CONTENT_TYPE_LATEST)
+            return Response(
+                content=data.decode("utf-8"), media_type=CONTENT_TYPE_LATEST
+            )
         except Exception:
-            return Response("error generating metrics\n", status_code=500, media_type="text/plain")
+            return Response(
+                "error generating metrics\n", status_code=500, media_type="text/plain"
+            )
 
     app.add_api_route("/metrics", _metrics, methods=["GET"], include_in_schema=False)
 
@@ -108,15 +125,26 @@ def setup_metrics(app, service: str) -> None:
             elapsed = time.monotonic() - start
             if _http_request_duration_seconds is not None:
                 try:
-                    _http_request_duration_seconds.labels(method=request.method, path=request.url.path).observe(elapsed)
+                    _http_request_duration_seconds.labels(
+                        method=request.method, path=request.url.path
+                    ).observe(elapsed)
                 except Exception:
                     pass
             raise
         elapsed = time.monotonic() - start
-        if _http_request_duration_seconds is not None and _http_requests_total is not None:
+        if (
+            _http_request_duration_seconds is not None
+            and _http_requests_total is not None
+        ):
             try:
-                _http_request_duration_seconds.labels(method=request.method, path=request.url.path).observe(elapsed)
-                _http_requests_total.labels(method=request.method, path=request.url.path, status=str(response.status_code)).inc()
+                _http_request_duration_seconds.labels(
+                    method=request.method, path=request.url.path
+                ).observe(elapsed)
+                _http_requests_total.labels(
+                    method=request.method,
+                    path=request.url.path,
+                    status=str(response.status_code),
+                ).inc()
             except Exception:
                 pass
         return response

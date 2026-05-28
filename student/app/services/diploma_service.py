@@ -152,9 +152,7 @@ async def trigger_graduation_side_effects(
         )
 
 
-async def get_diploma(
-    session: AsyncSession, *, student: Student
-) -> StudentDiploma | None:
+async def get_diploma(session: AsyncSession, *, student: Student) -> StudentDiploma | None:
     return await session.scalar(
         select(StudentDiploma).where(StudentDiploma.student_id == student.id)
     )

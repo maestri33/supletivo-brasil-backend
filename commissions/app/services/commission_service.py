@@ -5,6 +5,7 @@ Handles:
 - Idempotency guarantees (one commission per source_event_id)
 - Bonus calculation for promoters who exceed thresholds
 """
+
 from __future__ import annotations
 
 from uuid import UUID
@@ -90,7 +91,9 @@ class CommissionService:
         """Get all commissions with PENDING status (not yet in a batch)."""
         stmt = (
             select(Commission)
-            .where(Commission.status == CommissionStatus.PENDING, Commission.payment_batch_id.is_(None))
+            .where(
+                Commission.status == CommissionStatus.PENDING, Commission.payment_batch_id.is_(None)
+            )
             .order_by(Commission.created_at)
         )
         result = await self._session.execute(stmt)

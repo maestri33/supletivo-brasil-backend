@@ -23,7 +23,9 @@ NAMING_CONVENTION = {
     "pk": "%(table_name)s_pkey",
 }
 
-metadata = MetaData(naming_convention=NAMING_CONVENTION, schema=settings.database_schema)
+metadata = MetaData(
+    naming_convention=NAMING_CONVENTION, schema=settings.database_schema
+)
 
 
 class Base(DeclarativeBase):
@@ -40,7 +42,9 @@ auth_users = Table(
 
 
 engine = create_async_engine(settings.database_url, pool_pre_ping=True)
-async_session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+async_session_maker = async_sessionmaker(
+    engine, expire_on_commit=False, class_=AsyncSession
+)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:

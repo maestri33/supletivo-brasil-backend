@@ -87,16 +87,12 @@ def require_student_with_status(*allowed: StudentStatus):
         if "student" not in payload.get("roles", []):
             raise HTTPException(403, "Requires 'student' role")
         external_id = UUID(payload["external_id"])
-        student = await session.scalar(
-            select(Student).where(Student.external_id == external_id)
-        )
+        student = await session.scalar(select(Student).where(Student.external_id == external_id))
         if student is None:
             raise HTTPException(404, "Student not found")
         if student.status.value not in allowed_values:
             expected = " ou ".join(sorted(allowed_values))
-            raise HTTPException(
-                403, f"Status '{student.status.value}' — requer '{expected}'"
-            )
+            raise HTTPException(403, f"Status '{student.status.value}' — requer '{expected}'")
         return student
 
     return Depends(_check)

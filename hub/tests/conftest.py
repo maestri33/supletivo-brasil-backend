@@ -134,8 +134,8 @@ async def client(session_factory) -> AsyncIterator[AsyncClient]:
 
     async def _fake_external_id():
         from uuid import UUID
-        return UUID("00000000-0000-0000-0000-000000000001")
 
+        return UUID("00000000-0000-0000-0000-000000000001")
 
     app.dependency_overrides[get_session] = _get_session
     app.dependency_overrides[get_current_external_id] = _fake_external_id
@@ -161,14 +161,16 @@ async def staff_headers(monkeypatch) -> dict[str, str]:
     # O token fake não vai validar, mas ao menos o erro será 401 (token
     # inválido) em vez de 502 (serviço JWKS fora do ar).
     _fake_jwks = {
-        "keys": [{
-            "kty": "RSA",
-            "kid": "test-kid",
-            "use": "sig",
-            "alg": "RS256",
-            "n": "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw",
-            "e": "AQAB"
-        }]
+        "keys": [
+            {
+                "kty": "RSA",
+                "kid": "test-kid",
+                "use": "sig",
+                "alg": "RS256",
+                "n": "0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAtVT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn64tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FDW2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n91CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINHaQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw",
+                "e": "AQAB",
+            }
+        ]
     }
 
     async def _fake_jwks() -> dict:

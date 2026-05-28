@@ -72,9 +72,7 @@ def _stub_integrations(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(document_service, "_safe_get_gender", _fake_gender)
     monkeypatch.setattr(document_service, "validate_document_async", _noop_validate)
     monkeypatch.setattr(notifications, "notify_status_changed", _noop_notify)
-    monkeypatch.setattr(
-        diploma_service, "trigger_graduation_side_effects", _noop_side_effects
-    )
+    monkeypatch.setattr(diploma_service, "trigger_graduation_side_effects", _noop_side_effects)
 
 
 @pytest_asyncio.fixture

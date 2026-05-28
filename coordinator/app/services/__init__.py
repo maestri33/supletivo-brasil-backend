@@ -2,6 +2,7 @@
 
 Funcoes de exam, student_document e diploma migraram para o servico `student`.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -67,8 +68,10 @@ async def list_coordinators(
         q = q.where(Coordinator.status == status)
     total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar() or 0
     items = (
-        await db.execute(q.order_by(Coordinator.created_at.desc()).offset(offset).limit(limit))
-    ).scalars().all()
+        (await db.execute(q.order_by(Coordinator.created_at.desc()).offset(offset).limit(limit)))
+        .scalars()
+        .all()
+    )
     return list(items), total
 
 
@@ -145,10 +148,14 @@ async def list_training_approvals(
         q = q.where(TrainingApproval.status == status)
     total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar() or 0
     items = (
-        await db.execute(
-            q.order_by(TrainingApproval.created_at.desc()).offset(offset).limit(limit)
+        (
+            await db.execute(
+                q.order_by(TrainingApproval.created_at.desc()).offset(offset).limit(limit)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return list(items), total
 
 
@@ -198,8 +205,10 @@ async def list_enrollment_fees(
         q = q.where(EnrollmentFee.status == status)
     total = (await db.execute(select(func.count()).select_from(q.subquery()))).scalar() or 0
     items = (
-        await db.execute(q.order_by(EnrollmentFee.created_at.desc()).offset(offset).limit(limit))
-    ).scalars().all()
+        (await db.execute(q.order_by(EnrollmentFee.created_at.desc()).offset(offset).limit(limit)))
+        .scalars()
+        .all()
+    )
     return list(items), total
 
 

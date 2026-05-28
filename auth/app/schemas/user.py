@@ -19,5 +19,3 @@ class UserRead(APIModel):
 
     external_id: UUID
     created_at: datetime
-
-

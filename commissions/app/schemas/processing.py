@@ -43,9 +43,7 @@ class TriggerProcessingResponse(APIModel):
         default=None,
         description="Identificador do lote de pagamento gerado, se houver.",
     )
-    message: str = Field(
-        ..., description="Mensagem descritiva sobre o resultado da operação."
-    )
+    message: str = Field(..., description="Mensagem descritiva sobre o resultado da operação.")
     processed_at: datetime = Field(
         default_factory=datetime.now,
         description="Data/hora em que o processamento foi acionado.",

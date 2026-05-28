@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ... import config_store as cfg
 from ...db import get_session
+from ...metrics import inc_webhook_event
 from ...models import WebhookEvent
 from ...services import charge as charge_service
 from ...services import notifications
@@ -17,7 +18,6 @@ from ...services import security_validator as security_validator_svc
 from ...services.webhook_security import verify_hmac, verify_ip_allowlist
 from ...utils.logging import log_event
 from ...utils.net import client_ip, user_agent
-from ...metrics import inc_webhook_event
 
 router = APIRouter(tags=["asaas-inbound"])
 

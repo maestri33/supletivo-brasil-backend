@@ -88,9 +88,7 @@ async def test_address_advances_profile_to_address(
     assert resp.json()["status"] == "address"
 
 
-async def test_address_cep_lookup(
-    client: AsyncClient, make_enrollment, as_matriculando
-) -> None:
+async def test_address_cep_lookup(client: AsyncClient, make_enrollment, as_matriculando) -> None:
     eid = await make_enrollment(status="profile")
     as_matriculando(eid)
     resp = await client.get("/api/v1/authenticated/address/cep/01310100")

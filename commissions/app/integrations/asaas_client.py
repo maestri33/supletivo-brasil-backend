@@ -7,6 +7,7 @@ Endpoints used (internal asaas service, NOT the public Asaas API):
 - POST /api/v1/payout          — execute a PIX payout to a beneficiary
 - GET  /api/v1/payout/{id}     — check payout status
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -91,9 +92,7 @@ class AsaasPayoutClient(BaseClient):
         }
 
         try:
-            resp = await request_with_retry(
-                self.client, "POST", "/api/v1/payout", json=body
-            )
+            resp = await request_with_retry(self.client, "POST", "/api/v1/payout", json=body)
             data = resp.json()
             self.log.info(
                 "payout_success",

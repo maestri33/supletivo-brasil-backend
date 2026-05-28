@@ -115,14 +115,10 @@ class TestUpdateCoordinatorStatus:
         c = await create_coordinator(db_session, external_id="ext-011", hub_external_id="hub-011")
         await db_session.commit()
 
-        updated = await update_coordinator_status(
-            db_session, c.id, CoordinatorStatus.inactive
-        )
+        updated = await update_coordinator_status(db_session, c.id, CoordinatorStatus.inactive)
         assert updated is not None
         assert updated.status == CoordinatorStatus.inactive
 
     async def test_returns_none_for_missing(self, db_session: AsyncSession) -> None:
-        result = await update_coordinator_status(
-            db_session, "no-such", CoordinatorStatus.inactive
-        )
+        result = await update_coordinator_status(db_session, "no-such", CoordinatorStatus.inactive)
         assert result is None

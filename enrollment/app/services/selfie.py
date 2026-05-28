@@ -56,9 +56,7 @@ async def _verify_selfie(external_id: str) -> tuple[bool, str | None]:
     Falha do `ai` NÃO bloqueia (verified=False, segue o funil). Imagem que
     claramente não tem pessoa levanta ValidationError.
     """
-    image_url = (
-        f"{settings.documents_base_url}/api/v1/documents/{external_id}/images/{SELFIE_SLOT}"
-    )
+    image_url = f"{settings.documents_base_url}/api/v1/documents/{external_id}/images/{SELFIE_SLOT}"
     try:
         async with httpx.AsyncClient(
             base_url=settings.ai_base_url, timeout=settings.http_timeout
@@ -100,9 +98,7 @@ async def submit_selfie(
         raise NotFound("Matrícula não encontrada")
     # Transição composta: education → selfie → awaiting_release (PRD §5.9).
     enrollment_svc.advance(enrollment, EnrollmentStatus.EDUCATION, EnrollmentStatus.SELFIE)
-    enrollment_svc.advance(
-        enrollment, EnrollmentStatus.SELFIE, EnrollmentStatus.AWAITING_RELEASE
-    )
+    enrollment_svc.advance(enrollment, EnrollmentStatus.SELFIE, EnrollmentStatus.AWAITING_RELEASE)
     return {
         "status": enrollment.status,
         "verified": verified,

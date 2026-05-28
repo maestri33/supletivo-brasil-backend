@@ -16,12 +16,13 @@ from uuid import uuid4
 
 import pytest
 
-from app.models import Checkout, Lead, LeadStatus, Message
+from app.models import Checkout, Lead, LeadStatus
 
 pytestmark = pytest.mark.asyncio
 
 
 # ── POST /api/v1/webhook/notify/{message_id} ────────────────────────────────
+
 
 class TestNotifyWebhook:
     """POST /api/v1/webhook/notify/{message_id} — callback do Notify."""
@@ -35,14 +36,16 @@ class TestNotifyWebhook:
         from app.models import Message as Msg
 
         async with async_session_maker() as session:
-            session.add(Msg(
-                message_id=42,
-                external_id=eid,
-                direction="out",
-                channel="whatsapp",
-                status="sent",
-                event="message.sent",
-            ))
+            session.add(
+                Msg(
+                    message_id=42,
+                    external_id=eid,
+                    direction="out",
+                    channel="whatsapp",
+                    status="sent",
+                    event="message.sent",
+                )
+            )
             await session.commit()
 
         # Webhook de delivered
@@ -64,9 +67,16 @@ class TestNotifyWebhook:
         # Verificar Message in foi criada
         async with async_session_maker() as session:
             from sqlalchemy import select
-            msgs_in = (await session.execute(
-                select(Msg).where(Msg.message_id == 42, Msg.direction == "in")
-            )).scalars().all()
+
+            msgs_in = (
+                (
+                    await session.execute(
+                        select(Msg).where(Msg.message_id == 42, Msg.direction == "in")
+                    )
+                )
+                .scalars()
+                .all()
+            )
             assert len(msgs_in) == 1
             assert msgs_in[0].status == "delivered"
 
@@ -96,19 +106,28 @@ class TestNotifyWebhook:
 
 # ── POST /api/v1/webhook/infinitepay ────────────────────────────────────────
 
+
 class TestInfinitepayWebhook:
     """POST /api/v1/webhook/infinitepay — callback de pagamento cartão."""
 
-    async def test_infinitepay_paid_updates_checkout_and_lead(self, client, make_lead, make_checkout):
+    async def test_infinitepay_paid_updates_checkout_and_lead(
+        self, client, make_lead, make_checkout
+    ):
         """Pagamento confirmado → checkout.is_paid=true + lead → COMPLETED."""
         eid = uuid4()
         lead_id = await make_lead(external_id=eid, status="checkout")
         await make_checkout(external_id=eid, payment_method="credit_card", provider="infinitepay")
 
         with (
-            patch("app.api.demilitarized.webhooks.notify_lead_completed", new_callable=AsyncMock) as mock_completed,
-            patch("app.api.demilitarized.webhooks.notify_enrollment", new_callable=AsyncMock) as mock_enroll,
-            patch("app.api.demilitarized.webhooks.notify_promoter_completed", new_callable=AsyncMock),
+            patch(
+                "app.api.demilitarized.webhooks.notify_lead_completed", new_callable=AsyncMock
+            ) as mock_completed,
+            patch(
+                "app.api.demilitarized.webhooks.notify_enrollment", new_callable=AsyncMock
+            ) as mock_enroll,
+            patch(
+                "app.api.demilitarized.webhooks.notify_promoter_completed", new_callable=AsyncMock
+            ),
         ):
             resp = await client.post(
                 "/api/v1/webhook/infinitepay",
@@ -128,6 +147,7 @@ class TestInfinitepayWebhook:
             # Verificar checkout
             from app.db import async_session_maker
             from sqlalchemy import select
+
             async with async_session_maker() as session:
                 checkout = await session.scalar(select(Checkout).where(Checkout.external_id == eid))
                 assert checkout is not None
@@ -143,16 +163,24 @@ class TestInfinitepayWebhook:
             mock_completed.assert_awaited_once()
             mock_enroll.assert_awaited_once()
 
-    async def test_infinitepay_not_paid_does_not_change_lead(self, client, make_lead, make_checkout):
+    async def test_infinitepay_not_paid_does_not_change_lead(
+        self, client, make_lead, make_checkout
+    ):
         """Webhook com paid=false não transiciona lead."""
         eid = uuid4()
         await make_lead(external_id=eid, status="checkout")
-        await make_checkout(external_id=eid, is_paid=False, payment_method="credit_card", provider="infinitepay")
+        await make_checkout(
+            external_id=eid, is_paid=False, payment_method="credit_card", provider="infinitepay"
+        )
 
         with (
-            patch("app.api.demilitarized.webhooks.notify_lead_completed", new_callable=AsyncMock) as mock_completed,
+            patch(
+                "app.api.demilitarized.webhooks.notify_lead_completed", new_callable=AsyncMock
+            ) as mock_completed,
             patch("app.api.demilitarized.webhooks.notify_enrollment", new_callable=AsyncMock),
-            patch("app.api.demilitarized.webhooks.notify_promoter_completed", new_callable=AsyncMock),
+            patch(
+                "app.api.demilitarized.webhooks.notify_promoter_completed", new_callable=AsyncMock
+            ),
         ):
             resp = await client.post(
                 "/api/v1/webhook/infinitepay",
@@ -165,6 +193,7 @@ class TestInfinitepayWebhook:
 
             from app.db import async_session_maker
             from sqlalchemy import select
+
             async with async_session_maker() as session:
                 lead = await session.scalar(select(Lead).where(Lead.external_id == eid))
                 assert lead is not None
@@ -173,7 +202,9 @@ class TestInfinitepayWebhook:
             # Não deve ter chamado notify_lead_completed
             mock_completed.assert_not_awaited()
 
-    async def test_infinitepay_with_promoter_triggers_notify(self, client, make_lead, make_checkout):
+    async def test_infinitepay_with_promoter_triggers_notify(
+        self, client, make_lead, make_checkout
+    ):
         """Lead com promoter → dispara notify_promoter_completed também."""
         eid = uuid4()
         promoter_id = uuid4()
@@ -183,7 +214,9 @@ class TestInfinitepayWebhook:
         with (
             patch("app.api.demilitarized.webhooks.notify_lead_completed", new_callable=AsyncMock),
             patch("app.api.demilitarized.webhooks.notify_enrollment", new_callable=AsyncMock),
-            patch("app.api.demilitarized.webhooks.notify_promoter_completed", new_callable=AsyncMock) as mock_promo,
+            patch(
+                "app.api.demilitarized.webhooks.notify_promoter_completed", new_callable=AsyncMock
+            ) as mock_promo,
         ):
             await client.post(
                 "/api/v1/webhook/infinitepay",
@@ -210,6 +243,7 @@ class TestInfinitepayWebhook:
 
 # ── POST /api/v1/webhook/asaas-charge ───────────────────────────────────────
 
+
 class TestAsaasChargeWebhook:
     """POST /api/v1/webhook/asaas-charge — callback PIX asaas."""
 
@@ -222,7 +256,9 @@ class TestAsaasChargeWebhook:
         with (
             patch("app.api.demilitarized.webhooks.notify_lead_completed", new_callable=AsyncMock),
             patch("app.api.demilitarized.webhooks.notify_enrollment", new_callable=AsyncMock),
-            patch("app.api.demilitarized.webhooks.notify_promoter_completed", new_callable=AsyncMock),
+            patch(
+                "app.api.demilitarized.webhooks.notify_promoter_completed", new_callable=AsyncMock
+            ),
         ):
             resp = await client.post(
                 "/api/v1/webhook/asaas-charge",
@@ -237,6 +273,7 @@ class TestAsaasChargeWebhook:
 
             from app.db import async_session_maker
             from sqlalchemy import select
+
             async with async_session_maker() as session:
                 checkout = await session.scalar(select(Checkout).where(Checkout.external_id == eid))
                 assert checkout is not None
@@ -254,9 +291,13 @@ class TestAsaasChargeWebhook:
         await make_checkout(external_id=eid, is_paid=False, payment_method="pix", provider="asaas")
 
         with (
-            patch("app.api.demilitarized.webhooks.notify_lead_completed", new_callable=AsyncMock) as mock_completed,
+            patch(
+                "app.api.demilitarized.webhooks.notify_lead_completed", new_callable=AsyncMock
+            ) as mock_completed,
             patch("app.api.demilitarized.webhooks.notify_enrollment", new_callable=AsyncMock),
-            patch("app.api.demilitarized.webhooks.notify_promoter_completed", new_callable=AsyncMock),
+            patch(
+                "app.api.demilitarized.webhooks.notify_promoter_completed", new_callable=AsyncMock
+            ),
         ):
             resp = await client.post(
                 "/api/v1/webhook/asaas-charge",
@@ -271,6 +312,7 @@ class TestAsaasChargeWebhook:
 
             from app.db import async_session_maker
             from sqlalchemy import select
+
             async with async_session_maker() as session:
                 checkout = await session.scalar(select(Checkout).where(Checkout.external_id == eid))
                 assert checkout is not None

@@ -48,12 +48,16 @@ class TestCreateTrainingApproval:
 class TestListTrainingApprovals:
     async def test_returns_all(self, db_session: AsyncSession, coordinator: str) -> None:
         await create_training_approval(
-            db_session, coordinator_id=coordinator,
-            candidate_external_id="cand-l1", training_external_id="tr-l1",
+            db_session,
+            coordinator_id=coordinator,
+            candidate_external_id="cand-l1",
+            training_external_id="tr-l1",
         )
         await create_training_approval(
-            db_session, coordinator_id=coordinator,
-            candidate_external_id="cand-l2", training_external_id="tr-l2",
+            db_session,
+            coordinator_id=coordinator,
+            candidate_external_id="cand-l2",
+            training_external_id="tr-l2",
         )
         await db_session.commit()
 
@@ -66,12 +70,16 @@ class TestListTrainingApprovals:
         await db_session.commit()
 
         await create_training_approval(
-            db_session, coordinator_id=coordinator,
-            candidate_external_id="c1", training_external_id="t1",
+            db_session,
+            coordinator_id=coordinator,
+            candidate_external_id="c1",
+            training_external_id="t1",
         )
         await create_training_approval(
-            db_session, coordinator_id=c2.id,
-            candidate_external_id="c2", training_external_id="t2",
+            db_session,
+            coordinator_id=c2.id,
+            candidate_external_id="c2",
+            training_external_id="t2",
         )
         await db_session.commit()
 
@@ -87,8 +95,10 @@ class TestListTrainingApprovals:
 class TestReviewTrainingApproval:
     async def test_approves(self, db_session: AsyncSession, coordinator: str) -> None:
         ta = await create_training_approval(
-            db_session, coordinator_id=coordinator,
-            candidate_external_id="cand-r1", training_external_id="tr-r1",
+            db_session,
+            coordinator_id=coordinator,
+            candidate_external_id="cand-r1",
+            training_external_id="tr-r1",
         )
         await db_session.commit()
 
@@ -98,12 +108,16 @@ class TestReviewTrainingApproval:
 
     async def test_rejects(self, db_session: AsyncSession, coordinator: str) -> None:
         ta = await create_training_approval(
-            db_session, coordinator_id=coordinator,
-            candidate_external_id="cand-r2", training_external_id="tr-r2",
+            db_session,
+            coordinator_id=coordinator,
+            candidate_external_id="cand-r2",
+            training_external_id="tr-r2",
         )
         await db_session.commit()
 
-        result = await review_training_approval(db_session, ta.id, approved=False, reason="Not eligible")
+        result = await review_training_approval(
+            db_session, ta.id, approved=False, reason="Not eligible"
+        )
         assert result is not None
         assert result.status == ApprovalStatus.rejected
         assert result.reason == "Not eligible"
@@ -116,8 +130,10 @@ class TestReviewTrainingApproval:
         self, db_session: AsyncSession, coordinator: str
     ) -> None:
         ta = await create_training_approval(
-            db_session, coordinator_id=coordinator,
-            candidate_external_id="cand-r3", training_external_id="tr-r3",
+            db_session,
+            coordinator_id=coordinator,
+            candidate_external_id="cand-r3",
+            training_external_id="tr-r3",
         )
         await db_session.commit()
 

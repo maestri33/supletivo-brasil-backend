@@ -54,9 +54,7 @@ async def create_commission(
 
 async def get_commission(db: AsyncSession, commission_id: int) -> Commission | None:
     return (
-        await db.execute(
-            select(Commission).where(Commission.id == commission_id)
-        )
+        await db.execute(select(Commission).where(Commission.id == commission_id))
     ).scalar_one_or_none()
 
 
@@ -87,10 +85,10 @@ async def list_commissions(
 
     # Fetch
     items = (
-        await db.execute(
-            q.order_by(Commission.created_at.desc()).offset(offset).limit(limit)
-        )
-    ).scalars().all()
+        (await db.execute(q.order_by(Commission.created_at.desc()).offset(offset).limit(limit)))
+        .scalars()
+        .all()
+    )
 
     return list(items), total
 
@@ -102,9 +100,7 @@ async def list_commissions(
 
 async def get_payment_batch(db: AsyncSession, batch_id: int) -> PaymentBatch | None:
     return (
-        await db.execute(
-            select(PaymentBatch).where(PaymentBatch.id == batch_id)
-        )
+        await db.execute(select(PaymentBatch).where(PaymentBatch.id == batch_id))
     ).scalar_one_or_none()
 
 
@@ -123,10 +119,10 @@ async def list_payment_batches(
     total = (await db.execute(count_q)).scalar() or 0
 
     items = (
-        await db.execute(
-            q.order_by(PaymentBatch.created_at.desc()).offset(offset).limit(limit)
-        )
-    ).scalars().all()
+        (await db.execute(q.order_by(PaymentBatch.created_at.desc()).offset(offset).limit(limit)))
+        .scalars()
+        .all()
+    )
 
     return list(items), total
 
@@ -189,27 +185,35 @@ async def process_weekly_batch(
     _ = week_end_local  # used by week_end filter below
 
     pending = (
-        await db.execute(
-            select(Commission)
-            .where(
-                Commission.status == CommissionStatus.PENDING,
-                Commission.recipient_role == "promoter",
+        (
+            await db.execute(
+                select(Commission)
+                .where(
+                    Commission.status == CommissionStatus.PENDING,
+                    Commission.recipient_role == "promoter",
+                )
+                .order_by(Commission.created_at.asc())
             )
-            .order_by(Commission.created_at.asc())
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     # Also get coordinator commissions (any status=pending)
     coordinator_pending = (
-        await db.execute(
-            select(Commission)
-            .where(
-                Commission.status == CommissionStatus.PENDING,
-                Commission.recipient_role == "coordinator",
+        (
+            await db.execute(
+                select(Commission)
+                .where(
+                    Commission.status == CommissionStatus.PENDING,
+                    Commission.recipient_role == "coordinator",
+                )
+                .order_by(Commission.created_at.asc())
             )
-            .order_by(Commission.created_at.asc())
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     all_pending = list(pending) + list(coordinator_pending)
 
@@ -338,9 +342,7 @@ class CommissionService:
         return await get_commission(db, commission_id)
 
     @staticmethod
-    async def list(
-        db: AsyncSession, **kwargs
-    ) -> tuple[list[Commission], int]:
+    async def list(db: AsyncSession, **kwargs) -> tuple[list[Commission], int]:
         return await list_commissions(db, **kwargs)
 
 
@@ -352,7 +354,5 @@ class PaymentBatchService:
         return await get_payment_batch(db, batch_id)
 
     @staticmethod
-    async def list(
-        db: AsyncSession, **kwargs
-    ) -> tuple[list[PaymentBatch], int]:
+    async def list(db: AsyncSession, **kwargs) -> tuple[list[PaymentBatch], int]:
         return await list_payment_batches(db, **kwargs)

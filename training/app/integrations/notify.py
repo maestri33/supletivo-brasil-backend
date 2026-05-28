@@ -23,9 +23,7 @@ class NotifyClient(BaseClient):
             body["title"] = title
         if flags is not None:
             body["flags"] = flags
-        resp = await request_with_retry(
-            self.client, "POST", "/api/v1/messages/send", json=body
-        )
+        resp = await request_with_retry(self.client, "POST", "/api/v1/messages/send", json=body)
         return resp.json()
 
 

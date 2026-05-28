@@ -53,10 +53,7 @@ from app.utils.logging import get_logger
 log = get_logger(__name__)
 
 # Sentinel para operacoes destrutivas
-_CONFIRM_REQUIRED = (
-    "Operacao destrutiva. Passe confirm=True para confirmar. "
-    "Acao irreversivel."
-)
+_CONFIRM_REQUIRED = "Operacao destrutiva. Passe confirm=True para confirmar. Acao irreversivel."
 
 
 class MailcowClient:
@@ -78,13 +75,10 @@ class MailcowClient:
     async def _get(self, path: str) -> Any:
         """GET request com retry. Retorna JSON ou levanta IntegrationError."""
         url = f"{self._base_url}/api/v1{path}"
-        resp = await request_with_retry(
-            self._client, "GET", url, headers=self._headers()
-        )
+        resp = await request_with_retry(self._client, "GET", url, headers=self._headers())
         if resp.status_code >= 400:
             raise IntegrationError(
-                f"Mailcow API GET {path} falhou ({resp.status_code}): "
-                f"{resp.text[:300]}"
+                f"Mailcow API GET {path} falhou ({resp.status_code}): {resp.text[:300]}"
             )
         return resp.json()
 
@@ -96,8 +90,7 @@ class MailcowClient:
         )
         if resp.status_code >= 400:
             raise IntegrationError(
-                f"Mailcow API POST {path} falhou ({resp.status_code}): "
-                f"{resp.text[:300]}"
+                f"Mailcow API POST {path} falhou ({resp.status_code}): {resp.text[:300]}"
             )
         return resp.json()
 
@@ -339,9 +332,7 @@ class MailcowClient:
         log.info("mailcow.edit_mailbox", addr=addr, fields=list(attr.keys()))
         return result
 
-    async def delete_mailbox(
-        self, addr: str, *, confirm: bool = False
-    ) -> Any:
+    async def delete_mailbox(self, addr: str, *, confirm: bool = False) -> Any:
         """Remove uma mailbox. OPERACAO DESTRUTIVA — exige confirm=True."""
         if not confirm:
             raise ValueError(_CONFIRM_REQUIRED)
@@ -384,9 +375,7 @@ class MailcowClient:
         log.info("mailcow.create_alias", address=address, goto=goto_str)
         return result
 
-    async def delete_alias(
-        self, alias_id: int | str, *, confirm: bool = False
-    ) -> Any:
+    async def delete_alias(self, alias_id: int | str, *, confirm: bool = False) -> Any:
         """Remove um alias. OPERACAO DESTRUTIVA — exige confirm=True."""
         if not confirm:
             raise ValueError(_CONFIRM_REQUIRED)
@@ -451,9 +440,7 @@ class MailcowClient:
         """Remove um item da fila. OPERACAO DESTRUTIVA — exige confirm=True."""
         if not confirm:
             raise ValueError(_CONFIRM_REQUIRED)
-        result = await self._post(
-            "/delete/postfix/queue/item", {"items": [item_id]}
-        )
+        result = await self._post("/delete/postfix/queue/item", {"items": [item_id]})
         log.warning("mailcow.delete_queue_item", item_id=item_id)
         return result
 

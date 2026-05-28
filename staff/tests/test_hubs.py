@@ -78,9 +78,7 @@ async def test_create_hub_delegates(client: AsyncClient) -> None:
         "coordinator_external_id": None,
     }
 
-    with patch(
-        "app.api.authenticated.hubs.HubClient", autospec=True
-    ) as MockClient:
+    with patch("app.api.authenticated.hubs.HubClient", autospec=True) as MockClient:
         instance = MockClient.return_value
         instance.create_hub = AsyncMock(return_value=fake_hub)
         resp = await client.post(
@@ -99,9 +97,7 @@ async def test_list_hubs_delegates(client: AsyncClient) -> None:
         {"id": str(uuid4()), "name": "Polo B", "brand": "wyden"},
     ]
 
-    with patch(
-        "app.api.authenticated.hubs.HubClient", autospec=True
-    ) as MockClient:
+    with patch("app.api.authenticated.hubs.HubClient", autospec=True) as MockClient:
         instance = MockClient.return_value
         instance.list_hubs = AsyncMock(return_value=fake_list)
         resp = await client.get(BASE)
@@ -120,9 +116,7 @@ async def test_get_hub_delegates(client: AsyncClient) -> None:
         "coordinator_external_id": None,
     }
 
-    with patch(
-        "app.api.authenticated.hubs.HubClient", autospec=True
-    ) as MockClient:
+    with patch("app.api.authenticated.hubs.HubClient", autospec=True) as MockClient:
         instance = MockClient.return_value
         instance.get_hub = AsyncMock(return_value=fake_hub)
         resp = await client.get(f"{BASE}/{HUB_ID}")
@@ -140,9 +134,7 @@ async def test_set_coordinator_delegates(client: AsyncClient) -> None:
         "coordinator_external_id": str(COORDINATOR_ID),
     }
 
-    with patch(
-        "app.api.authenticated.hubs.HubClient", autospec=True
-    ) as MockClient:
+    with patch("app.api.authenticated.hubs.HubClient", autospec=True) as MockClient:
         instance = MockClient.return_value
         instance.set_coordinator = AsyncMock(return_value=fake_result)
         resp = await client.put(
@@ -158,9 +150,7 @@ async def test_hub_unreachable_returns_502(client: AsyncClient) -> None:
     """Hub fora do ar → staff retorna erro (Bad Gateway)."""
     from httpx import RequestError
 
-    with patch(
-        "app.api.authenticated.hubs.HubClient", autospec=True
-    ) as MockClient:
+    with patch("app.api.authenticated.hubs.HubClient", autospec=True) as MockClient:
         instance = MockClient.return_value
         instance.create_hub = AsyncMock(
             side_effect=RequestError("connection refused", request=None)

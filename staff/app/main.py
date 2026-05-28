@@ -56,6 +56,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 from slowapi.middleware import SlowAPIMiddleware
+
 app.add_middleware(SlowAPIMiddleware)
 
 
@@ -87,7 +88,6 @@ app.add_middleware(fsl.AccessLogMiddleware, config=access_config)
 # ── Routers ────────────────────────────────────────────────────
 app.include_router(authenticated_router, prefix="/api/v1")
 setup_metrics(app)
-
 
 
 # ── Health endpoints ───────────────────────────────────────────

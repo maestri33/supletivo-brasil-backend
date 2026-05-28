@@ -32,9 +32,7 @@ async def _get_jwks() -> dict:
         return _jwks_cache  # type: ignore[return-value]
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{settings.JWT_SERVICE_URL}/.well-known/jwks.json", timeout=5
-            )
+            resp = await client.get(f"{settings.JWT_SERVICE_URL}/.well-known/jwks.json", timeout=5)
             resp.raise_for_status()
             _jwks_cache = resp.json()
             _jwks_cached_at = time.monotonic()

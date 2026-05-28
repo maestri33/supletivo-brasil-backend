@@ -72,9 +72,7 @@ async def submit_for_review(
     await session.commit()
     # validacao IA assincrona — uma task por documento (idempotente por id)
     for doc in docs:
-        background_tasks.add_task(
-            document_service.validate_document_async, student.id, doc.id
-        )
+        background_tasks.add_task(document_service.validate_document_async, student.id, doc.id)
     background_tasks.add_task(
         notifications.notify_status_changed,
         str(student.external_id),

@@ -81,7 +81,8 @@ class ConfigInternalResponse(BaseModel):
 
 class SetKeyRequest(BaseModel):
     api_key: str = Field(
-        ..., min_length=20,
+        ...,
+        min_length=20,
         description="API key Asaas de producao ($aact_prod_*). Chaves sandbox sao rejeitadas.",
     )
 
@@ -157,10 +158,7 @@ class ConfigStatusResponse(BaseModel):
     )
     webhook_hmac_configured: bool = Field(
         default=False,
-        description=(
-            "True se o webhook HMAC secret esta configurado "
-            "(ou estamos em dev/staging)"
-        ),
+        description=("True se o webhook HMAC secret esta configurado (ou estamos em dev/staging)"),
     )
     errors: list[str] = Field(
         default_factory=list,

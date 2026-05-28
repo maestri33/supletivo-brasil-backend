@@ -5,8 +5,6 @@ import asyncio
 import pytest
 from uuid import uuid4
 
-from app.models import LeadStatus
-
 
 @pytest.mark.asyncio
 class TestListLeads:

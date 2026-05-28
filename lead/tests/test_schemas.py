@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from app.api.demilitarized.checkouts import CheckoutPatch, CheckoutOut
+from app.api.demilitarized.checkouts import CheckoutPatch
 from app.api.demilitarized.leads import LeadOut, LeadPatch
 from app.api.public.auth import (
     CheckRequest,
@@ -18,6 +18,7 @@ from app.api.public.auth import (
 
 
 # ── CheckRequest ─────────────────────────────────────────────────────────────
+
 
 class TestCheckRequest:
     def test_valid_cpf(self):
@@ -45,6 +46,7 @@ class TestCheckRequest:
 
 # ── RegisterRequest ──────────────────────────────────────────────────────────
 
+
 class TestRegisterRequest:
     def test_valid_fields(self):
         r = RegisterRequest(phone="11999999999", cpf="12345678901")
@@ -68,6 +70,7 @@ class TestRegisterRequest:
 
 # ── LoginRequest ─────────────────────────────────────────────────────────────
 
+
 class TestLoginRequest:
     def test_valid(self):
         eid = uuid4()
@@ -86,6 +89,7 @@ class TestLoginRequest:
 
 # ── RefreshRequest ───────────────────────────────────────────────────────────
 
+
 class TestRefreshRequest:
     def test_valid(self):
         r = RefreshRequest(refresh_token="rt_valido")
@@ -93,6 +97,7 @@ class TestRefreshRequest:
 
 
 # ── LeadPatch ────────────────────────────────────────────────────────────────
+
 
 class TestLeadPatch:
     def test_valid_status(self):
@@ -122,11 +127,13 @@ class TestLeadPatch:
     def test_enum_coercion(self):
         """Pydantic v2 coerce strings to Enum via model_validate."""
         from app.models import LeadStatus
+
         r = LeadPatch.model_validate({"status": "captured"})
         assert r.status == LeadStatus.CAPTURED
 
 
 # ── LeadOut ──────────────────────────────────────────────────────────────────
+
 
 class TestLeadOut:
     def test_minimal(self):
@@ -150,6 +157,7 @@ class TestLeadOut:
 
 
 # ── CheckoutPatch ────────────────────────────────────────────────────────────
+
 
 class TestCheckoutPatch:
     def test_valid_is_paid(self):

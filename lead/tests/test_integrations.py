@@ -86,9 +86,7 @@ class TestRequestWithRetry:
         from app.integrations import IntegrationError, request_with_retry
 
         mock_client = AsyncMock()
-        mock_client.request = AsyncMock(
-            side_effect=httpx.TransportError("Connection refused")
-        )
+        mock_client.request = AsyncMock(side_effect=httpx.TransportError("Connection refused"))
 
         with pytest.raises(IntegrationError) as exc:
             await request_with_retry(mock_client, "GET", "/test", max_retries=3)
@@ -341,7 +339,8 @@ class TestNotifyHandlers:
 
         with patch("app.notify.handlers.notify_and_track", new_callable=AsyncMock) as mock_nt:
             await notify_promoter_captured(
-                str(uuid4()), "11999999999",
+                str(uuid4()),
+                "11999999999",
                 "00000000-0000-0000-0000-000000000000",
             )
         mock_nt.assert_not_awaited()

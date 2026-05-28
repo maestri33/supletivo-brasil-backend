@@ -164,7 +164,9 @@ async def update_document(external_id: str, data: DocumentUpdate) -> Document:
     await doc.save()
     _PII_SUFFIXES = {"number", "ra", "book", "page", "entry", "registry_office"}
     masked = {
-        k: mask_number(v) if any(suffix in k for suffix in _PII_SUFFIXES) and isinstance(v, str) else v
+        k: mask_number(v)
+        if any(suffix in k for suffix in _PII_SUFFIXES) and isinstance(v, str)
+        else v
         for k, v in changes.items()
     }
     logger.info("document_updated", external_id=external_id, changes=masked)

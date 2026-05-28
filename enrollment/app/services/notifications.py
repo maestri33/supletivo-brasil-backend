@@ -55,7 +55,9 @@ async def notify_status_advanced(external_id: str, status: str) -> None:
     title, content = msg
     async with _notify_client() as http:
         try:
-            await NotifyClient(http).send_message(external_id=external_id, content=content, title=title)
+            await NotifyClient(http).send_message(
+                external_id=external_id, content=content, title=title
+            )
         except Exception as exc:  # noqa: BLE001
             logger.error(
                 "notify_advance_failed",

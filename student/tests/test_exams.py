@@ -60,9 +60,7 @@ async def test_grade_passed_advances_to_dispatch(
     assert me.json()["status"] == "awaiting_documentation_dispatch"
 
 
-async def test_grade_failed_reopens_for_retry(
-    client: AsyncClient, auth_as, make_student
-) -> None:
+async def test_grade_failed_reopens_for_retry(client: AsyncClient, auth_as, make_student) -> None:
     from app.models import StudentStatus
 
     student = await make_student(status=StudentStatus.EXAM_RELEASED)

@@ -10,9 +10,7 @@ async def test_pending_lists_status(client: AsyncClient, auth_as, make_student) 
 
     student = await make_student(status=StudentStatus.AWAITING_DOCUMENTS)
     auth_as(external_id=student.external_id, roles=["student"])
-    resp = await client.get(
-        "/api/v1/authenticated/students/me/pending-items", headers=_HEADERS
-    )
+    resp = await client.get("/api/v1/authenticated/students/me/pending-items", headers=_HEADERS)
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "awaiting_documents"

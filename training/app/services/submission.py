@@ -71,9 +71,7 @@ async def get_last_for_material(
     return await session.scalar(stmt)
 
 
-async def count_attempts(
-    session: AsyncSession, external_id: UUID, material_id: str
-) -> int:
+async def count_attempts(session: AsyncSession, external_id: UUID, material_id: str) -> int:
     stmt = select(func.count(Submission.id)).where(
         Submission.external_id == str(external_id),
         Submission.material_id == str(material_id),
@@ -81,9 +79,7 @@ async def count_attempts(
     return int(await session.scalar(stmt) or 0)
 
 
-async def has_pending(
-    session: AsyncSession, external_id: UUID, material_id: str
-) -> bool:
+async def has_pending(session: AsyncSession, external_id: UUID, material_id: str) -> bool:
     """True se ja' existe submissao pendente para evitar disparar IA em duplicata."""
     stmt = select(Submission.id).where(
         Submission.external_id == str(external_id),
@@ -93,9 +89,7 @@ async def has_pending(
     return (await session.scalar(stmt)) is not None
 
 
-def apply_grading(
-    sub: Submission, grade: float, justification: str, pass_threshold: float
-) -> None:
+def apply_grading(sub: Submission, grade: float, justification: str, pass_threshold: float) -> None:
     """Grava nota + justificativa e decide approved/rejected pelo threshold."""
     sub.grade = grade
     sub.justification = justification

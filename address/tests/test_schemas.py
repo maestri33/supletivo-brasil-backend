@@ -1,10 +1,9 @@
 """Tests for address schemas — Pydantic validation."""
 
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 
-from app.exceptions import ValidationError
 from app.schemas.address import AddressCreate, AddressPatch, AddressRead
 
 pytestmark = pytest.mark.asyncio

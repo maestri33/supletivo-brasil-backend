@@ -68,7 +68,9 @@ async def _check_connectivity(client: httpx.AsyncClient) -> CheckResult:
         if resp.status_code < 500:
             return CheckResult(name=name, passed=True, latency_ms=ms)
         return CheckResult(
-            name=name, passed=False, latency_ms=ms,
+            name=name,
+            passed=False,
+            latency_ms=ms,
             error=f"HTTP {resp.status_code} from InfinitePay base URL",
         )
     except httpx.ConnectError as e:
@@ -109,20 +111,26 @@ async def _check_create_checkout(client: httpx.AsyncClient) -> CheckResult:
             data = resp.json()
         except ValueError:
             return CheckResult(
-                name=name, passed=False, latency_ms=ms,
+                name=name,
+                passed=False,
+                latency_ms=ms,
                 error=f"Non-JSON response (HTTP {resp.status_code})",
             )
 
         if resp.status_code >= 500:
             return CheckResult(
-                name=name, passed=False, latency_ms=ms,
+                name=name,
+                passed=False,
+                latency_ms=ms,
                 error=f"HTTP {resp.status_code}: {data}",
             )
 
         # 4xx with structured JSON = endpoint is alive, just rejected our test data
         if resp.status_code >= 400:
             return CheckResult(
-                name=name, passed=True, latency_ms=ms,
+                name=name,
+                passed=True,
+                latency_ms=ms,
                 error=f"Endpoint responded HTTP {resp.status_code} (expected for test payload)",
             )
 
@@ -133,12 +141,16 @@ async def _check_create_checkout(client: httpx.AsyncClient) -> CheckResult:
 
         if data.get("success") is False:
             return CheckResult(
-                name=name, passed=True, latency_ms=ms,
+                name=name,
+                passed=True,
+                latency_ms=ms,
                 error="success=false (endpoint alive, test payload rejected)",
             )
 
         return CheckResult(
-            name=name, passed=False, latency_ms=ms,
+            name=name,
+            passed=False,
+            latency_ms=ms,
             error=f"200 but missing checkout URL: {data}",
         )
 
@@ -173,13 +185,17 @@ async def _check_payment_check(client: httpx.AsyncClient) -> CheckResult:
             data = resp.json()
         except ValueError:
             return CheckResult(
-                name=name, passed=False, latency_ms=ms,
+                name=name,
+                passed=False,
+                latency_ms=ms,
                 error=f"Non-JSON response (HTTP {resp.status_code})",
             )
 
         if resp.status_code >= 500:
             return CheckResult(
-                name=name, passed=False, latency_ms=ms,
+                name=name,
+                passed=False,
+                latency_ms=ms,
                 error=f"HTTP {resp.status_code}: {data}",
             )
 

@@ -10,7 +10,11 @@ from app.schemas import (
     TriggerProcessingRequest,
     TriggerProcessingResponse,
 )
-from app.services.commissions import PaymentBatchService, process_weekly_batch, submit_batch_for_payment
+from app.services.commissions import (
+    PaymentBatchService,
+    process_weekly_batch,
+    submit_batch_for_payment,
+)
 from app.utils.logging import get_logger
 from datetime import datetime, UTC
 
@@ -26,9 +30,7 @@ async def list_batches(
     db: AsyncSession = Depends(get_db),
 ) -> PaymentBatchListResponse:
     """Lista lotes de pagamento."""
-    items, total = await PaymentBatchService.list(
-        db, status=status, offset=offset, limit=limit
-    )
+    items, total = await PaymentBatchService.list(db, status=status, offset=offset, limit=limit)
     return PaymentBatchListResponse(
         items=[
             PaymentBatchResponse(

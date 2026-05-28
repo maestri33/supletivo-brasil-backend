@@ -114,11 +114,14 @@ class TestTrainingApprovalAPI:
 
     async def test_list_approvals(self, client: AsyncClient, coordinator_id: str) -> None:
         cid = coordinator_id
-        await client.post(self.BASE, json={
-            "coordinator_id": cid,
-            "candidate_external_id": str(uuid4()),
-            "training_external_id": str(uuid4()),
-        })
+        await client.post(
+            self.BASE,
+            json={
+                "coordinator_id": cid,
+                "candidate_external_id": str(uuid4()),
+                "training_external_id": str(uuid4()),
+            },
+        )
 
         resp = await client.get(self.BASE)
         assert resp.status_code == 200
@@ -126,17 +129,23 @@ class TestTrainingApprovalAPI:
         assert data["total"] >= 1
 
     async def test_review_approval(self, client: AsyncClient, coordinator_id: str) -> None:
-        create_resp = await client.post(self.BASE, json={
-            "coordinator_id": coordinator_id,
-            "candidate_external_id": str(uuid4()),
-            "training_external_id": str(uuid4()),
-        })
+        create_resp = await client.post(
+            self.BASE,
+            json={
+                "coordinator_id": coordinator_id,
+                "candidate_external_id": str(uuid4()),
+                "training_external_id": str(uuid4()),
+            },
+        )
         approval_id = create_resp.json()["id"]
 
-        resp = await client.patch(f"{self.BASE}/{approval_id}", json={
-            "status": "approved",
-            "reason": "Candidate meets requirements",
-        })
+        resp = await client.patch(
+            f"{self.BASE}/{approval_id}",
+            json={
+                "status": "approved",
+                "reason": "Candidate meets requirements",
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["status"] == "approved"
         assert resp.json()["reason"] == "Candidate meets requirements"
@@ -144,11 +153,14 @@ class TestTrainingApprovalAPI:
     async def test_review_approval_invalid_status(
         self, client: AsyncClient, coordinator_id: str
     ) -> None:
-        create_resp = await client.post(self.BASE, json={
-            "coordinator_id": coordinator_id,
-            "candidate_external_id": str(uuid4()),
-            "training_external_id": str(uuid4()),
-        })
+        create_resp = await client.post(
+            self.BASE,
+            json={
+                "coordinator_id": coordinator_id,
+                "candidate_external_id": str(uuid4()),
+                "training_external_id": str(uuid4()),
+            },
+        )
         approval_id = create_resp.json()["id"]
 
         resp = await client.patch(f"{self.BASE}/{approval_id}", json={"status": "invalid"})
@@ -180,12 +192,15 @@ class TestEnrollmentFeeAPI:
 
     async def test_list_fees(self, client: AsyncClient, coordinator_id: str) -> None:
         cid = coordinator_id
-        await client.post(self.BASE, json={
-            "coordinator_id": cid,
-            "student_external_id": str(uuid4()),
-            "description": "Test fee",
-            "amount": "100.00",
-        })
+        await client.post(
+            self.BASE,
+            json={
+                "coordinator_id": cid,
+                "student_external_id": str(uuid4()),
+                "description": "Test fee",
+                "amount": "100.00",
+            },
+        )
 
         resp = await client.get(self.BASE)
         assert resp.status_code == 200
@@ -193,16 +208,22 @@ class TestEnrollmentFeeAPI:
         assert data["total"] >= 1
 
     async def test_pay_fee(self, client: AsyncClient, coordinator_id: str) -> None:
-        create_resp = await client.post(self.BASE, json={
-            "coordinator_id": coordinator_id,
-            "student_external_id": str(uuid4()),
-            "description": "Payable fee",
-            "amount": "200.00",
-        })
+        create_resp = await client.post(
+            self.BASE,
+            json={
+                "coordinator_id": coordinator_id,
+                "student_external_id": str(uuid4()),
+                "description": "Payable fee",
+                "amount": "200.00",
+            },
+        )
         fee_id = create_resp.json()["id"]
 
-        resp = await client.post(f"{self.BASE}/{fee_id}/pay", json={
-            "payment_external_id": str(uuid4()),
-        })
+        resp = await client.post(
+            f"{self.BASE}/{fee_id}/pay",
+            json={
+                "payment_external_id": str(uuid4()),
+            },
+        )
         assert resp.status_code == 200
         assert resp.json()["status"] == "paid"

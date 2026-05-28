@@ -30,7 +30,8 @@ class CustomerInline(BaseModel):
 
 class ChargeCreateRequest(BaseModel):
     external_id: str = Field(
-        ..., min_length=1,
+        ...,
+        min_length=1,
         description=(
             "Identificador do pagador (cliente). Find-or-create: se nao existir customer "
             "com esse external_id, payer e obrigatorio para cria-lo."

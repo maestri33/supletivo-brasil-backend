@@ -9,16 +9,16 @@ from datetime import UTC, datetime
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from app.api.router import api_router
 from app.config import get_settings
 from app.db import close_db
 from app.exceptions import DomainError
-from app.utils.logging import configure_logging, get_logger
 from app.metrics import setup_metrics
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
+from app.utils.logging import configure_logging, get_logger
 
 settings = get_settings()
 configure_logging()
@@ -48,8 +48,8 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 from slowapi.middleware import SlowAPIMiddleware
-app.add_middleware(SlowAPIMiddleware)
 
+app.add_middleware(SlowAPIMiddleware)
 
 
 @app.exception_handler(DomainError)
@@ -60,7 +60,6 @@ async def _handle_domain_error(request: Request, exc: DomainError) -> JSONRespon
 
 app.include_router(api_router)
 setup_metrics(app)
-
 
 
 @app.get("/health")

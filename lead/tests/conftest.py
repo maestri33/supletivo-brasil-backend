@@ -79,6 +79,7 @@ from httpx import ASGITransport, AsyncClient  # noqa: E402
 # e depois removemos a FK do model Lead para evitar que o create_all
 # recrie auth.users automaticamente.
 import app.db  # noqa: E402
+
 if "users" in app.db.metadata.tables:
     _auth_users = app.db.metadata.tables["users"]
     app.db.metadata.remove(_auth_users)
@@ -113,13 +114,16 @@ for _tname in _tables_to_remove:
 
 Base.metadata.schema = None
 
+
 # Disable FK enforcement (SQLite cross-schema FKs nao sao testadas em unit)
 @pytest.fixture(autouse=True)
 def _disable_fks():
     """Desabilita FK enforcement no SQLite — cross-schema FKs nao sao testadas."""
     import sqlalchemy
+
     if hasattr(sqlalchemy, "event"):
         from sqlalchemy import event
+
         @event.listens_for(engine.sync_engine, "connect")
         def _set_pragma(dbapi_connection, connection_record):
             cursor = dbapi_connection.cursor()

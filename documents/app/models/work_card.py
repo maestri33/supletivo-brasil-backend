@@ -15,7 +15,9 @@ UUIDStr = PG_UUID(as_uuid=False).with_variant(String(36), "sqlite")
 class WorkCard(Base, TimestampMixin):
     __tablename__ = "work_cards"
 
-    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[str] = mapped_column(
+        UUIDStr, primary_key=True, default=lambda: str(uuid4())
+    )
     number: Mapped[str | None] = mapped_column(String(30), nullable=True)
     series: Mapped[str | None] = mapped_column(String(20), nullable=True)
     state: Mapped[str | None] = mapped_column(String(2), nullable=True)

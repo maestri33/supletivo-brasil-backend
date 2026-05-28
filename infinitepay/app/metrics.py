@@ -12,6 +12,7 @@ Usage:
     setup_metrics(app)
     inc_checkout(status="paid")
 """
+
 from __future__ import annotations
 
 import time
@@ -112,18 +113,16 @@ def setup_metrics(app) -> None:
             elapsed = time.monotonic() - start
             if _http_duration is not None:
                 try:
-                    _http_duration.labels(
-                        method=request.method, path=request.url.path
-                    ).observe(elapsed)
+                    _http_duration.labels(method=request.method, path=request.url.path).observe(
+                        elapsed
+                    )
                 except Exception:
                     pass
             raise
         elapsed = time.monotonic() - start
         if _http_duration is not None:
             try:
-                _http_duration.labels(
-                    method=request.method, path=request.url.path
-                ).observe(elapsed)
+                _http_duration.labels(method=request.method, path=request.url.path).observe(elapsed)
             except Exception:
                 pass
         return response

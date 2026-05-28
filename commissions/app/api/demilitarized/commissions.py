@@ -68,6 +68,7 @@ async def get_commission_endpoint(
     commission = await get_commission(session, commission_id)
     if commission is None:
         from app.main import _DomainError
+
         raise _DomainError("Comissão não encontrada", status_code=404)
     return CommissionResponse.model_validate(commission)
 
@@ -119,6 +120,7 @@ async def get_payment_batch_endpoint(
     batch = await get_payment_batch(session, batch_id)
     if batch is None:
         from app.main import _DomainError
+
         raise _DomainError("Lote de pagamento não encontrado", status_code=404)
     return PaymentBatchResponse.model_validate(batch)
 

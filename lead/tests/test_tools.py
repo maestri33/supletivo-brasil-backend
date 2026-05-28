@@ -11,16 +11,14 @@ Estratégia:
 from __future__ import annotations
 
 import base64
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from pytest import MonkeyPatch
 
 from app.db import async_session_maker
 from app.integrations.asaas import AsaasClient
-from app.models import Checkout, Lead, LeadStatus, Message
+from app.models import Checkout, Lead, LeadStatus
 
 pytestmark = pytest.mark.asyncio
 
@@ -361,7 +359,8 @@ class TestCreatePixCheckout:
             patch("app.tools.create_checkout.settings.PIX_DEFAULT_AMOUNT", 999.99),
             patch("app.tools.create_checkout.settings.PIX_DEFAULT_DESCRIPTION", "Test"),
             patch.object(
-                AsaasClient, "create_charge_pix",
+                AsaasClient,
+                "create_charge_pix",
                 new_callable=AsyncMock,
                 return_value=mock_charge,
             ),
@@ -385,7 +384,9 @@ class TestCreatePixCheckout:
         eid = str(uuid4())
         ext_uuid = uuid4()
 
-        error_response = httpx.Response(422, json={"detail": "invalid_amount: valor abaixo do mínimo"})
+        error_response = httpx.Response(
+            422, json={"detail": "invalid_amount: valor abaixo do mínimo"}
+        )
 
         with (
             patch(
@@ -463,9 +464,7 @@ class TestCreatePixCheckoutForLead:
             ),
         ):
             async with async_session_maker() as session:
-                checkout = await create_pix_checkout_for_lead(
-                    str(ext_uuid), session=session
-                )
+                checkout = await create_pix_checkout_for_lead(str(ext_uuid), session=session)
 
         assert checkout.provider == "asaas"
         assert checkout.payment_method == "pix"
@@ -535,7 +534,9 @@ class TestNotifyEnrollment:
         promoter_id = str(uuid4())
 
         with (
-            patch("app.tools.webhooks.settings.WEBHOOK_ENROLLMENT_URL", "http://enrollment/webhook"),
+            patch(
+                "app.tools.webhooks.settings.WEBHOOK_ENROLLMENT_URL", "http://enrollment/webhook"
+            ),
             patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post,
         ):
             mock_post.return_value = MagicMock(status_code=200, raise_for_status=lambda: None)
@@ -560,7 +561,11 @@ class TestNotifyEnrollment:
         from app.tools.webhooks import notify_enrollment
 
         with (
-            patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=ConnectionError("refused")),
+            patch(
+                "httpx.AsyncClient.post",
+                new_callable=AsyncMock,
+                side_effect=ConnectionError("refused"),
+            ),
         ):
             # Must not raise — errors are caught and logged
             await notify_enrollment(str(uuid4()), str(uuid4()))
@@ -623,7 +628,11 @@ class TestNotifyPromoterCompleted:
         from app.tools.webhooks import notify_promoter_completed
 
         with (
-            patch("httpx.AsyncClient.post", new_callable=AsyncMock, side_effect=TimeoutError("timeout")),
+            patch(
+                "httpx.AsyncClient.post",
+                new_callable=AsyncMock,
+                side_effect=TimeoutError("timeout"),
+            ),
         ):
             # Must not raise — errors are caught and logged
             await notify_promoter_completed(str(uuid4()), str(uuid4()))
@@ -634,18 +643,22 @@ class TestIsSentinel:
 
     def test_sentinel_detected(self):
         from app.tools.webhooks import _is_sentinel
+
         assert _is_sentinel("00000000-0000-0000-0000-000000000000") is True
 
     def test_none_is_sentinel(self):
         from app.tools.webhooks import _is_sentinel
+
         assert _is_sentinel(None) is True
 
     def test_empty_string_is_sentinel(self):
         from app.tools.webhooks import _is_sentinel
+
         assert _is_sentinel("") is True
 
     def test_real_uuid_not_sentinel(self):
         from app.tools.webhooks import _is_sentinel
+
         assert _is_sentinel(str(uuid4())) is False
 
 
@@ -689,7 +702,9 @@ class TestNotifyAndTrack:
             patch(
                 "app.integrations.notify.NotifyClient.send_message",
                 new_callable=AsyncMock,
-                side_effect=httpx.HTTPStatusError("404", request=MagicMock(), response=error_response),
+                side_effect=httpx.HTTPStatusError(
+                    "404", request=MagicMock(), response=error_response
+                ),
             ),
         ):
             msg = await notify_and_track(eid, "Olá", event="welcome")
@@ -711,7 +726,9 @@ class TestNotifyAndTrack:
             patch(
                 "app.integrations.notify.NotifyClient.send_message",
                 new_callable=AsyncMock,
-                side_effect=httpx.HTTPStatusError("500", request=MagicMock(), response=error_response),
+                side_effect=httpx.HTTPStatusError(
+                    "500", request=MagicMock(), response=error_response
+                ),
             ),
         ):
             msg = await notify_and_track(eid, "Olá", event="welcome")
@@ -980,10 +997,12 @@ class TestMakeDataUri:
 
     def test_basic(self):
         from app.tools.qrcode import make_data_uri
+
         uri = make_data_uri("abc123")
         assert uri == "data:image/png;base64,abc123"
 
     def test_custom_mime(self):
         from app.tools.qrcode import make_data_uri
+
         uri = make_data_uri("xyz", mime="image/jpeg")
         assert uri == "data:image/jpeg;base64,xyz"

@@ -26,7 +26,11 @@ from typing import Callable
 
 try:
     import prometheus_client  # type: ignore[import-untyped]
-    from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, generate_latest
+    from prometheus_client import (
+        CONTENT_TYPE_LATEST,
+        CollectorRegistry,
+        generate_latest,
+    )
     from prometheus_client import Counter as PromCounter
     from prometheus_client import Gauge as PromGauge
     from prometheus_client import Histogram as PromHistogram
@@ -201,7 +205,11 @@ def set_infinitepay_security_configured(value: bool) -> None:
 def metrics_response() -> tuple[str, int, dict[str, str]]:
     """Generate Prometheus scrape response."""
     if prometheus_client is None:
-        return ("prometheus_client not installed\n", 503, {"content-type": "text/plain"})
+        return (
+            "prometheus_client not installed\n",
+            503,
+            {"content-type": "text/plain"},
+        )
     try:
         data = generate_latest(_get_registry())
         return data.decode("utf-8"), 200, {"content-type": CONTENT_TYPE_LATEST}
@@ -227,7 +235,9 @@ def setup_metrics(app, service: str | None = None) -> None:
         from starlette.responses import Response
 
         body, status, headers = metrics_response()
-        return Response(content=body, status_code=status, media_type=headers["content-type"])
+        return Response(
+            content=body, status_code=status, media_type=headers["content-type"]
+        )
 
     # Register at module level — callers wire it to their router
     app.add_api_route("/metrics", _metrics, methods=["GET"], include_in_schema=False)

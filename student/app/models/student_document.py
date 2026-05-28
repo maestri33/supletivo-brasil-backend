@@ -22,11 +22,11 @@ class DocumentType(StrEnum):
     """Tipos de documento que o aluno envia (PRD student §4)."""
 
     MILITARY_SERVICE = "military_service"  # so' homens (regra do PRD §8.3)
-    CERTIFICATE = "certificate"            # certificado do ultimo ano (obrigatorio)
-    TRANSCRIPT = "transcript"              # historico do ultimo ano (obrigatorio)
-    BLOOD_TYPE = "blood_type"              # tipo sanguineo (foto)
-    ADDRESS_PROOF = "address_proof"        # comprovante de endereco (foto)
-    ID_CARD = "id_card"                    # RG (foto) — obrigatorio
+    CERTIFICATE = "certificate"  # certificado do ultimo ano (obrigatorio)
+    TRANSCRIPT = "transcript"  # historico do ultimo ano (obrigatorio)
+    BLOOD_TYPE = "blood_type"  # tipo sanguineo (foto)
+    ADDRESS_PROOF = "address_proof"  # comprovante de endereco (foto)
+    ID_CARD = "id_card"  # RG (foto) — obrigatorio
     BIRTH_CERTIFICATE = "birth_certificate"  # certidao (nasc/casamento)
 
 

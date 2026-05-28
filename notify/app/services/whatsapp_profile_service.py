@@ -11,7 +11,6 @@ from app.models.contact import Contact
 from app.utils.logging import get_logger
 from app.utils.pii import mask_phone as _mask_phone
 from app.schemas.whatsapp import WhatsAppProfile
-from app.utils.logging import get_logger
 
 log = get_logger(__name__)
 

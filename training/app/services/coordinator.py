@@ -57,13 +57,9 @@ async def approve_interview(
 
     try:
         async with roles_http_client() as http:
-            await RolesClient(http).promote(
-                str(trainee_external_id), settings.role_promoted_target
-            )
+            await RolesClient(http).promote(str(trainee_external_id), settings.role_promoted_target)
     except IntegrationError:
-        logger.exception(
-            "promote_failed", external_id=str(trainee_external_id)
-        )
+        logger.exception("promote_failed", external_id=str(trainee_external_id))
         raise
 
     trainee_svc.approve_by_coordinator(trainee, coordinator_external_id)
@@ -80,8 +76,7 @@ async def approve_interview(
         trainee_external_id,
         title="Aprovado para promotor",
         content=(
-            "Sua entrevista foi aprovada pelo coordenador. "
-            "Voce agora e' promotor da plataforma."
+            "Sua entrevista foi aprovada pelo coordenador. Voce agora e' promotor da plataforma."
         ),
         kind="trainee.promoted",
     )
@@ -116,9 +111,7 @@ async def reject_interview(
     return trainee
 
 
-async def _notify_decision(
-    external_id: UUID, *, title: str, content: str, kind: str
-) -> None:
+async def _notify_decision(external_id: UUID, *, title: str, content: str, kind: str) -> None:
     """Notify best-effort — falha vira log, nao quebra a decisao do coord."""
     try:
         async with notify_http_client() as http:

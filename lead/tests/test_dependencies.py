@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import httpx
 import jwt
@@ -28,6 +28,7 @@ pytestmark = pytest.mark.asyncio
 def _reset_jwks_cache():
     """Reset JWKS cache before each test."""
     import app.dependencies as deps
+
     deps._jwks_cache = None
     deps._jwks_cached_at = 0.0
     yield
@@ -99,9 +100,7 @@ class TestGetJwks:
         from app.dependencies import get_jwks
 
         mock_ctx = MockAsyncClientContext(
-            raise_for_status=httpx.HTTPStatusError(
-                "403", request=MagicMock(), response=MagicMock()
-            )
+            raise_for_status=httpx.HTTPStatusError("403", request=MagicMock(), response=MagicMock())
         )
 
         with patch("httpx.AsyncClient", return_value=mock_ctx):
@@ -171,20 +170,30 @@ class TestGetCurrentExternalId:
         # More practical: test via integration with a real RS256 key
         # The jwks keys need the public key components
         from cryptography.hazmat.primitives.asymmetric import rsa
-        from cryptography.hazmat.primitives import serialization
 
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         public_key = private_key.public_key()
 
         # Get public numbers for JWKS representation
         pub_numbers = public_key.public_numbers()
-        from cryptography.hazmat.primitives.asymmetric import rsa as rsa_module
 
         # Encode public key components to base64url
         import base64
 
-        n = base64.urlsafe_b64encode(pub_numbers.n.to_bytes((pub_numbers.n.bit_length() + 7) // 8, "big")).rstrip(b"=").decode()
-        e = base64.urlsafe_b64encode(pub_numbers.e.to_bytes((pub_numbers.e.bit_length() + 7) // 8, "big")).rstrip(b"=").decode()
+        n = (
+            base64.urlsafe_b64encode(
+                pub_numbers.n.to_bytes((pub_numbers.n.bit_length() + 7) // 8, "big")
+            )
+            .rstrip(b"=")
+            .decode()
+        )
+        e = (
+            base64.urlsafe_b64encode(
+                pub_numbers.e.to_bytes((pub_numbers.e.bit_length() + 7) // 8, "big")
+            )
+            .rstrip(b"=")
+            .decode()
+        )
 
         jwks = {"keys": [{"kid": "test-key", "kty": "RSA", "n": n, "e": e, "use": "sig"}]}
 
@@ -208,11 +217,9 @@ class TestGetCurrentExternalId:
         assert result == eid
 
     async def test_expired_token_raises_401(self):
-        from app.dependencies import get_current_external_id
 
         private_key = _fake_rs256_key()[0]
         eid = uuid4()
-        import datetime
 
         token = jwt.encode(
             {
@@ -250,7 +257,7 @@ class TestRequireStatus:
         eid = await make_lead(status="waiting")
 
         response = await client.get(
-            f"/api/v1/authenticated/captured",
+            "/api/v1/authenticated/captured",
         )
         # The dependency will try to validate JWT first, which requires
         # a valid token. This is an integration-level test.
@@ -258,14 +265,12 @@ class TestRequireStatus:
         # Better approach: unit test the _require_status factory directly
         from app.dependencies import _require_status
         from app.models import LeadStatus
-        from app.db import async_session_maker
 
         gate_func = _require_status(LeadStatus.CHECKOUT)
         # Gate's internal check_status needs external_id + session
         # Let's call dependencies directly
 
         from app.dependencies import _require_status
-        from fastapi import Depends
 
         # The factory returns Depends(check_status) — we need to extract
         # and call check_status directly
@@ -273,7 +278,6 @@ class TestRequireStatus:
 
     async def test_require_checkout_accepts_checkout_or_completed(self, make_lead):
         """require_checkout allows both CHECKOUT and COMPLETED status."""
-        from app.dependencies import _require_status, require_checkout
 
         # require_checkout uses _require_status(LeadStatus.CHECKOUT, LeadStatus.COMPLETED)
         # This is tested via integration in test_routes_checkouts.py
@@ -284,7 +288,6 @@ class TestRequireStatus:
         from app.models import LeadStatus
         from unittest.mock import AsyncMock, MagicMock
         from uuid import uuid4
-        from sqlalchemy.ext.asyncio import AsyncSession
 
         eid = uuid4()
 
@@ -305,7 +308,6 @@ class TestRequireStatus:
         # factory is a fastapi Depends object wrapping check_status
         # We need to test the inner function
         from app.dependencies import _require_status
-        import inspect
 
         # _require_status returns Depends(check_status). Let's access the
         # inner function by patching the Depends call and capturing it.
@@ -335,6 +337,7 @@ class TestRequireStatus:
         mock_session.scalar = AsyncMock(return_value=mock_lead)
 
         from fastapi import HTTPException
+
         with pytest.raises(HTTPException) as exc:
             await inner_func(eid, mock_session)
         assert exc.value.status_code == 403
@@ -347,12 +350,11 @@ class TestRequireStatus:
 
     async def test_require_checkout_accepts_both_statuses(self):
         """require_checkout should accept CHECKOUT or COMPLETED."""
-        from app.dependencies import _require_status, require_checkout
+        from app.dependencies import _require_status
         from app.models import LeadStatus
         from unittest.mock import AsyncMock, MagicMock
         from uuid import uuid4
         from fastapi import HTTPException
-        import inspect
 
         eid = uuid4()
 
@@ -394,7 +396,7 @@ class TestRequireStatus:
 
     async def test_require_captured_accepts_only_captured(self):
         """require_captured should only accept CAPTURED."""
-        from app.dependencies import _require_status, require_captured
+        from app.dependencies import _require_status
         from app.models import LeadStatus
         from unittest.mock import AsyncMock, MagicMock
         from uuid import uuid4

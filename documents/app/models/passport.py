@@ -15,7 +15,9 @@ UUIDStr = PG_UUID(as_uuid=False).with_variant(String(36), "sqlite")
 class Passport(Base, TimestampMixin):
     __tablename__ = "passports"
 
-    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[str] = mapped_column(
+        UUIDStr, primary_key=True, default=lambda: str(uuid4())
+    )
     number: Mapped[str | None] = mapped_column(String(30), nullable=True)
     expires_on: Mapped[str | None] = mapped_column(Date, nullable=True)
     issue_date: Mapped[str | None] = mapped_column(Date, nullable=True)

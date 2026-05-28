@@ -69,9 +69,7 @@ class AIClient(BaseClient):
             grade = float(data["nota"])
             justification = str(data["justificativa"]).strip()
         except (KeyError, TypeError, ValueError) as exc:
-            raise IntegrationError(
-                f"Resposta da IA fora do contrato esperado: {data!r}"
-            ) from exc
+            raise IntegrationError(f"Resposta da IA fora do contrato esperado: {data!r}") from exc
         if not justification:
             raise IntegrationError("IA devolveu nota sem justificativa")
         grade = max(0.0, min(10.0, grade))

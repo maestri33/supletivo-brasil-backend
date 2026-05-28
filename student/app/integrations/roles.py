@@ -16,7 +16,5 @@ class RolesClient(BaseClient):
         return resp.json()
 
     async def promote(self, external_id: str, to_role: str) -> dict:
-        resp = await request_with_retry(
-            self.client, "POST", f"/role/{external_id}/up/{to_role}"
-        )
+        resp = await request_with_retry(self.client, "POST", f"/role/{external_id}/up/{to_role}")
         return resp.json()

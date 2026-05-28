@@ -62,9 +62,7 @@ async def _verify_selfie(external_id: str) -> tuple[bool, str | None]:
     Falha do ai NAO bloqueia (verified=False, segue o funil). Imagem que
     claramente nao tem pessoa levanta ValidationError.
     """
-    image_url = (
-        f"{settings.documents_base_url}/api/v1/documents/{external_id}/images/{SELFIE_SLOT}"
-    )
+    image_url = f"{settings.documents_base_url}/api/v1/documents/{external_id}/images/{SELFIE_SLOT}"
     try:
         async with httpx.AsyncClient(
             base_url=settings.ai_base_url, timeout=settings.http_timeout

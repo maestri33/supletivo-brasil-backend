@@ -104,6 +104,7 @@ class TestCheckoutModel:
 
     async def test_create_checkout_pix(self):
         from datetime import date
+
         ext_id = uuid4()
         async with async_session_maker() as session:
             checkout = Checkout(

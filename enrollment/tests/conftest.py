@@ -163,6 +163,7 @@ async def make_auth_user(session_factory):
 # tem autouse=True. Cada teste pode sobrescrever rotas específicas via o router
 # retornado.
 
+
 @pytest_asyncio.fixture(autouse=True)
 async def respx_mock() -> AsyncIterator[Any]:
     """Roteia outbound HTTP de testes pra respostas plausíveis.
@@ -205,9 +206,9 @@ async def respx_mock() -> AsyncIterator[Any]:
                 },
             )
         )
-        router.get(
-            url__regex=r"http://address:8000/api/v1/entities/enrollment/[a-f0-9-]+$"
-        ).mock(return_value=_httpx.Response(404, json={"detail": "no address"}))
+        router.get(url__regex=r"http://address:8000/api/v1/entities/enrollment/[a-f0-9-]+$").mock(
+            return_value=_httpx.Response(404, json={"detail": "no address"})
+        )
         # NB: query string `?cep=...` é anexada, então não ancoramos com $.
         router.post(
             url__regex=r"http://address:8000/api/v1/entities/enrollment/[a-f0-9-]+/cep"

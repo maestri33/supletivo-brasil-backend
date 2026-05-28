@@ -23,7 +23,9 @@ CERTIFICATE_KINDS = {"nascimento", "casamento", "obito"}
 class Document(Base, TimestampMixin):
     __tablename__ = "documents"
 
-    id: Mapped[str] = mapped_column(UUIDStr, primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[str] = mapped_column(
+        UUIDStr, primary_key=True, default=lambda: str(uuid4())
+    )
     external_id: Mapped[str] = mapped_column(
         UUIDStr,
         unique=True,
@@ -39,7 +41,9 @@ class Document(Base, TimestampMixin):
 
     certificate_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
     certificate_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    certificate_registry_office: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    certificate_registry_office: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )
     certificate_book: Mapped[str | None] = mapped_column(String(20), nullable=True)
     certificate_page: Mapped[str | None] = mapped_column(String(20), nullable=True)
     certificate_entry: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -52,7 +56,9 @@ class Document(Base, TimestampMixin):
     military_ra: Mapped[str | None] = mapped_column(String(20), nullable=True)
     military_photo: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    proof_of_residence_photo: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    proof_of_residence_photo: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
 
     photo: Mapped[str | None] = mapped_column(String(500), nullable=True)
 

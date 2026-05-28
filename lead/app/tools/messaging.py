@@ -79,8 +79,11 @@ async def notify_and_track(
         channels=channels,
         title=title,
         has_media=bool(media_url),
-        media_kind=("data_uri" if media_url and media_url.startswith("data:") else
-                    ("url" if media_url else None)),
+        media_kind=(
+            "data_uri"
+            if media_url and media_url.startswith("data:")
+            else ("url" if media_url else None)
+        ),
         flags=flags,
         instruction=instruction,
         content_len=len(content),

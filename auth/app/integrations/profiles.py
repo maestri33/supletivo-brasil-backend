@@ -20,6 +20,7 @@ def _sanitize_log_body(body: dict | None, sensitive: set[str]) -> dict | None:
 def _redact_cpf_from_url(url: str) -> str:
     """Replace CPF (11 digits) in URL paths with '***'."""
     import re
+
     return re.sub(r"/cpf/\d{11}", "/cpf/***", url)
 
 

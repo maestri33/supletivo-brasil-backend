@@ -2,6 +2,7 @@
 
 COD-18 PII audit: sensitive document fields must never appear in plaintext logs.
 """
+
 from __future__ import annotations
 
 

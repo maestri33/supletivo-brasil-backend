@@ -9,7 +9,7 @@ Estrategia:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -41,7 +41,7 @@ class TestNotifyWebhook:
         eid = str(uuid4())
 
         response = await client.post(
-            f"/api/v1/webhook/notify/123",
+            "/api/v1/webhook/notify/123",
             json={
                 "event": "message.delivered",
                 "message_id": 123,
@@ -77,7 +77,7 @@ class TestNotifyWebhook:
             await session.commit()
 
         response = await client.post(
-            f"/api/v1/webhook/notify/123",
+            "/api/v1/webhook/notify/123",
             json={
                 "event": "message.delivered",
                 "message_id": 123,
@@ -146,9 +146,7 @@ class TestInfinitepayWebhook:
         from sqlalchemy import select
 
         async with async_session_maker() as session:
-            checkout = await session.scalar(
-                select(Checkout).where(Checkout.external_id == eid)
-            )
+            checkout = await session.scalar(select(Checkout).where(Checkout.external_id == eid))
             assert checkout.is_paid is True
             assert checkout.receipt_url == "https://receipt.example.com/recibo.pdf"
 
@@ -160,8 +158,12 @@ class TestInfinitepayWebhook:
     ):
         """Webhook com paid=False (criacao, entregue fora de ordem) nao sobrescreve paid=True."""
         eid = await make_lead(status="checkout")
-        await make_checkout(external_id=eid, provider="infinitepay", is_paid=True,
-                            receipt_url="https://receipt.example.com/recibo.pdf")
+        await make_checkout(
+            external_id=eid,
+            provider="infinitepay",
+            is_paid=True,
+            receipt_url="https://receipt.example.com/recibo.pdf",
+        )
 
         # Now a paid=False webhook arrives out-of-order
         response = await client.post(
@@ -179,9 +181,7 @@ class TestInfinitepayWebhook:
         from sqlalchemy import select
 
         async with async_session_maker() as session:
-            checkout = await session.scalar(
-                select(Checkout).where(Checkout.external_id == eid)
-            )
+            checkout = await session.scalar(select(Checkout).where(Checkout.external_id == eid))
             assert checkout.is_paid is True
             assert checkout.receipt_url == "https://receipt.example.com/recibo.pdf"
 
@@ -341,9 +341,7 @@ class TestAsaasChargeWebhook:
         from sqlalchemy import select
 
         async with async_session_maker() as session:
-            checkout = await session.scalar(
-                select(Checkout).where(Checkout.external_id == eid)
-            )
+            checkout = await session.scalar(select(Checkout).where(Checkout.external_id == eid))
             assert checkout.is_paid is True
             assert checkout.provider_payment_id == "pay_a1b2c3d4"
 
@@ -373,9 +371,7 @@ class TestAsaasChargeWebhook:
         from sqlalchemy import select
 
         async with async_session_maker() as session:
-            checkout = await session.scalar(
-                select(Checkout).where(Checkout.external_id == eid)
-            )
+            checkout = await session.scalar(select(Checkout).where(Checkout.external_id == eid))
             assert checkout.is_paid is False
 
             lead = await session.scalar(select(Lead).where(Lead.external_id == eid))

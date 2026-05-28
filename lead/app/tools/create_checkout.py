@@ -656,12 +656,8 @@ async def _notify_lead_checkout(
         email_template = email_template_path.read_text(encoding="utf-8")
     else:
         # Defensive: template sumiu do disco — degrade pra caption + payload.
-        email_template = (
-            "# Seu PIX Supletivo Brasil\n\n{{pix_payload}}\n\n{{due_date_line}}\n"
-        )
-    due_date_line = (
-        f"**Vencimento:** {due_date_iso}\n" if due_date_iso else ""
-    )
+        email_template = "# Seu PIX Supletivo Brasil\n\n{{pix_payload}}\n\n{{due_date_line}}\n"
+    due_date_line = f"**Vencimento:** {due_date_iso}\n" if due_date_iso else ""
     email_body = (
         email_template.replace("{{pix_payload}}", customer_link)
         .replace("{{due_date_line}}", due_date_line)

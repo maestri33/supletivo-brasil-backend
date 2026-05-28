@@ -11,11 +11,11 @@ from app.models._mixins import TimestampMixin
 
 
 class CommissionStatus(str, enum.Enum):
-    PENDING = "pending"          # aguardando processamento semanal
-    PROCESSED = "processed"      # incluida em lote de pagamento
-    PAID = "paid"                # PIX enviado com sucesso
-    FAILED = "failed"            # PIX falhou
-    CANCELLED = "cancelled"      # cancelada manualmente
+    PENDING = "pending"  # aguardando processamento semanal
+    PROCESSED = "processed"  # incluida em lote de pagamento
+    PAID = "paid"  # PIX enviado com sucesso
+    FAILED = "failed"  # PIX falhou
+    CANCELLED = "cancelled"  # cancelada manualmente
 
 
 class Commission(Base, TimestampMixin):
@@ -38,13 +38,17 @@ class Commission(Base, TimestampMixin):
     )
 
     recipient_role: Mapped[str] = mapped_column(
-        String(32), nullable=False, index=True,
+        String(32),
+        nullable=False,
+        index=True,
         comment="Funcao do receptor: promoter, coordinator",
     )
 
     # Origem da comissao
     source_type: Mapped[str] = mapped_column(
-        String(32), nullable=False, index=True,
+        String(32),
+        nullable=False,
+        index=True,
         comment="Tipo de entidade que originou: lead, student_completion",
     )
     source_external_id: Mapped[UUID] = mapped_column(
@@ -55,7 +59,8 @@ class Commission(Base, TimestampMixin):
     )
 
     amount_cents: Mapped[int] = mapped_column(
-        Integer, nullable=False,
+        Integer,
+        nullable=False,
         comment="Valor da comissao em centavos",
     )
 

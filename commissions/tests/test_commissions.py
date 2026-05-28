@@ -1,4 +1,5 @@
 """Tests for the commissions service — commission creation and listing."""
+
 from __future__ import annotations
 
 import pytest
@@ -101,6 +102,7 @@ async def test_get_pending_commissions(db_session: AsyncSession):
     # Create a second pending commission
     LEAD_ID_2 = "00000000-0000-0000-0000-000000000011"
     from uuid import UUID
+
     await service.create_commission(
         recipient_external_id=PROMOTER_ID,
         recipient_role="promoter",

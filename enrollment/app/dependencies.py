@@ -112,9 +112,7 @@ def require_status(*allowed: EnrollmentStatus):
             raise HTTPException(404, "Matrícula não encontrada")
         if enrollment.status not in allowed_values:
             expected = " ou ".join(s.value for s in allowed)
-            raise HTTPException(
-                403, f"Status '{enrollment.status}' — requer '{expected}'"
-            )
+            raise HTTPException(403, f"Status '{enrollment.status}' — requer '{expected}'")
         return external_id
 
     return Depends(_check)

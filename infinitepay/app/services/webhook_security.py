@@ -150,8 +150,7 @@ async def verify_hmac(
         # Allow through so IP allow-list still applies (defense in depth).
         env = os.getenv("ENV", os.getenv("ENVIRONMENT", "development"))
         if env not in ("development", "dev", "staging"):
-            log_event("webhook_hmac_disabled", env=env, service="infinitepay",
-                      severity="WARNING")
+            log_event("webhook_hmac_disabled", env=env, service="infinitepay", severity="WARNING")
         return
 
     body = await request.body()

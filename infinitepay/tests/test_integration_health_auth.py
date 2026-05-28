@@ -11,9 +11,7 @@ from __future__ import annotations
 
 import pytest
 import respx
-from httpx import ASGITransport, AsyncClient, Response
-
-from app.main import app
+from httpx import AsyncClient, Response
 
 TEST_API_KEY = "test-internal-api-key-for-tests"
 INTEGRATION_URL = "/api/v1/demilitarized/health/integration"
@@ -25,11 +23,14 @@ def mock_infinitepay():
     with respx.mock(base_url=INFINITEPAY_BASE) as rsps:
         rsps.get("/").mock(return_value=Response(404, json={"error": "not found"}))
         rsps.post("/links").mock(
-            return_value=Response(200, json={
-                "success": True,
-                "url": "https://pay.infinitepay.io/test/abc123",
-                "checkout_url": "https://pay.infinitepay.io/test/abc123",
-            })
+            return_value=Response(
+                200,
+                json={
+                    "success": True,
+                    "url": "https://pay.infinitepay.io/test/abc123",
+                    "checkout_url": "https://pay.infinitepay.io/test/abc123",
+                },
+            )
         )
         rsps.post("/payment_check").mock(
             return_value=Response(200, json={"success": True, "paid": False})
@@ -52,9 +53,7 @@ class TestIntegrationHealthAuth:
         )
         assert resp.status_code == 401
 
-    async def test_correct_api_key_returns_200(
-        self, client: AsyncClient, mock_infinitepay
-    ):
+    async def test_correct_api_key_returns_200(self, client: AsyncClient, mock_infinitepay):
         """Request with correct key should reach the endpoint."""
         resp = await client.get(
             INTEGRATION_URL,
@@ -65,9 +64,7 @@ class TestIntegrationHealthAuth:
         assert data["status"] == "ok"
         assert len(data["checks"]) == 3
 
-    async def test_fail_closed_when_no_key_configured(
-        self, client: AsyncClient, monkeypatch
-    ):
+    async def test_fail_closed_when_no_key_configured(self, client: AsyncClient, monkeypatch):
         """When INTERNAL_API_KEY is not set, endpoint returns 503 (fail-closed)."""
         monkeypatch.setattr(
             "app.api.deps.get_settings",
@@ -75,6 +72,7 @@ class TestIntegrationHealthAuth:
         )
         # Clear lru_cache so monkeypatch takes effect
         from app.config import get_settings
+
         get_settings.cache_clear()
 
         resp = await client.get(

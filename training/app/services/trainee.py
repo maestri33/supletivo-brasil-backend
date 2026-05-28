@@ -19,12 +19,8 @@ from app.exceptions import Conflict, NotFound
 from app.models import Trainee, TraineeStatus
 
 
-async def get_by_external_id(
-    session: AsyncSession, external_id: UUID
-) -> Trainee | None:
-    return await session.scalar(
-        select(Trainee).where(Trainee.external_id == str(external_id))
-    )
+async def get_by_external_id(session: AsyncSession, external_id: UUID) -> Trainee | None:
+    return await session.scalar(select(Trainee).where(Trainee.external_id == str(external_id)))
 
 
 async def get_or_create(session: AsyncSession, external_id: UUID) -> Trainee:
@@ -77,9 +73,7 @@ def approve_by_coordinator(trainee: Trainee, coordinator_external_id: UUID) -> N
     trainee.rejection_reason = None
 
 
-def reject_by_coordinator(
-    trainee: Trainee, coordinator_external_id: UUID, reason: str
-) -> None:
+def reject_by_coordinator(trainee: Trainee, coordinator_external_id: UUID, reason: str) -> None:
     """AWAITING_INTERVIEW -> REJECTED. Motivo obrigatorio (TODO/PRD §8.6)."""
     if trainee.status != TraineeStatus.AWAITING_INTERVIEW.value:
         raise Conflict(

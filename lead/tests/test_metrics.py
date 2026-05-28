@@ -8,7 +8,7 @@ Estrategia:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -72,9 +72,10 @@ class TestMetricsFallback:
     async def test_noop_imports_do_not_crash(self):
         """Fallback no prometheus_client => no-ops que nao crasham."""
         # Skip integration test — only meaningful when prometheus_client is not installed
-        import importlib
+
         # Verify the fallback path exists
         from app import metrics as m
+
         assert hasattr(m, "generate_latest")
         assert m.CONTENT_TYPE_LATEST is not None
 

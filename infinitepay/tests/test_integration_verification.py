@@ -26,11 +26,14 @@ class TestVerificationAgent:
         """All three checks pass when API returns valid responses."""
         mock_infinitepay.get("/").mock(return_value=Response(404, json={"error": "not found"}))
         mock_infinitepay.post("/links").mock(
-            return_value=Response(200, json={
-                "success": True,
-                "url": "https://pay.infinitepay.io/test/abc123",
-                "checkout_url": "https://pay.infinitepay.io/test/abc123",
-            })
+            return_value=Response(
+                200,
+                json={
+                    "success": True,
+                    "url": "https://pay.infinitepay.io/test/abc123",
+                    "checkout_url": "https://pay.infinitepay.io/test/abc123",
+                },
+            )
         )
         mock_infinitepay.post("/payment_check").mock(
             return_value=Response(200, json={"success": True, "paid": False})
@@ -117,9 +120,7 @@ class TestVerificationAgent:
     async def test_non_json_response(self, mock_infinitepay):
         """Non-JSON response from InfinitePay should fail the check."""
         mock_infinitepay.get("/").mock(return_value=Response(200))
-        mock_infinitepay.post("/links").mock(
-            return_value=Response(200, text="<html>error</html>")
-        )
+        mock_infinitepay.post("/links").mock(return_value=Response(200, text="<html>error</html>"))
         mock_infinitepay.post("/payment_check").mock(
             return_value=Response(200, json={"success": True})
         )
@@ -134,6 +135,7 @@ class TestVerificationAgent:
     async def test_timeout_handled(self, mock_infinitepay):
         """Timeout should be caught and reported, not crash."""
         import httpx
+
         mock_infinitepay.get("/").mock(side_effect=httpx.TimeoutException("timed out"))
         mock_infinitepay.post("/links").mock(
             return_value=Response(200, json={"success": True, "url": "https://x.io/pay"})
@@ -156,8 +158,10 @@ class TestCheckResult:
             checks=[
                 CheckResult(name="connectivity", passed=True, latency_ms=42.5),
                 CheckResult(
-                    name="create_checkout", passed=False,
-                    latency_ms=100.0, error="HTTP 500",
+                    name="create_checkout",
+                    passed=False,
+                    latency_ms=100.0,
+                    error="HTTP 500",
                 ),
             ],
         )

@@ -15,7 +15,6 @@ from app.models.log import Log
 from app.models.message import Message
 from app.schemas.contact import ContactCreate
 from app.utils.email_validator import validate_email as validate_email_full
-from app.utils.logging import get_logger
 from app.utils.phone import normalize_and_validate
 
 log = get_logger(__name__)
@@ -91,7 +90,9 @@ async def create_contact(session: AsyncSession, payload: ContactCreate) -> Conta
     )
     await session.commit()
     await session.refresh(contact)
-    log.info("contact.created", external_id=str(payload.external_id), phone=_mask_phone(normalized_phone))
+    log.info(
+        "contact.created", external_id=str(payload.external_id), phone=_mask_phone(normalized_phone)
+    )
     return contact
 
 

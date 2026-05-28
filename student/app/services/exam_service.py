@@ -91,9 +91,7 @@ async def grade_exam(
     return exam
 
 
-async def list_exams(
-    session: AsyncSession, *, student: Student
-) -> list[StudentExam]:
+async def list_exams(session: AsyncSession, *, student: Student) -> list[StudentExam]:
     res = await session.scalars(
         select(StudentExam)
         .where(StudentExam.student_id == student.id)

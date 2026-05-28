@@ -14,8 +14,6 @@ class SelfieGetResponse(APIModel):
 
 class SelfiePostResponse(APIModel):
     status: str
-    message: str = (
-        "Selfie aceita. Sua matrícula está aguardando a liberação do coordenador."
-    )
+    message: str = "Selfie aceita. Sua matrícula está aguardando a liberação do coordenador."
     verified: bool = False
     description: str | None = None

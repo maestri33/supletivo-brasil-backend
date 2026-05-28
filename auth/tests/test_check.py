@@ -175,9 +175,7 @@ async def test_check_external_id_found_returns_otp_sent(client: AsyncClient, pat
 
 
 @pytest.mark.asyncio
-async def test_check_external_id_not_found_returns_same_shape(
-    client: AsyncClient, patched_lookups
-):
+async def test_check_external_id_not_found_returns_same_shape(client: AsyncClient, patched_lookups):
     """external_id desconhecido retorna mesmo shape (COD-32)."""
     resp = await client.post(
         "/api/v1/check", json={"external_id": "00000000-0000-0000-0000-000000000000"}
@@ -258,9 +256,7 @@ async def test_check_cpf_and_phone_share_rate_limit(
 @pytest.mark.asyncio
 async def test_check_prefers_cpf_when_both_present(client: AsyncClient, patched_lookups):
     """Com CPF e phone, usa CPF para lookup."""
-    resp = await client.post(
-        "/api/v1/check", json={"cpf": VALID_CPF, "phone": VALID_PHONE}
-    )
+    resp = await client.post("/api/v1/check", json={"cpf": VALID_CPF, "phone": VALID_PHONE})
     assert resp.status_code == 200
     assert resp.json() == {"otp_sent": True}
 

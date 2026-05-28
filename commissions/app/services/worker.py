@@ -7,6 +7,7 @@ for manual processing.
 Idempotency: the worker checks if a batch already exists for the current week
 before creating a new one. Running twice in the same window will not duplicate.
 """
+
 from __future__ import annotations
 
 import asyncio

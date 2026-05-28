@@ -3,6 +3,7 @@
 Uses the `client` fixture from conftest.py — an ASGI test client
 that runs the full FastAPI app over SQLite.
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
@@ -128,9 +129,10 @@ class TestProcessing:
             assert resp2.status_code == 200
             data2 = resp2.json()
             assert data2["payment_batch_id"] is None
-            assert "já existe" in data2["message"].lower() or "nenhuma comissão pendente" in data2[
-                "message"
-            ].lower()
+            assert (
+                "já existe" in data2["message"].lower()
+                or "nenhuma comissão pendente" in data2["message"].lower()
+            )
 
     async def test_trigger_processing_with_bonus(self, client: AsyncClient) -> None:
         """Should apply bonus when threshold is met (>= 10 commissions)."""

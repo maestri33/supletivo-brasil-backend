@@ -70,7 +70,9 @@ async def normalize_and_validate(phone: str) -> str:
     if not valid and len(raw) == 11:
         # Tenta sem o 9 (fixo)
         without_9 = raw[:2] + raw[3:]
-        log.info("phone.trying_without_9", original=_mask_phone(raw), attempt=_mask_phone(without_9))
+        log.info(
+            "phone.trying_without_9", original=_mask_phone(raw), attempt=_mask_phone(without_9)
+        )
         valid = await _check_whatsapp(f"55{without_9}")
         if valid:
             raw = without_9

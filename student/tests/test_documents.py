@@ -20,9 +20,7 @@ async def test_submit_document_and_list(client: AsyncClient, auth_as, make_stude
     assert resp.status_code == 201, resp.text
     assert resp.json()["document_type"] == "id_card"
 
-    listing = await client.get(
-        "/api/v1/authenticated/students/me/documents", headers=_HEADERS
-    )
+    listing = await client.get("/api/v1/authenticated/students/me/documents", headers=_HEADERS)
     assert listing.status_code == 200
     body = listing.json()
     assert body["total"] == 1

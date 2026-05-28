@@ -59,9 +59,7 @@ def _build_rules() -> tuple[RuleSpec, ...]:
             )
         rid = _rule_id(from_role, to_role)
         if rid in seen:
-            raise RoleRulesConfigError(
-                f"ROLE_RULES[{idx}]: duplicada {from_role!r} -> {to_role!r}"
-            )
+            raise RoleRulesConfigError(f"ROLE_RULES[{idx}]: duplicada {from_role!r} -> {to_role!r}")
         seen.add(rid)
         rules.append(
             RuleSpec(

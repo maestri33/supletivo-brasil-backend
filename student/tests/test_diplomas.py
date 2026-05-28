@@ -7,9 +7,7 @@ from httpx import AsyncClient
 _HEADERS = {"Authorization": "Bearer test"}
 
 
-async def test_issue_then_pickup_full_cycle(
-    client: AsyncClient, auth_as, make_student
-) -> None:
+async def test_issue_then_pickup_full_cycle(client: AsyncClient, auth_as, make_student) -> None:
     from app.models import StudentStatus
 
     student = await make_student(status=StudentStatus.AWAITING_DOCUMENTATION_DISPATCH)
@@ -35,9 +33,7 @@ async def test_issue_then_pickup_full_cycle(
     assert me.json()["status"] == "veteran"
 
 
-async def test_pickup_without_issue_blocked(
-    client: AsyncClient, auth_as, make_student
-) -> None:
+async def test_pickup_without_issue_blocked(client: AsyncClient, auth_as, make_student) -> None:
     from app.models import StudentStatus
 
     student = await make_student(status=StudentStatus.EXAM_RELEASED)

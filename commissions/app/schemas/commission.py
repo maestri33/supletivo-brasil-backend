@@ -23,15 +23,9 @@ class CommissionCreate(APIModel):
         ..., description="Identificador externo do receptor (promotor)."
     )
     recipient_role: str = Field(..., description="Função do receptor.")
-    source_type: str = Field(
-        ..., description="Tipo de entidade que originou a comissão."
-    )
-    source_external_id: str = Field(
-        ..., description="Identificador externo da entidade de origem."
-    )
-    amount_cents: int = Field(
-        ..., description="Valor da comissão em centavos.", ge=1
-    )
+    source_type: str = Field(..., description="Tipo de entidade que originou a comissão.")
+    source_external_id: str = Field(..., description="Identificador externo da entidade de origem.")
+    amount_cents: int = Field(..., description="Valor da comissão em centavos.", ge=1)
 
 
 class CommissionResponse(APIModel):
@@ -53,17 +47,13 @@ class CommissionResponse(APIModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int = Field(description="Identificador único da comissão.")
-    recipient_external_id: str | UUID = Field(
-        description="Identificador externo do receptor."
-    )
+    recipient_external_id: str | UUID = Field(description="Identificador externo do receptor.")
     recipient_role: str = Field(description="Função do receptor.")
     source_type: str = Field(description="Tipo de entidade de origem.")
     source_external_id: str | UUID = Field(
         description="Identificador externo da entidade de origem."
     )
-    amount_cents: int = Field(
-        description="Valor da comissão em centavos.", ge=1
-    )
+    amount_cents: int = Field(description="Valor da comissão em centavos.", ge=1)
     status: str = Field(description="Status atual da comissão.")
     payment_batch_id: int | None = Field(
         default=None,
@@ -84,6 +74,4 @@ class CommissionListResponse(APIModel):
     items: list[CommissionResponse] = Field(
         default_factory=list, description="Lista de comissões retornadas."
     )
-    total: int = Field(
-        default=0, description="Número total de registros disponíveis."
-    )
+    total: int = Field(default=0, description="Número total de registros disponíveis.")

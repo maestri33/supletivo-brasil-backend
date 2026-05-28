@@ -5,7 +5,6 @@ The test DB is created on-demand using DATABASE_URL with a test suffix.
 """
 
 import os
-from uuid import uuid4
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -21,7 +20,7 @@ os.environ.setdefault("DATABASE_SCHEMA", "addresses_test")
 os.environ.setdefault("WEBHOOK_URL", "")
 
 from app.config import get_settings  # noqa: E402
-from app.db import Base, auth_users, get_session  # noqa: E402
+from app.db import Base, get_session  # noqa: E402
 from app.main import app  # noqa: E402
 
 settings = get_settings()
@@ -76,7 +75,9 @@ async def session(_setup_database) -> AsyncSession:
         # Ensure a test user exists in auth.users for FK
         test_external_id = "00000000-0000-0000-0000-000000000001"
         await session.execute(
-            text(f"INSERT INTO auth.users (external_id) VALUES ('{test_external_id}') ON CONFLICT DO NOTHING")
+            text(
+                f"INSERT INTO auth.users (external_id) VALUES ('{test_external_id}') ON CONFLICT DO NOTHING"
+            )
         )
         await session.commit()
         yield session

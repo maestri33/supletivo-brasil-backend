@@ -143,30 +143,40 @@ async def _provision(external_id: str, role: str, cpf: str, phone: str) -> None:
         async with RolesClient() as roles:
             await roles.assign(external_id, role)
     except Exception as exc:
-        logger.warning("[provision] roles falhou", external_id=external_id, error=type(exc).__name__)
+        logger.warning(
+            "[provision] roles falhou", external_id=external_id, error=type(exc).__name__
+        )
 
     try:
         async with ProfilesClient() as profiles:
             await profiles.create(external_id, cpf)
     except Exception as exc:
-        logger.warning("[provision] profile falhou", external_id=external_id, error=type(exc).__name__)
+        logger.warning(
+            "[provision] profile falhou", external_id=external_id, error=type(exc).__name__
+        )
 
     try:
         async with NotifyClient() as notify:
             await notify.create_contact(external_id, phone=phone)
     except Exception as exc:
-        logger.warning("[provision] contato falhou", external_id=external_id, error=type(exc).__name__)
+        logger.warning(
+            "[provision] contato falhou", external_id=external_id, error=type(exc).__name__
+        )
 
     try:
         async with DocumentsClient() as documents:
             await documents.ensure(external_id)
     except Exception as exc:
-        logger.warning("[provision] documentos falhou", external_id=external_id, error=type(exc).__name__)
+        logger.warning(
+            "[provision] documentos falhou", external_id=external_id, error=type(exc).__name__
+        )
 
     try:
         async with AddressClient() as address:
             await address.ensure(external_id)
     except Exception as exc:
-        logger.warning("[provision] endereco falhou", external_id=external_id, error=type(exc).__name__)
+        logger.warning(
+            "[provision] endereco falhou", external_id=external_id, error=type(exc).__name__
+        )
 
     await dispatch_otp(external_id)

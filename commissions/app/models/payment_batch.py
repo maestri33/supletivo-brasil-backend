@@ -12,6 +12,7 @@ from app.models._mixins import TimestampMixin
 if TYPE_CHECKING:
     from app.models.commission import Commission
 
+
 class PaymentBatchStatus(str, enum.Enum):
     PENDING = "pending"
     PROCESSING = "processing"
@@ -25,17 +26,23 @@ class PaymentBatch(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
     week_of: Mapped[str] = mapped_column(
-        String(10), nullable=False, index=True,
+        String(10),
+        nullable=False,
+        index=True,
         comment="Data ISO da segunda-feira da semana de referencia (ex: 2026-05-25)",
     )
 
     total_cents: Mapped[int] = mapped_column(
-        Integer, default=0, nullable=False,
+        Integer,
+        default=0,
+        nullable=False,
         comment="Valor total do lote em centavos (comissoes + bonus)",
     )
 
     bonus_cents: Mapped[int] = mapped_column(
-        Integer, default=0, nullable=False,
+        Integer,
+        default=0,
+        nullable=False,
         comment="Valor total de bonus incluso no lote em centavos",
     )
 
@@ -53,17 +60,20 @@ class PaymentBatch(Base, TimestampMixin):
     )
 
     pix_transaction_id: Mapped[str | None] = mapped_column(
-        String, nullable=True,
+        String,
+        nullable=True,
         comment="ID da transacao PIX no Asaas (transfer ou pix/transactions)",
     )
 
     asaas_transfer_id: Mapped[str | None] = mapped_column(
-        String, nullable=True,
+        String,
+        nullable=True,
         comment="ID da transferencia no Asaas",
     )
 
     last_error: Mapped[str | None] = mapped_column(
-        Text, nullable=True,
+        Text,
+        nullable=True,
         comment="Ultimo erro registrado na tentativa de pagamento",
     )
 

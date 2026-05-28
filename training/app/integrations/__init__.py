@@ -53,9 +53,7 @@ async def request_with_retry(
             )
         if attempt < max_retries:
             await asyncio.sleep(2**attempt * 0.1)
-    raise IntegrationError(
-        f"{method} {url} falhou apos {max_retries} tentativas"
-    ) from last_exc
+    raise IntegrationError(f"{method} {url} falhou apos {max_retries} tentativas") from last_exc
 
 
 class BaseClient:

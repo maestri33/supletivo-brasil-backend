@@ -25,7 +25,6 @@ _TMP_DB = Path(tempfile.mkdtemp(prefix="commissions-tests-")) / "test.db"
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TMP_DB}"
 os.environ["DATABASE_SCHEMA"] = ""
 
-import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 

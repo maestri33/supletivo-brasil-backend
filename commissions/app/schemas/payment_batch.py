@@ -23,9 +23,7 @@ class PaymentBatchResponse(APIModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int = Field(description="Identificador único do lote de pagamento.")
-    week_of: str = Field(
-        description="Data de referência da semana do lote (formato ISO)."
-    )
+    week_of: str = Field(description="Data de referência da semana do lote (formato ISO).")
     total_cents: int = Field(
         default=0,
         description="Valor total do lote em centavos (comissões + bônus).",
@@ -41,9 +39,7 @@ class PaymentBatchResponse(APIModel):
         default=None,
         description="Identificador da transação PIX associada, se houver.",
     )
-    created_at: datetime = Field(
-        description="Data/hora de criação do registro."
-    )
+    created_at: datetime = Field(description="Data/hora de criação do registro.")
 
 
 class PaymentBatchListResponse(APIModel):
@@ -58,6 +54,4 @@ class PaymentBatchListResponse(APIModel):
         default_factory=list,
         description="Lista de lotes de pagamento retornados.",
     )
-    total: int = Field(
-        default=0, description="Número total de registros disponíveis."
-    )
+    total: int = Field(default=0, description="Número total de registros disponíveis.")

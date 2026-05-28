@@ -74,9 +74,7 @@ async def list_my_submissions(
     external_id: UUID = require_trainee(),
     session: AsyncSession = Depends(get_session),
 ):
-    rows = await submission_svc.list_by_user(
-        session, external_id, limit=limit, offset=offset
-    )
+    rows = await submission_svc.list_by_user(session, external_id, limit=limit, offset=offset)
     return SubmissionListResponse(
         total=len(rows), submissions=[SubmissionOut.from_model(r) for r in rows]
     )

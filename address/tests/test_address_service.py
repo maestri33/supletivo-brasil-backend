@@ -5,8 +5,7 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import NotFound, ValidationError
-from app.models.address import Address
+from app.exceptions import NotFound
 from app.schemas.address import AddressCreate, AddressPatch
 
 pytestmark = pytest.mark.asyncio

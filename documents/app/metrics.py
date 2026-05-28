@@ -1,10 +1,17 @@
 """Prometheus metrics for documents."""
+
 from __future__ import annotations
 
 import time
 
 try:
-    from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, Histogram, generate_latest
+    from prometheus_client import (
+        CONTENT_TYPE_LATEST,
+        CollectorRegistry,
+        Counter,
+        Histogram,
+        generate_latest,
+    )
 except ImportError:
     prometheus_client = None  # type: ignore[assignment]
     CONTENT_TYPE_LATEST = "text/plain"
@@ -65,11 +72,15 @@ def setup_metrics(app) -> None:
 
         try:
             data = generate_latest(_get_registry())
-            return Response(content=data.decode("utf-8"), media_type=CONTENT_TYPE_LATEST)
+            return Response(
+                content=data.decode("utf-8"), media_type=CONTENT_TYPE_LATEST
+            )
         except Exception:
             return Response("# error\n", status_code=500, media_type="text/plain")
 
-    app.add_api_route("/metrics", _metrics_endpoint, methods=["GET"], include_in_schema=False)
+    app.add_api_route(
+        "/metrics", _metrics_endpoint, methods=["GET"], include_in_schema=False
+    )
 
     # HTTP duration middleware
     @app.middleware("http")
@@ -81,15 +92,26 @@ def setup_metrics(app) -> None:
             elapsed = time.monotonic() - start
             if _http_request_duration_seconds is not None:
                 try:
-                    _http_request_duration_seconds.labels(method=request.method, path=request.url.path).observe(elapsed)
+                    _http_request_duration_seconds.labels(
+                        method=request.method, path=request.url.path
+                    ).observe(elapsed)
                 except Exception:
                     pass
             raise
         elapsed = time.monotonic() - start
-        if _http_request_duration_seconds is not None and _http_requests_total is not None:
+        if (
+            _http_request_duration_seconds is not None
+            and _http_requests_total is not None
+        ):
             try:
-                _http_request_duration_seconds.labels(method=request.method, path=request.url.path).observe(elapsed)
-                _http_requests_total.labels(method=request.method, path=request.url.path, status=str(response.status_code)).inc()
+                _http_request_duration_seconds.labels(
+                    method=request.method, path=request.url.path
+                ).observe(elapsed)
+                _http_requests_total.labels(
+                    method=request.method,
+                    path=request.url.path,
+                    status=str(response.status_code),
+                ).inc()
             except Exception:
                 pass
         return response

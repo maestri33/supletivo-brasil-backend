@@ -10,6 +10,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from . import config_store as cfg
 from .api.router import api_router, root_router
@@ -20,9 +23,6 @@ from .schemas import ERROR_CODES
 from .services import payment as payment_service
 from .services.webhook_security import webhook_hmac_configured
 from .utils.logging import configure_logging, log_event, logger
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 configure_logging()
 
@@ -222,8 +222,8 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 from slowapi.middleware import SlowAPIMiddleware
-app.add_middleware(SlowAPIMiddleware)
 
+app.add_middleware(SlowAPIMiddleware)
 
 
 @app.exception_handler(DomainError)

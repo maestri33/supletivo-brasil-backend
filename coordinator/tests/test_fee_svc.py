@@ -55,12 +55,18 @@ class TestCreateEnrollmentFee:
 class TestListEnrollmentFees:
     async def test_returns_all(self, db_session: AsyncSession, coordinator: str) -> None:
         await create_enrollment_fee(
-            db_session, coordinator_id=coordinator,
-            student_external_id="s1", description="fee1", amount=Decimal("10"),
+            db_session,
+            coordinator_id=coordinator,
+            student_external_id="s1",
+            description="fee1",
+            amount=Decimal("10"),
         )
         await create_enrollment_fee(
-            db_session, coordinator_id=coordinator,
-            student_external_id="s2", description="fee2", amount=Decimal("20"),
+            db_session,
+            coordinator_id=coordinator,
+            student_external_id="s2",
+            description="fee2",
+            amount=Decimal("20"),
         )
         await db_session.commit()
 
@@ -69,12 +75,18 @@ class TestListEnrollmentFees:
 
     async def test_filters_by_student(self, db_session: AsyncSession, coordinator: str) -> None:
         await create_enrollment_fee(
-            db_session, coordinator_id=coordinator,
-            student_external_id="std-a", description="a", amount=Decimal("10"),
+            db_session,
+            coordinator_id=coordinator,
+            student_external_id="std-a",
+            description="a",
+            amount=Decimal("10"),
         )
         await create_enrollment_fee(
-            db_session, coordinator_id=coordinator,
-            student_external_id="std-b", description="b", amount=Decimal("20"),
+            db_session,
+            coordinator_id=coordinator,
+            student_external_id="std-b",
+            description="b",
+            amount=Decimal("20"),
         )
         await db_session.commit()
 
@@ -89,8 +101,11 @@ class TestListEnrollmentFees:
 class TestPayEnrollmentFee:
     async def test_pays_fee(self, db_session: AsyncSession, coordinator: str) -> None:
         fee = await create_enrollment_fee(
-            db_session, coordinator_id=coordinator,
-            student_external_id="std-pay", description="a pagar", amount=Decimal("100"),
+            db_session,
+            coordinator_id=coordinator,
+            student_external_id="std-pay",
+            description="a pagar",
+            amount=Decimal("100"),
         )
         await db_session.commit()
 

@@ -22,6 +22,7 @@ from app.utils.logging import configure_logging
 def _cors_origins() -> list[str]:
     """CORS origins: dev/staging permite *, prod exige CORS_ORIGINS (COD-18 P0.2)."""
     import os as _os
+
     env = _os.getenv("ENV", _os.getenv("ENVIRONMENT", "development"))
     if env in ("development", "dev", "staging"):
         return ["*"]
@@ -61,16 +62,18 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 from slowapi.middleware import SlowAPIMiddleware
+
 app.add_middleware(SlowAPIMiddleware)
 
 
-app.add_middleware(CORSMiddleware, allow_origins=_cors_origins(), allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware, allow_origins=_cors_origins(), allow_methods=["*"], allow_headers=["*"]
+)
 
 app.include_router(fees_router)
 app.include_router(webhooks_router)
 app.include_router(health_router)
 setup_metrics(app)
-
 
 
 @app.exception_handler(DomainError)

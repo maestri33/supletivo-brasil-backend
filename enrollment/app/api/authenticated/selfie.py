@@ -46,7 +46,9 @@ async def post_selfie(
             file.content_type or "application/octet-stream",
         )
     enrollment = await enrollment_svc.get(session, external_id)
-    hub_external_id = str(enrollment.hub_external_id) if enrollment and enrollment.hub_external_id else None
+    hub_external_id = (
+        str(enrollment.hub_external_id) if enrollment and enrollment.hub_external_id else None
+    )
     promoter_external_id = (
         str(enrollment.promoter_external_id)
         if enrollment and enrollment.promoter_external_id
