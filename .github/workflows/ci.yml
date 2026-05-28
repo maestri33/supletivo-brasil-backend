@@ -1,0 +1,418 @@
+# =============================================================================
+# CI — Backend Supletivo (Sprint 0)
+# =============================================================================
+# Gatilhos: push/PR em master. Roda lint + testes + import smoke + alembic check.
+# Fase 0 (2026-05-28): gatilho main→master; e2e money-path DESARMADO; gate de
+# cobertura ajustado (fees @60%); tolerância a "sem testes" (ai/jwt/roles/documents).
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ── Lint (ruff) — todas as services em paralelo ──────────────────────────
+
+  lint:
+    name: "lint / ${{ matrix.service }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - address
+          - ai
+          - asaas
+          - auth
+          - candidate
+          - documents
+          - enrollment
+          - fees
+          - hub
+          - infinitepay
+          - jwt
+          - lead
+          - notify
+          - otp
+          - profiles
+          - promoter
+          - roles
+          - student
+          - training
+          - commissions
+          - coordinator
+          - staff
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install deps
+        working-directory: ${{ matrix.service }}
+        run: uv sync --frozen 2>/dev/null || uv sync
+
+      - name: ruff check
+        working-directory: ${{ matrix.service }}
+        run: uv run ruff check .
+
+      - name: ruff format check
+        working-directory: ${{ matrix.service }}
+        run: uv run ruff format --check .
+
+      - name: Import smoke
+        working-directory: ${{ matrix.service }}
+        run: uv run python -c "import app; print('import OK')"
+
+  # ── Testes + alembic check (precisa de Postgres) ─────────────────────────
+
+  test:
+    name: "test / ${{ matrix.service }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - address
+          - ai
+          - asaas
+          - auth
+          - candidate
+          - enrollment
+          - fees
+          - hub
+          - infinitepay
+          - jwt
+          - lead
+          - notify
+          - otp
+          - profiles
+          - promoter
+          - roles
+          - student
+          - training
+          - commissions
+          - coordinator
+          - staff
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: supletivo
+          POSTGRES_USER: supletivo
+          POSTGRES_PASSWORD: supletivo_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U supletivo -d supletivo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_ci@localhost:5432/supletivo
+      DATABASE_SCHEMA: ${{ matrix.service }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install deps
+        working-directory: ${{ matrix.service }}
+        run: uv sync --frozen 2>/dev/null || uv sync
+
+      - name: Run pytest
+        working-directory: ${{ matrix.service }}
+        run: |
+          code=0
+          uv run pytest -v --tb=short || code=$?
+          # exit 5 = "nenhum teste coletado" — toleramos (serviços ainda sem testes:
+          # ai, jwt, roles, documents). Falha real (1) e erro de coleta (2) seguem quebrando.
+          [ "$code" -eq 0 ] || [ "$code" -eq 5 ]
+
+      - name: Alembic upgrade head (if present)
+        working-directory: ${{ matrix.service }}
+        run: |
+          test -f alembic.ini && uv run alembic upgrade head || echo "skip: no alembic"
+
+  # ── Coverage gate 60/40 ──────────────────────────────────────────────────
+  #
+  # Money-path services (lead, asaas, infinitepay, enrollment, candidate,
+  # training, fees) must each reach ≥60%. All remaining services must reach ≥40%.
+  #
+  # Fase 0: `fees` promovido ao tier 60% (mede 66%). `commissions` é money mas
+  # fica no tier 40% por ora — mede 54% e payment_batch_service.py + worker.py
+  # estão a 0% de cobertura (dívida de teste do payout → Fase 1).
+
+  coverage:
+    name: "coverage / ${{ matrix.service }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - address
+          - asaas
+          - auth
+          - candidate
+          - commissions
+          - coordinator
+          - enrollment
+          - fees
+          - hub
+          - infinitepay
+          - jwt
+          - lead
+          - notify
+          - otp
+          - profiles
+          - promoter
+          - roles
+          - staff
+          - student
+          - training
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: supletivo
+          POSTGRES_USER: supletivo
+          POSTGRES_PASSWORD: supletivo_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U supletivo -d supletivo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_ci@localhost:5432/supletivo
+      DATABASE_SCHEMA: ${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install deps
+        working-directory: ${{ matrix.service }}
+        run: uv sync --frozen 2>/dev/null || uv sync
+
+      - name: Run pytest with coverage
+        working-directory: ${{ matrix.service }}
+        run: |
+          code=0
+          uv run pytest --cov --cov-report=xml --cov-report=term --tb=short || code=$?
+          # exit 5 = sem testes (ai/jwt/roles/documents): não quebra; sem coverage.xml,
+          # o coverage-gate apenas não mede esse serviço.
+          [ "$code" -eq 0 ] || [ "$code" -eq 5 ]
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.service }}
+          path: ${{ matrix.service }}/coverage.xml
+          if-no-files-found: warn
+          retention-days: 1
+
+  coverage-gate:
+    name: Coverage Gate
+    needs: [coverage]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install coverage tools
+        run: uv tool install coverage
+
+      - name: Download all coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: /tmp/coverage-artifacts
+          merge-multiple: true
+
+      - name: Aggregate and check thresholds
+        run: |
+          cd /tmp/coverage-artifacts
+          FAIL=0
+
+          # Money-path services (target 60%)
+          MONEY_PATH="lead asaas infinitepay enrollment candidate training fees"
+          for svc in $MONEY_PATH; do
+            xml="${svc}.xml"
+            if [ ! -f "$xml" ]; then
+              echo "⚠️  $svc — no coverage.xml (skipped)"
+              continue
+            fi
+            pct=$(python3 -c "import xml.etree.ElementTree as ET; t=ET.parse('$xml').getroot(); print(t.attrib.get('line-rate','?'))")
+            pct=$(echo "$pct * 100" | bc | xargs printf "%.1f")
+            if [ "$(echo "$pct < 60" | bc)" -eq 1 ]; then
+              echo "❌ $svc — ${pct}% < 60%"
+              FAIL=1
+            else
+              echo "✅ $svc — ${pct}% ≥ 60%"
+            fi
+          done
+
+          # All remaining services (target 40%)
+          ALL=$(ls *.xml | sed 's/\.xml$//')
+          for svc in $ALL; do
+            xml="${svc}.xml"
+            pct=$(python3 -c "import xml.etree.ElementTree as ET; t=ET.parse('$xml').getroot(); print(t.attrib.get('line-rate','?'))")
+            pct=$(echo "$pct * 100" | bc | xargs printf "%.1f")
+            if [ "$(echo "$pct < 40" | bc)" -eq 1 ]; then
+              # Check if this is a money-path service (already checked above)
+              skip=0
+              for ms in $MONEY_PATH; do [ "$ms" = "$svc" ] && skip=1; done
+              [ "$skip" -eq 1 ] && continue
+              echo "❌ $svc — ${pct}% < 40%"
+              FAIL=1
+            else
+              echo "✅ $svc — ${pct}% ≥ 40%"
+            fi
+          done
+
+          if [ "$FAIL" -eq 1 ]; then
+            echo ""
+            echo "=================== COVERAGE GATE FAILED ==================="
+            exit 1
+          fi
+          echo ""
+          echo "=================== COVERAGE GATE PASSED ==================="
+
+  # ── E2E smoke: money path — ⚠️ DESARMADO (Fase 0, 2026-05-28) ─────────────
+  #
+  # Este job sobe o `lead` REAL, que chama Asaas/InfinitePay REAIS. Hoje só não
+  # cobra porque falha no auth e dá skip — mas "consertar" o env ingenuamente
+  # passaria a gerar cobrança PIX de verdade na PRODUÇÃO (viola a regra nº 2).
+  # Fica DESLIGADO (if: false) até a Fase 1.4 reescrever o fluxo com Asaas/
+  # InfinitePay STUB (serviços falsos locais). NÃO religar sem os stubs.
+
+  e2e-smoke:
+    name: E2E smoke (money path) — DESARMADO
+    if: false
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: supletivo
+          POSTGRES_USER: supletivo
+          POSTGRES_PASSWORD: supletivo_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U supletivo -d supletivo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      LEAD_BASE_URL: http://localhost:8000
+      ENROLLMENT_BASE_URL: http://localhost:8003
+      DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_ci@localhost:5432/supletivo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install deps (lead + enrollment)
+        working-directory: ./lead
+        run: uv sync --frozen 2>/dev/null || uv sync
+
+      - name: Run migrations (lead)
+        working-directory: ./lead
+        run: |
+          DATABASE_SCHEMA=lead uv run alembic upgrade head
+
+      - name: Start lead service
+        working-directory: ./lead
+        run: |
+          DATABASE_SCHEMA=lead nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/lead.log 2>&1 &
+          echo "PID=$!"
+          # Wait for readiness
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              echo "lead ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Install deps (enrollment)
+        working-directory: ./enrollment
+        run: uv sync --frozen 2>/dev/null || uv sync
+
+      - name: Run migrations (enrollment)
+        working-directory: ./enrollment
+        run: |
+          DATABASE_SCHEMA=enrollment uv run alembic upgrade head
+
+      - name: Start enrollment service
+        working-directory: ./enrollment
+        run: |
+          DATABASE_SCHEMA=enrollment nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8003 > /tmp/enrollment.log 2>&1 &
+          echo "PID=$!"
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:8003/health > /dev/null 2>&1; then
+              echo "enrollment ready"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Install E2E test deps
+        run: |
+          uv tool install pytest pytest-asyncio httpx structlog
+
+      - name: Run E2E smoke
+        run: |
+          uvx pytest tests/e2e/money_path -v --tb=short -x 2>&1
+
+      - name: Upload logs on failure
+        if: failure()
+        run: |
+          echo "=== LEAD LOGS ==="
+          tail -50 /tmp/lead.log
+          echo "=== ENROLLMENT LOGS ==="
+          tail -50 /tmp/enrollment.log
+
+  # ── Gate — todos os checks precisam passar ───────────────────────────────
+
+  ci-gate:
+    name: CI Gate
+    needs: [lint, test, coverage-gate]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.test.result }}" != "success" ] || [ "${{ needs.coverage-gate.result }}" != "success" ]; then
+            echo "CI FAILED — lint=${{ needs.lint.result }} test=${{ needs.test.result }} coverage=${{ needs.coverage-gate.result }}"
+            exit 1
+          fi
+          echo "CI PASSED — lint, test, and coverage gate all green"
