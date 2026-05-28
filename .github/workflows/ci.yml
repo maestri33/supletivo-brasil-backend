@@ -151,6 +151,17 @@ jobs:
 
       - name: Alembic upgrade head (if present)
         working-directory: ${{ matrix.service }}
+        env:
+          # Migrations carregam o config do app (Pydantic Settings), que exige estas
+          # URLs. São DUMMY — migration não chama esses serviços; só pro config validar.
+          # Sem isso o passo alembic do `lead` quebra (test/lead vermelho). Step-level
+          # (não afeta o pytest acima nem outros services).
+          INFINITEPAY_BASE_URL: http://localhost
+          AUTH_BASE_URL: http://localhost
+          JWT_BASE_URL: http://localhost
+          NOTIFY_BASE_URL: http://localhost
+          PROFILES_BASE_URL: http://localhost
+          PROMOTER_DEFAULT: ci
         run: |
           test -f alembic.ini && uv run alembic upgrade head || echo "skip: no alembic"
 
