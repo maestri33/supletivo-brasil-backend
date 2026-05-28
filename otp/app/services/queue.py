@@ -3,7 +3,7 @@
 import asyncio
 import fcntl
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from sqlalchemy import select, update
@@ -31,9 +31,11 @@ def _backoff(attempts: int) -> int:
 
 
 async def _process_one(
-    session: AsyncSession, http: httpx.AsyncClient, entry: PendingNotify,
+    session: AsyncSession,
+    http: httpx.AsyncClient,
+    entry: PendingNotify,
 ) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     age_s = (now - entry.created_at).total_seconds()
 
     if age_s > settings.otp_ttl_s:
@@ -53,12 +55,14 @@ async def _process_one(
         return
 
     entry.attempts += 1
-    entry.next_retry_at = datetime.fromtimestamp(now.timestamp() + 3600, tz=timezone.utc)
+    entry.next_retry_at = datetime.fromtimestamp(now.timestamp() + 3600, tz=UTC)
     await session.commit()
 
     try:
         result = await notify.send_message(
-            http, external_id=str(entry.external_id), content=entry.content,
+            http,
+            external_id=str(entry.external_id),
+            content=entry.content,
         )
     except Exception as exc:
         entry.error_detail = str(exc)
@@ -76,17 +80,21 @@ async def _process_one(
             await session.commit()
             log.info(
                 "queue.max_attempts",
-                id=entry.id, otp_log_id=entry.otp_log_id, attempts=entry.attempts,
+                id=entry.id,
+                otp_log_id=entry.otp_log_id,
+                attempts=entry.attempts,
             )
         else:
             backoff_s = _backoff(entry.attempts)
             entry.next_retry_at = datetime.fromtimestamp(
-                datetime.now(timezone.utc).timestamp() + backoff_s, tz=timezone.utc,
+                datetime.now(UTC).timestamp() + backoff_s,
+                tz=UTC,
             )
             await session.commit()
             log.info(
                 "queue.retry_scheduled",
-                id=entry.id, attempts=entry.attempts,
+                id=entry.id,
+                attempts=entry.attempts,
                 next_retry_at=entry.next_retry_at.isoformat(),
             )
         return
@@ -100,12 +108,14 @@ async def _process_one(
     await session.commit()
     log.info(
         "queue.sent",
-        id=entry.id, otp_log_id=entry.otp_log_id, message_id=result.get("id"),
+        id=entry.id,
+        otp_log_id=entry.otp_log_id,
+        message_id=result.get("id"),
     )
 
 
 async def process_pending(http: httpx.AsyncClient) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     async with async_session_maker() as session:
         pending = await session.scalars(
             select(PendingNotify)
@@ -118,7 +128,7 @@ async def process_pending(http: httpx.AsyncClient) -> None:
 
 async def queue_loop(http: httpx.AsyncClient, stop: asyncio.Event) -> None:
     log.info("queue.loop.start", interval_s=_INTERVAL_S)
-    lock_fd = open(_LOCK_PATH, "w")
+    lock_fd = open(_LOCK_PATH, "w")  # noqa: ASYNC230 — flock requires fd
     while not stop.is_set():
         try:
             fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -132,7 +142,7 @@ async def queue_loop(http: httpx.AsyncClient, stop: asyncio.Event) -> None:
             pass
         try:
             await asyncio.wait_for(stop.wait(), timeout=_INTERVAL_S)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
     lock_fd.close()
     try:

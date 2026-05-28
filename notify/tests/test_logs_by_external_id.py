@@ -13,7 +13,8 @@ async def test_timeline_empty_for_unknown_external_id(client: AsyncClient) -> No
 
 
 async def test_timeline_returns_contact_creation_log(
-    client: AsyncClient, make_auth_user,
+    client: AsyncClient,
+    make_auth_user,
 ) -> None:
     eid = await make_auth_user()
     create = await client.post(

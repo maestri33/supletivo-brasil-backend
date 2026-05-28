@@ -17,14 +17,20 @@ class DomainError(Exception):
         self.message = message or self.__class__.__name__
 
 
-class NotFound(DomainError):
+class NotFoundError(DomainError):
     status_code = 404
     code = "not_found"
 
 
-class Conflict(DomainError):
+NotFound = NotFoundError  # backward-compat alias
+
+
+class ConflictError(DomainError):
     status_code = 409
     code = "conflict"
+
+
+Conflict = ConflictError  # backward-compat alias
 
 
 class ValidationError(DomainError):
@@ -32,7 +38,7 @@ class ValidationError(DomainError):
     code = "validation_error"
 
 
-class RateLimitExceeded(DomainError):
+class RateLimitExceededError(DomainError):
     """Rate limit do OTP atingido pra um external_id."""
 
     status_code = 429
@@ -41,6 +47,9 @@ class RateLimitExceeded(DomainError):
     def __init__(self, message: str = "", retry_after_s: int = 0) -> None:
         super().__init__(message)
         self.retry_after_s = retry_after_s
+
+
+RateLimitExceeded = RateLimitExceededError  # backward-compat alias
 
 
 class IntegrationError(DomainError):

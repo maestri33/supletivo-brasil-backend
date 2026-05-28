@@ -226,9 +226,7 @@ async def asaas_charge_callback(
     completed_now = False
     promoter: UUID | None = None
     if payload.status == "PAID":
-        lead = await session.scalar(
-            select(Lead).where(Lead.external_id == payload.external_id)
-        )
+        lead = await session.scalar(select(Lead).where(Lead.external_id == payload.external_id))
         if lead and lead.status != LeadStatus.COMPLETED:
             lead.status = LeadStatus.COMPLETED
             completed_now = True

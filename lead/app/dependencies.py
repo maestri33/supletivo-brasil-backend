@@ -85,7 +85,8 @@ def _require_status(*required: LeadStatus):
         if lead.status not in allowed:
             expected = " or ".join(s.value for s in required)
             raise HTTPException(
-                403, f"Status '{lead.status.value}' — requires '{expected}'",
+                403,
+                f"Status '{lead.status.value}' — requires '{expected}'",
             )
         return external_id
 
@@ -97,7 +98,9 @@ def require_captured():
 
 
 def require_waiting():
-    return _require_status(LeadStatus.WAITING)
+    # Aceita WAITING ou FAILED — front continua pollando /waiting depois que
+    # o BG task falhou; o handler retorna error_code junto com o status.
+    return _require_status(LeadStatus.WAITING, LeadStatus.FAILED)
 
 
 def require_checkout():

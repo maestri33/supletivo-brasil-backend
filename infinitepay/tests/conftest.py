@@ -29,6 +29,7 @@ os.environ["INFINITEPAY_DESCRIPTION"] = "Padrao"
 os.environ["INFINITEPAY_REDIRECT_URL"] = "https://example.com/pago"
 os.environ["INFINITEPAY_BACKEND_WEBHOOK"] = "https://example.com/api"
 os.environ["INFINITEPAY_PUBLIC_API_URL"] = "https://example.com"
+os.environ["INTERNAL_API_KEY"] = "test-internal-api-key-for-tests"
 
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402

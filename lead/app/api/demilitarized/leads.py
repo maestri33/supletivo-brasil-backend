@@ -40,7 +40,9 @@ def _to_out(lead: Lead) -> LeadOut:
 
 @router.get("/leads", response_model=list[LeadOut], summary="Lista todos os leads")
 async def list_leads(session: AsyncSession = Depends(get_session)):
-    result = await session.scalars(select(Lead).order_by(Lead.created_at.desc()))
+    result = await session.scalars(
+        select(Lead).order_by(Lead.created_at.desc(), Lead.external_id.desc())
+    )
     return [_to_out(lead) for lead in result.all()]
 
 

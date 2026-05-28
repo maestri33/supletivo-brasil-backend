@@ -25,8 +25,7 @@ SCHEMA = "profiles"
 def upgrade() -> None:
     # btree(name) com case-insensitive via lower() — casa com ILIKE/lower-LIKE
     op.execute(
-        f"CREATE INDEX IF NOT EXISTS profiles_name_lower_idx "
-        f"ON {SCHEMA}.profiles (lower(name))",
+        f"CREATE INDEX IF NOT EXISTS profiles_name_lower_idx ON {SCHEMA}.profiles (lower(name))",
     )
     op.create_index(
         "profiles_created_at_idx",

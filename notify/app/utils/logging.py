@@ -18,11 +18,7 @@ def configure_logging(level: str = "INFO", *, json_mode: bool = False) -> None:
         level=level.upper(),
     )
 
-    renderer = (
-        structlog.processors.JSONRenderer()
-        if json_mode
-        else structlog.dev.ConsoleRenderer()
-    )
+    renderer = structlog.processors.JSONRenderer() if json_mode else structlog.dev.ConsoleRenderer()
 
     structlog.configure(
         processors=[
@@ -32,9 +28,7 @@ def configure_logging(level: str = "INFO", *, json_mode: bool = False) -> None:
             structlog.processors.StackInfoRenderer(),
             renderer,
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(
-            getattr(logging, level.upper())
-        ),
+        wrapper_class=structlog.make_filtering_bound_logger(getattr(logging, level.upper())),
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )

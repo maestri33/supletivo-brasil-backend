@@ -1,151 +1,94 @@
 # candidate
 
 ## Função
-Gerencia o funil de cadastro de candidatos a promotores (aspirantes), conduzindo-os por etapas sequenciais de status — desde a captura até a espera de aprovação — e delegando persistência de perfil, endereço e autenticação a outros microsserviços.
+Conduz o **funil de cadastro de candidatos a promotor** (aspirantes), do registro
+à conclusão, avançando por etapas sequenciais de status e **orquestrando** os
+serviços donos de cada dado (auth, profiles, address, documents, asaas, roles) —
+sem duplicar lógica. Ao concluir, promove o usuário para `training`.
 
 ## Status
-**Parcial / Protótipo** — o serviço implementa apenas as 4 primeiras etapas do funil (captured → personal → education → birth → waiting) descritas no TODO. Faltam as etapas 3–6 do TODO: endereço (o router `address` existe mas avança para `waiting` sem passar por `ADDRESS`), documentos (RG/CNH), chave pix/Asaas e selfie/conclusão. Não há migrações Alembic (banco via `sqlite://db.sqlite3` com `generate_schemas=True`). Não há testes. Endpoints desmilitarizados (`routers/demilitarized/`) existem como pasta vazia.
+**Funcional (Fase A+B do PLANO_ADEQUACAO, 2026-05-24)** — reescrito de Tortoise+SQLite
+para a stack canônica (SQLAlchemy 2.0 async + asyncpg + Postgres schema `candidate`
++ Alembic). Funil completo: captured → personal → education → birth → address →
+documents → pixkey → selfie → completed. ruff limpo, 13 testes, `alembic upgrade head`
+aplicado, boot ok.
+
+**Pendência conhecida (sem TODO órfão):** a criação do registro no serviço `training`
+(passo 6 do `candidate/TODO`) só será implementada quando esse serviço existir
+(é green-field, Parte B). Hoje a conclusão **promove o papel** lead→training via
+`roles` e encerra o candidate em `completed`.
+
+## Stack
+Python 3.12 + uv · FastAPI · SQLAlchemy 2.0 async (`Mapped`/`mapped_column`) · asyncpg
+· Alembic · Pydantic v2 + pydantic-settings · httpx.AsyncClient · structlog.
 
 ## Estrutura
-Aninhada — pacote real: `candidate/candidate/app/` (deveria ser `candidate/app/` per CONVENTION §3).  
-Outros desvios estruturais:
-- `routers/` em vez de `api/` (CONVENTION §3 exige `api/`)
-- `models.py` e `schemas.py` como arquivos únicos (devem ser pastas `models/` e `schemas/`)
-- Sem `db.py`, `services/`, `exceptions.py`
-- Sem `pyproject.toml` / `alembic.ini` / `README.md`
+`candidate/app/` (achatado): `main.py`, `config.py`, `db.py`, `exceptions.py`,
+`dependencies.py`, `utils/logging.py`, `models/`, `schemas/`, `services/`,
+`integrations/`, `api/{public,authenticated,demilitarized}/` + `api/router.py`.
+`alembic/` (env async + revisão `0001`), `tests/`, `pyproject.toml`, `README.md`,
+`.claude/`.
 
 ## Endpoints
 
-### `routers/public/auth.py` — público
+### `api/public/auth.py` — público (exposto)
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| POST | `/api/v1/public/check` | Verifica CPF/phone e dispara OTP via auth-service |
-| POST | `/api/v1/public/register` | Registra novo lead no auth e cria `Lead` local; notifica lead e hub |
-| POST | `/api/v1/public/login` | Valida OTP e retorna JWT (role `lead`) |
-| POST | `/api/v1/public/refresh` | Renova tokens via jwt-service |
+| POST | `/api/v1/public/check` | Verifica CPF/phone/external_id e dispara OTP (auth) |
+| POST | `/api/v1/public/register` | Registra no auth (role lead) + cria Candidate; notifica lead e hub |
+| POST | `/api/v1/public/login` | Valida OTP e retorna JWT + status atual |
+| POST | `/api/v1/public/refresh` | Renova tokens (jwt) |
 
-### `routers/authenticated/captured.py` — autenticado (JWT + status `captured`)
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/api/v1/authenticated/captured` | Retorna nome/phone/email do lead capturado |
-| POST | `/api/v1/authenticated/captured` | Salva nome e e-mail; avança para `personal` |
+### `api/authenticated/*` — autenticado (JWT role `lead` + gate por status)
+| Método | Rota | Status exigido → próximo |
+|--------|------|--------------------------|
+| GET/POST | `/api/v1/authenticated/captured` | captured → personal (nome+email) |
+| GET/POST | `/api/v1/authenticated/personal` | personal → education |
+| GET/POST | `/api/v1/authenticated/educational` | education → birth |
+| GET/POST | `/api/v1/authenticated/birth` | birth → address |
+| GET | `/api/v1/authenticated/address/cep/{cep}` | consulta CEP (address) |
+| GET/POST | `/api/v1/authenticated/address` | address → documents |
+| GET | `/api/v1/authenticated/documents` | estado RG/CNH |
+| PUT | `/api/v1/authenticated/documents` | salva dados RG ou CNH (documents) |
+| POST | `/api/v1/authenticated/documents/images/{slot}` | upload frente/verso |
+| POST | `/api/v1/authenticated/documents/submit` | valida completude → pixkey |
+| GET/POST | `/api/v1/authenticated/pixkey` | pixkey → selfie (valida no asaas) |
+| GET/POST | `/api/v1/authenticated/selfie` | selfie → completed (promove a training) |
 
-### `routers/authenticated/personal.py` — autenticado (status `personal`)
+### `api/demilitarized/candidates.py` — interno (sem auth, §5)
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| GET | `/api/v1/authenticated/personal` | Retorna dados pessoais (gênero, filiação, estado civil) |
-| POST | `/api/v1/authenticated/personal` | Salva dados pessoais; avança para `education` |
+| GET | `/api/v1/demilitarized/candidates` | lista/filtra por hub e status |
+| GET | `/api/v1/demilitarized/candidates/{external_id}` | busca por external_id |
 
-### `routers/authenticated/educational.py` — autenticado (status `education`)
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/api/v1/authenticated/educational` | Retorna dados educacionais |
-| POST | `/api/v1/authenticated/educational` | Salva dados educacionais; avança para `birth` |
-
-### `routers/authenticated/birth.py` — autenticado (status `birth`)
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/api/v1/authenticated/birth` | Retorna data de nascimento, naturalidade e nacionalidade |
-| POST | `/api/v1/authenticated/birth` | Salva dados de nascimento; avança para `waiting` |
-
-### `routers/authenticated/address.py` — autenticado (status `address`)
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/api/v1/authenticated/address` | Retorna endereço vinculado ao lead |
-| GET | `/api/v1/authenticated/address/cep/{cep}` | Consulta CEP via address-service |
-| POST | `/api/v1/authenticated/address` | Cria endereço e avança para `waiting` |
-
-### `main.py` — público
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/health` | Liveness check |
-| GET | `/ready` | Readiness check |
+### `main.py` — `/health`, `/ready`, `/status`
 
 ## Dados
-Banco atual: **SQLite** (`db.sqlite3`, via Tortoise ORM — não SQLAlchemy). Schema sem nome próprio, sem migrações Alembic.
+Schema **`candidate`** no Postgres central. Tabela única **`candidates`**:
+`id` (UUID PK), `external_id` (UUID unique — ref. lógica a `auth.users`, sem FK),
+`status` (String), `hub_external_id` (UUID null), `created_at`/`updated_at`
+(timestamptz). Os models `Checkout`/`Message` (cópia morta do lead) foram
+**removidos** — candidate não tem pagamento (a chave PIX é para RECEBER comissões).
 
-### Tabela `leads`
-| Campo | Tipo | Obs |
-|-------|------|-----|
-| `id` | BigInt PK | auto |
-| `external_id` | UUID unique+index | FK lógica para `auth.users` |
-| `status` | CharEnum | captured/personal/education/birth/address/waiting/checkout/completed |
-| `hub_external_id` | UUID null+index | referência ao hub |
-| `created_at` / `updated_at` | Datetime | auto |
+## Integrações (httpx + retry exponencial assíncrono)
+| Client | Serviço | Uso |
+|--------|---------|-----|
+| `AuthClient` | auth | check/register(role=lead)/login |
+| `JwtClient` | jwt | refresh |
+| `NotifyClient` | notify | contato + envio de mensagens (§11) |
+| `ProfilesClient` | profiles | dados de perfil + CPF (titular do PIX) |
+| `AddressClient` | address | CEP + endereço (entity_type `lead`) |
+| `AsaasClient` | asaas | `POST /pixkey` valida no DICT + confere titular (§12) |
+| `DocumentsClient` | documents | RG/CNH (dados+imagens) e selfie (slot `foto`) |
+| `AIClient` | ai | `/image/vision` valida heurística da selfie (§13) |
+| `RolesClient` | roles | `POST /role/{id}/up/training` na conclusão |
 
-### Tabela `checkouts`
-| Campo | Tipo | Obs |
-|-------|------|-----|
-| `id` | BigInt PK | |
-| `external_id` | UUID unique+index | referência ao lead |
-| `checkout_url` / `receipt_url` | Char(1024) null | |
-| `invoice_slug` / `transaction_nsu` | Char(255) null+index | |
-| `capture_method` | Char(50) null | |
-| `installments` | SmallInt null | |
-| `is_paid` | Bool index | |
+**Notificações (§11):** o candidato é avisado a cada avanço de etapa e o hub é
+avisado na conclusão (via BackgroundTasks, tolerante a falha).
 
-### Tabela `messages`
-| Campo | Tipo | Obs |
-|-------|------|-----|
-| `id` | BigInt PK | |
-| `message_id` | Int null+index | ID retornado pelo notify |
-| `external_id` | UUID index | referência ao lead |
-| `direction` | Char(10) | out/in |
-| `channel` | Char(20) null | whatsapp/email/tts |
-| `content` | Text null | |
-| `status` | Char(30) null+index | sent/delivered/read/failed |
-| `event` | Char(50) null | message.sent/delivered/failed |
-| `meta` | JSON null | dados extras de webhook |
-
-Não há shadow tables cross-schema (não foi possível implementar — Tortoise ORM não suporta o padrão da CONVENTION).
-
-## Integrações
-
-### Internas (via httpx + retry exponencial)
-| Client | Serviço | Operações |
-|--------|---------|-----------|
-| `AuthClient` | auth (`AUTH_BASE_URL`) | check CPF/phone/OTP, register (role=lead), login |
-| `JwtClient` | jwt-service (`JWT_BASE_URL`) | refresh token |
-| `NotifyClient` | notify (`NOTIFY_BASE_URL`) | get_contact, update_email, send_message |
-| `ProfilesClient` | profiles (`PROFILES_BASE_URL`) | get, first_name, patch |
-| `AddressClient` | address (`ADDRESSES_BASE_URL`) | CRUD endereço, check CEP, bind entity, upload proof |
-
-### Externas
-| Serviço | Onde | Status |
-|---------|------|--------|
-| InfinitePay | `INFINITEPAY_BASE_URL` em config | declarada na config, **sem client implementado** |
-| Webhook enrollment | `WEBHOOK_ENROLLMENT_URL` | declarado, sem uso no código atual |
-| Webhook hub | `WEBHOOK_HUB_URL` | declarado, sem uso no código atual |
-
-**Atenção:** `request_with_retry` usa `time.sleep()` síncrono (bloqueante) no loop de retry — deve ser `asyncio.sleep()`.
-
-## Pendências
-
-### Arquivo TODO (candidate/candidate/TODO)
-O candidato é o aspirante a promotor. Fluxo esperado (não implementado integralmente):
-1. `POST /register` — phone, cpf, hub (com HUB_DEFAULT fallback) ✅ implementado
-2. `POST /profile` — completar perfil (CPF puxa nome via profiles) — **parcialmente** (captured/personal/education/birth, mas sem etapa CPF→nome automático)
-3. `POST /address` — endereço (CEP primeiro, sem duplicar lógica) — **parcial** (router existe mas status `address` nunca é atribuído no fluxo)
-4. Documents — RG ou CNH — **não implementado**
-5. Chave pix — cadastro e validação no Asaas — **não implementado** (INFINITEPAY_BASE_URL declarado mas sem client)
-6. Selfie real (valida como assinatura de contrato) → se ok, conclui fase candidate, update role para `training`, cria novo registro — **não implementado**
-
-Endpoints desmilitarizados (listar candidatos, filtrar por hub, etc.) — **não implementados** (`routers/demilitarized/__init__.py` vazio).
-
-### Desvios da CONVENTION
-| Item | Desvio | Severidade |
-|------|--------|-----------|
-| Aninhamento | `candidate/candidate/app/` em vez de `candidate/app/` | ❌ bloqueia |
-| ORM | Tortoise ORM + SQLite em vez de SQLAlchemy 2.0 async + asyncpg + Postgres | ❌ bloqueia |
-| Diretórios | `routers/` em vez de `api/`; `models.py`/`schemas.py` arquivos, não pastas | ❌ bloqueia |
-| Migrações | Sem Alembic; usa `generate_schemas=True` | ❌ bloqueia produção |
-| Banco | SQLite local em vez de Postgres com schema próprio | ❌ bloqueia produção |
-| `time.sleep` síncrono | Bloqueante no retry assíncrono; deve ser `asyncio.sleep` | ⚠️ bug de performance |
-| `fastapi-structured-logging` | Lib fora da stack canônica (deveria ser `structlog` direto) | ⚠️ justificativa ausente |
-| `tortoise-orm` | Lib proibida/fora da stack; `python-dotenv` também fora (pydantic-settings lê .env nativo) | ❌ bloqueia |
-| `load_dotenv()` explícito | Redundante com pydantic-settings; antipadrão da CONVENTION | ⚠️ ajustar |
-| Schemas nos routers | Schemas Pydantic definidos dentro dos arquivos de router, não em `schemas/` | ⚠️ ajustar |
-| Lógica de negócio no router | Sem camada `services/`; toda lógica diretamente no endpoint | ⚠️ ajustar |
-| Sem testes | Nenhum teste presente | ⚠️ ajustar |
-| `dependencies.py` verifica role `lead` | Serviço é `candidate`, mas valida JWT role `lead` — pode ser intencional (mesmo usuário muda de role), mas não está documentado | ⚠️ confirmar |
-| `address` router não atribui status `ADDRESS` | O fluxo pula a etapa: captured→personal→education→birth→waiting, nunca passa por `address` | ❌ bug de fluxo |
+## Observações / a confirmar
+- **Selfie:** validação é **heurística** (ai/vision descreve a imagem; barra foto
+  sem pessoa). Não é liveness/biometria — não há serviço para isso no ecossistema.
+- **entity_type `lead`** no address e **CPF lido de `profiles`** (campo `cpf`) para
+  o PIX — suposições documentadas; ajustar se os contratos diferirem.
+- `time.sleep` bloqueante do retry corrigido para `asyncio.sleep`.

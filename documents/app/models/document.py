@@ -1,44 +1,66 @@
-from tortoise.models import Model
-from tortoise import fields
+"""Model Document — agregado de documentos de um usuario.
+
+Referencias aos sub-documentos (rg, cnh, etc.) sao por UUID sem FK cross-schema.
+O schema `documents` e dono das tabelas filhas.
+"""
+
+from uuid import uuid4
+
+from sqlalchemy import String, Date
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db import Base
+from app.models._mixins import TimestampMixin
+
+UUIDStr = PG_UUID(as_uuid=False).with_variant(String(36), "sqlite")
+
+# Tipos de certidao do registro civil brasileiro — termos consagrados; valor
+# em pt-br por corresponder ao dado de mundo real (§15: identificador EN, dado pode ser pt-br).
+CERTIFICATE_KINDS = {"nascimento", "casamento", "obito"}
 
 
-CERTIDAO_TIPOS = {"nascimento", "casamento", "obito"}
+class Document(Base, TimestampMixin):
+    __tablename__ = "documents"
 
+    id: Mapped[str] = mapped_column(
+        UUIDStr, primary_key=True, default=lambda: str(uuid4())
+    )
+    external_id: Mapped[str] = mapped_column(
+        UUIDStr,
+        unique=True,
+        index=True,
+        nullable=False,
+        comment="UUID do usuario emitido pelo auth — referencia logica (sem FK)",
+    )
 
-class Document(Model):
-    id = fields.IntField(pk=True)
-    external_id = fields.UUIDField(unique=True, index=True)
+    rg_id: Mapped[str | None] = mapped_column(UUIDStr, nullable=True)
+    cnh_id: Mapped[str | None] = mapped_column(UUIDStr, nullable=True)
+    work_card_id: Mapped[str | None] = mapped_column(UUIDStr, nullable=True)
+    passport_id: Mapped[str | None] = mapped_column(UUIDStr, nullable=True)
 
-    rg = fields.ForeignKeyField("models.RG", null=True, on_delete=fields.SET_NULL)
-    cnh = fields.ForeignKeyField("models.CNH", null=True, on_delete=fields.SET_NULL)
-    carteira_trabalho = fields.ForeignKeyField("models.CarteiraTrabalho", null=True, on_delete=fields.SET_NULL)
-    passaporte = fields.ForeignKeyField("models.Passaporte", null=True, on_delete=fields.SET_NULL)
+    certificate_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    certificate_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    certificate_registry_office: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )
+    certificate_book: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    certificate_page: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    certificate_entry: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    certificate_issue_date: Mapped[str | None] = mapped_column(Date, nullable=True)
+    certificate_photo: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    # Certidão (nascimento / casamento / óbito)
-    certidao_tipo = fields.CharField(max_length=20, null=True)
-    certidao_numero = fields.CharField(max_length=50, null=True)
-    certidao_cartorio = fields.CharField(max_length=100, null=True)
-    certidao_livro = fields.CharField(max_length=20, null=True)
-    certidao_folha = fields.CharField(max_length=20, null=True)
-    certidao_termo = fields.CharField(max_length=20, null=True)
-    certidao_data_emissao = fields.DateField(null=True)
-    certidao_foto = fields.CharField(max_length=500, null=True)
+    military_number: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    military_series: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    military_category: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    military_ra: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    military_photo: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    # Reservista
-    reservista_numero = fields.CharField(max_length=30, null=True)
-    reservista_serie = fields.CharField(max_length=20, null=True)
-    reservista_categoria = fields.CharField(max_length=20, null=True)
-    reservista_ra = fields.CharField(max_length=20, null=True)
-    reservista_foto = fields.CharField(max_length=500, null=True)
+    proof_of_residence_photo: Mapped[str | None] = mapped_column(
+        String(500), nullable=True
+    )
 
-    # Comprovante de residência
-    comprovante_residencia_foto = fields.CharField(max_length=500, null=True)
+    photo: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    # Foto geral (opcional)
-    foto = fields.CharField(max_length=500, null=True)
-
-    created_at = fields.DatetimeField(auto_now_add=True)
-    updated_at = fields.DatetimeField(auto_now=True)
-
-    class Meta:
-        table = "documentos"
+    def __repr__(self) -> str:
+        return f"<Document {self.external_id}>"

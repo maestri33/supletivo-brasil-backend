@@ -33,14 +33,22 @@ class Contact(Base):
     )
 
     phone: Mapped[str | None] = mapped_column(
-        String(30), nullable=True, unique=True, index=True,
+        String(30),
+        nullable=True,
+        unique=True,
+        index=True,
     )
     email: Mapped[str | None] = mapped_column(
-        String(255), nullable=True, unique=True, index=True,
+        String(255),
+        nullable=True,
+        unique=True,
+        index=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False,
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -50,7 +58,9 @@ class Contact(Base):
     )
 
     messages: Mapped[list["Message"]] = relationship(
-        "Message", back_populates="contact", cascade="all, delete-orphan",
+        "Message",
+        back_populates="contact",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

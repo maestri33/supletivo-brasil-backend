@@ -38,9 +38,7 @@ def test_normalize_url_requires_http():
 def test_normalize_customer_and_address():
     c = v.normalize_customer({"name": "Joao", "email": "a@b.com", "phone_number": "11999887766"})
     assert c["email"] == "a@b.com"
-    a = v.normalize_address(
-        {"cep": "12345-678", "street": "R", "neighborhood": "C", "number": "1"}
-    )
+    a = v.normalize_address({"cep": "12345-678", "street": "R", "neighborhood": "C", "number": "1"})
     assert a["cep"] == "12345678"
 
 

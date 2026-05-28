@@ -7,6 +7,7 @@ VALID_CPF = "52998224725"
 
 # ── POST /api/v1/profiles ─────────────────────────────────────
 
+
 async def test_create_minimal(client: AsyncClient) -> None:
     resp = await client.post("/api/v1/profiles", json={"external_id": "t1", "cpf": VALID_CPF})
     assert resp.status_code == 201
@@ -27,7 +28,9 @@ async def test_create_duplicate_cpf(client: AsyncClient) -> None:
 
 async def test_create_duplicate_external_id(client: AsyncClient) -> None:
     await client.post("/api/v1/profiles", json={"external_id": "dup-id", "cpf": "10433218100"})
-    resp = await client.post("/api/v1/profiles", json={"external_id": "dup-id", "cpf": "96001338914"})
+    resp = await client.post(
+        "/api/v1/profiles", json={"external_id": "dup-id", "cpf": "96001338914"}
+    )
     assert resp.status_code == 409
 
 
@@ -47,13 +50,14 @@ async def test_create_cpf_wrong_length(client: AsyncClient) -> None:
 
 
 async def test_create_rejects_extra_fields(client: AsyncClient) -> None:
-    resp = await client.post("/api/v1/profiles", json={
-        "external_id": "extra", "cpf": VALID_CPF, "name": "hacker"
-    })
+    resp = await client.post(
+        "/api/v1/profiles", json={"external_id": "extra", "cpf": VALID_CPF, "name": "hacker"}
+    )
     assert resp.status_code == 422
 
 
 # ── GET /api/v1/profiles/cpf/{cpf} ────────────────────────────
+
 
 async def test_cpf_lookup_found(client: AsyncClient) -> None:
     await client.post("/api/v1/profiles", json={"external_id": "lkp", "cpf": "96001338914"})
@@ -77,6 +81,7 @@ async def test_cpf_lookup_not_found_valid(client: AsyncClient) -> None:
 
 # ── GET /api/v1/profiles ──────────────────────────────────────
 
+
 async def test_list_empty(client: AsyncClient) -> None:
     resp = await client.get("/api/v1/profiles")
     assert resp.status_code == 200
@@ -96,6 +101,7 @@ async def test_list_with_items(client: AsyncClient) -> None:
 
 # ── GET /api/v1/profiles/{external_id} ────────────────────────
 
+
 async def test_get_found(client: AsyncClient) -> None:
     await client.post("/api/v1/profiles", json={"external_id": "gf", "cpf": "16155940789"})
     resp = await client.get("/api/v1/profiles/gf")
@@ -113,6 +119,7 @@ async def test_get_not_found(client: AsyncClient) -> None:
 
 
 # ── PATCH /api/v1/profiles/{external_id}/{field} ──────────────
+
 
 async def test_patch_name_normalizes(client: AsyncClient) -> None:
     await client.post("/api/v1/profiles", json={"external_id": "pn", "cpf": "02654235114"})
@@ -218,6 +225,7 @@ async def test_patch_not_found(client: AsyncClient) -> None:
 
 # ── DELETE /api/v1/profiles/{external_id} ─────────────────────
 
+
 async def test_delete_ok(client: AsyncClient) -> None:
     await client.post("/api/v1/profiles", json={"external_id": "x1", "cpf": "52998224725"})
     resp = await client.delete("/api/v1/profiles/x1")
@@ -232,6 +240,7 @@ async def test_delete_not_found(client: AsyncClient) -> None:
 
 
 # ── idempotência: recriar após deletar ──────────────────────
+
 
 async def test_recreate_after_delete(client: AsyncClient) -> None:
     await client.post("/api/v1/profiles", json={"external_id": "re", "cpf": "52998224725"})

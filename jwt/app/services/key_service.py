@@ -37,7 +37,7 @@ def generate_rsa_key_pair(key_size: int = 2048) -> tuple[str, str]:
       public_key  = "-----BEGIN PUBLIC KEY-----\nMIIBI..."
     """
     private_key = rsa.generate_private_key(
-        public_exponent=65537,    # expoente publico padrao (F4)
+        public_exponent=65537,  # expoente publico padrao (F4)
         key_size=key_size,
         backend=default_backend(),
     )

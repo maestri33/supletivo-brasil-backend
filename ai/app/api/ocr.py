@@ -23,13 +23,19 @@ class OCRResponse(BaseModel):
 @router.post("/", response_model=OCRResponse)
 async def ocr_text(
     file: UploadFile = File(description="Imagem (PNG, JPEG, WEBP, GIF, BMP, TIFF)"),
-    language_hints: str | None = Form(default=None, description="Hints de idioma separados por virgula: pt,en,es"),
+    language_hints: str | None = Form(
+        default=None, description="Hints de idioma separados por virgula: pt,en,es"
+    ),
 ):
     data = await file.read()
     if not data:
         raise HTTPException(400, "Arquivo vazio")
 
-    hints = [h.strip() for h in language_hints.split(",") if h.strip()] if language_hints else None
+    hints = (
+        [h.strip() for h in language_hints.split(",") if h.strip()]
+        if language_hints
+        else None
+    )
 
     client = VisionOCRClient()
     try:
@@ -47,13 +53,19 @@ async def ocr_text(
 @router.post("/document", response_model=OCRResponse)
 async def ocr_document(
     file: UploadFile = File(description="Documento/imagem (PNG, JPEG, PDF, TIFF)"),
-    language_hints: str | None = Form(default=None, description="Hints de idioma separados por virgula: pt,en,es"),
+    language_hints: str | None = Form(
+        default=None, description="Hints de idioma separados por virgula: pt,en,es"
+    ),
 ):
     data = await file.read()
     if not data:
         raise HTTPException(400, "Arquivo vazio")
 
-    hints = [h.strip() for h in language_hints.split(",") if h.strip()] if language_hints else None
+    hints = (
+        [h.strip() for h in language_hints.split(",") if h.strip()]
+        if language_hints
+        else None
+    )
 
     client = VisionOCRClient()
     try:

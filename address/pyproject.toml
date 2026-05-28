@@ -12,9 +12,9 @@ description = "Microsserviço de endereços (home/billing/shipping + entidades p
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
+    "uvicorn[standard]>=0.34.0",
+    "prometheus-client>=0.20",
     "sqlalchemy[asyncio]>=2.0",
-    "asyncpg>=0.30",
     "alembic>=1.14",
     "pydantic>=2.8",
     "pydantic-settings>=2.5",
@@ -22,6 +22,8 @@ dependencies = [
     "structlog>=24.4",
     "python-dotenv>=1.0",
     "python-multipart>=0.0.12",
+    "slowapi>=0.1.9",
+    "asyncpg>=0.31.0",
 ]
 
 [dependency-groups]
@@ -34,6 +36,11 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["*/migrations/*", "*/tests/*", "*/__pycache__/*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

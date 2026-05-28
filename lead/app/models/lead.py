@@ -3,7 +3,7 @@
 import enum
 from uuid import UUID
 
-from sqlalchemy import BigInteger, Enum, ForeignKey
+from sqlalchemy import BigInteger, Enum, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,6 +16,7 @@ class LeadStatus(str, enum.Enum):
     WAITING = "waiting"
     CHECKOUT = "checkout"
     COMPLETED = "completed"
+    FAILED = "failed"  # BG task de criar checkout esgotou retries; front polla /waiting e recebe error_code.
 
 
 class Lead(Base, TimestampMixin):
@@ -25,16 +26,10 @@ class Lead(Base, TimestampMixin):
 
     external_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey(
-            "auth.users.external_id",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-            name="leads_external_id_fkey",
-        ),
         unique=True,
         index=True,
         nullable=False,
-        comment="UUID do usuário emitido pelo auth — FK cross-schema",
+        comment="UUID opaco do usuário emitido pelo auth (referência lógica, sem FK §4)",
     )
 
     status: Mapped[LeadStatus] = mapped_column(
@@ -55,6 +50,12 @@ class Lead(Base, TimestampMixin):
         nullable=True,
         index=True,
         comment="UUID do promotor/parceiro responsável pela captação",
+    )
+
+    failed_reason: Mapped[str | None] = mapped_column(
+        String(80),
+        nullable=True,
+        comment="Código curto do erro quando status=FAILED (ex.: checkout_create_failed). Lido pelo /waiting.",
     )
 
     def __repr__(self) -> str:

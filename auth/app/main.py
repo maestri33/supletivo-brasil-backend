@@ -3,25 +3,29 @@
 import time
 from contextlib import asynccontextmanager
 
-import fastapi_structured_logging
 import redis.asyncio as aioredis
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi_structured_logging import AccessLogConfig, AccessLogMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from app.api.router import api_router
 from app.config import Environment, get_settings
 from app.exceptions import DomainError
+from app.metrics import setup_metrics
 from app.utils import logging as logs_tool
+from app.utils.logging import configure_logging
 
 settings = get_settings()
 
-fastapi_structured_logging.setup_logging(
+# ── Structlog config (CONVENTION §2) ──────────────────────────
+configure_logging(
+    level="DEBUG" if settings.ENVIRONMENT == Environment.DEVELOPMENT else "INFO",
     json_logs=(settings.ENVIRONMENT != Environment.DEVELOPMENT),
-    log_level="DEBUG" if settings.ENVIRONMENT == Environment.DEVELOPMENT else "INFO",
 )
-
-logger = fastapi_structured_logging.get_logger()
 
 
 @asynccontextmanager
@@ -49,6 +53,17 @@ if settings.ENVIRONMENT not in (Environment.DEVELOPMENT, Environment.STAGING):
 
 app = FastAPI(**app_configs)
 
+# ── Rate limiting (slowapi) ─────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+
+# ── SlowAPI middleware ──────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+from slowapi.middleware import SlowAPIMiddleware  # noqa: E402
+
+app.add_middleware(SlowAPIMiddleware)
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -58,35 +73,47 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+setup_metrics(app)
+
 
 # ── Structured access logging ───────────────────────────────
 
-access_config = fastapi_structured_logging.AccessLogConfig(
+access_config = AccessLogConfig(
     log_level="info",
     exclude_paths={"/health", "/ready", "/api/v1/log"},
     custom_fields={"app_version": settings.APP_VERSION},
 )
 
 app.add_middleware(
-    fastapi_structured_logging.AccessLogMiddleware,
+    AccessLogMiddleware,
     config=access_config,
 )
 
 # ── Global exception handler ───────────────────────────────────
 
+
 @app.exception_handler(DomainError)
 async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail, "code": exc.code},
+        content={"detail": exc.detail, "code": exc.code, **exc.extra},
     )
 
 
 # ── Redis log storage middleware ───────────────────────────────
 
 SENSITIVE_FIELDS = {
-    "otp_code", "refresh_token", "access_token", "password",
-    "secret", "token", "code", "key",
+    "otp_code",
+    "refresh_token",
+    "access_token",
+    "password",
+    "secret",
+    "token",
+    "code",
+    "key",
+    "cpf",
+    "phone",
+    "email",
 }
 
 
@@ -130,6 +157,7 @@ async def store_log_in_redis(request: Request, call_next):
 
 
 # ── Health / Ready ─────────────────────────────────────────
+
 
 @app.get("/health")
 async def health():

@@ -5,15 +5,36 @@ import re
 from app.exceptions import ValidationError
 
 VALID_UF = {
-    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
-    "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-    "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+    "AC",
+    "AL",
+    "AP",
+    "AM",
+    "BA",
+    "CE",
+    "DF",
+    "ES",
+    "GO",
+    "MA",
+    "MT",
+    "MS",
+    "MG",
+    "PA",
+    "PB",
+    "PR",
+    "PE",
+    "PI",
+    "RJ",
+    "RN",
+    "RS",
+    "RO",
+    "RR",
+    "SC",
+    "SP",
+    "SE",
+    "TO",
 }
 
-_INVISIBLE_RE = re.compile(
-    "[​-‏-‪-‮⁠-⁩"
-    "﻿­᠎͏]"
-)
+_INVISIBLE_RE = re.compile("[​-‏-‪-‮⁠-⁩﻿­᠎͏]")
 _CONTROL_RE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
 _SUSPICIOUS_RE = re.compile(
@@ -54,11 +75,12 @@ def validate_state(value: str | None) -> str | None:
         return None
     upper = value.upper().strip()
     if len(upper) != 2 or upper not in VALID_UF:
-        raise ValidationError(f"Estado inválido \"{value}\". Deve ser uma sigla UF de 2 letras")
+        raise ValidationError(f'Estado inválido "{value}". Deve ser uma sigla UF de 2 letras')
     return upper
 
 
 # ── City ───────────────────────────────────────────────────────────────
+
 
 def normalize_city(value: str) -> str:
     """Normaliza nome de cidade: trim, invisíveis, colapsa whitespace, Title Case.
@@ -84,10 +106,7 @@ def normalize_city(value: str) -> str:
             continue
         if "'" in parte or "-" in parte:
             sub = re.split(r"(['-])", parte)
-            parte = "".join(
-                seg if seg in ("'", "-") else _capitalizar_palavra(seg)
-                for seg in sub
-            )
+            parte = "".join(seg if seg in ("'", "-") else _capitalizar_palavra(seg) for seg in sub)
         else:
             parte = _capitalizar_palavra(parte)
 

@@ -10,7 +10,8 @@ Async HTTP client for communicating with other microservices.
 """
 
 import asyncio
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 

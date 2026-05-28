@@ -1,14 +1,12 @@
 """Testes dos endpoints OTP — sem mocks, com banco real (SQLite in-memory)."""
 
 import hashlib
-import os
-import time
+from datetime import UTC
 
 import pytest
 from httpx import AsyncClient
 
 from app.models.otp import OTPLog
-
 
 # ---------------------------------------------------------------------------
 # Listagem
@@ -24,12 +22,8 @@ async def test_list_otps_empty(client: AsyncClient) -> None:
 
 async def test_list_otps_with_data(client: AsyncClient) -> None:
     """GET /api/v1/otp retorna logs ordenados por created_at decrescente."""
-    await OTPLog.create(
-        external_id="user-a", code_hash="abc123", status="sent"
-    )
-    await OTPLog.create(
-        external_id="user-b", code_hash="def456", status="verified"
-    )
+    await OTPLog.create(external_id="user-a", code_hash="abc123", status="sent")
+    await OTPLog.create(external_id="user-b", code_hash="def456", status="verified")
 
     resp = await client.get("/api/v1/otp")
     assert resp.status_code == 200
@@ -41,12 +35,8 @@ async def test_list_otps_with_data(client: AsyncClient) -> None:
 
 async def test_list_otps_filter_by_external_id(client: AsyncClient) -> None:
     """GET /api/v1/otp?external_id=X filtra corretamente."""
-    await OTPLog.create(
-        external_id="filter-me", code_hash="abc", status="sent"
-    )
-    await OTPLog.create(
-        external_id="filter-other", code_hash="def", status="sent"
-    )
+    await OTPLog.create(external_id="filter-me", code_hash="abc", status="sent")
+    await OTPLog.create(external_id="filter-other", code_hash="def", status="sent")
 
     resp = await client.get("/api/v1/otp", params={"external_id": "filter-me"})
     assert resp.status_code == 200
@@ -57,12 +47,8 @@ async def test_list_otps_filter_by_external_id(client: AsyncClient) -> None:
 
 async def test_list_otps_filter_by_status(client: AsyncClient) -> None:
     """GET /api/v1/otp?status=X filtra corretamente."""
-    await OTPLog.create(
-        external_id="user-1", code_hash="a", status="sent"
-    )
-    await OTPLog.create(
-        external_id="user-2", code_hash="b", status="failed"
-    )
+    await OTPLog.create(external_id="user-1", code_hash="a", status="sent")
+    await OTPLog.create(external_id="user-2", code_hash="b", status="failed")
 
     resp = await client.get("/api/v1/otp", params={"status": "failed"})
     assert resp.status_code == 200
@@ -74,9 +60,7 @@ async def test_list_otps_filter_by_status(client: AsyncClient) -> None:
 async def test_list_otps_pagination(client: AsyncClient) -> None:
     """GET /api/v1/otp respeita limit e offset."""
     for i in range(5):
-        await OTPLog.create(
-            external_id=f"user-{i}", code_hash=f"hash{i}", status="sent"
-        )
+        await OTPLog.create(external_id=f"user-{i}", code_hash=f"hash{i}", status="sent")
 
     resp = await client.get("/api/v1/otp", params={"limit": 2, "offset": 1})
     assert resp.status_code == 200
@@ -149,9 +133,9 @@ async def test_verify_code_no_pending_otp(client: AsyncClient) -> None:
 
 async def test_verify_code_expired(client: AsyncClient) -> None:
     """POST /api/v1/otp/check retorna expired quando TTL excedido."""
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
-    old = datetime.now(timezone.utc) - timedelta(seconds=600)
+    old = datetime.now(UTC) - timedelta(seconds=600)
     log = await OTPLog.create(
         external_id="expired-otp",
         code_hash=_hash("123456"),

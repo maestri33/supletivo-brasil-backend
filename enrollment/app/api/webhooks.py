@@ -2,16 +2,36 @@
 
 from uuid import UUID
 
+import httpx
 import structlog
 from fastapi import APIRouter, Body, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.errors import upstream_errors
+from app.config import get_settings
 from app.db import get_session
 from app.exceptions import Conflict, NotFound
+from app.integrations.roles import RolesClient
 from app.models import EnrollmentEvent
 from app.schemas import EnrollmentEventRead, WebhookPayload
+from app.services import enrollment as enrollment_svc
+
+settings = get_settings()
+
+
+async def _promote_to_enrollment(external_id: UUID) -> None:
+    """Promove a role lead → enrollment no `roles` (bloqueante por CONVENTION
+    §7 nota: ações intencionalmente bloqueantes na promoção de papel são
+    permitidas — sem role correta o matriculando não consegue autenticar no
+    funil). Idempotente: se já é enrollment, retorna sem erro.
+    """
+    async with httpx.AsyncClient(
+        base_url=settings.roles_base_url, timeout=settings.http_timeout
+    ) as http:
+        await RolesClient(http).promote(str(external_id), "enrollment")
+
 
 logger = structlog.get_logger()
 
@@ -50,16 +70,28 @@ async def receive(
         .limit(1)
     )
     if existing is not None:
+        # Evento já logado: garante o agregado mesmo para eventos anteriores a
+        # este milestone (idempotente). O usuário já existe → FK satisfeita.
+        enrollment, _ = await enrollment_svc.get_or_create(
+            session, external_id, body.promoter_external_id
+        )
+        # Reenforça a promoção (idempotente — RolesClient.promote pula se já tem).
+        with upstream_errors():
+            await _promote_to_enrollment(external_id)
+        await session.commit()
         logger.info(
             "enrollment_event_already_exists",
             external_id=str(external_id),
             event_type=body.event,
             id=existing.id,
+            enrollment_id=str(enrollment.id),
         )
         return {
             "ok": True,
             "already_exists": True,
             "id": existing.id,
+            "enrollment_id": str(enrollment.id),
+            "status": enrollment.status,
             "event": body.event,
         }
 
@@ -71,6 +103,14 @@ async def receive(
     )
     session.add(event)
     try:
+        # Evento auditivo + agregado de matrícula na mesma transação.
+        enrollment, _ = await enrollment_svc.get_or_create(
+            session, external_id, body.promoter_external_id
+        )
+        # Promove lead → enrollment ANTES do commit (se roles falhar, rollback
+        # e o lead-service retenta o webhook).
+        with upstream_errors():
+            await _promote_to_enrollment(external_id)
         await session.commit()
     except IntegrityError:
         # FK cross-schema: external_id precisa existir em auth.users.
@@ -92,8 +132,15 @@ async def receive(
         event_type=body.event,
         promoter=str(body.promoter_external_id) if body.promoter_external_id else None,
         id=event.id,
+        enrollment_id=str(enrollment.id),
     )
-    return {"ok": True, "id": event.id, "event": body.event}
+    return {
+        "ok": True,
+        "id": event.id,
+        "enrollment_id": str(enrollment.id),
+        "status": enrollment.status,
+        "event": body.event,
+    }
 
 
 @router.get(
@@ -121,7 +168,8 @@ async def list_events(
     summary="Obter evento por id",
 )
 async def get_event(
-    event_id: int, session: AsyncSession = Depends(get_session),
+    event_id: int,
+    session: AsyncSession = Depends(get_session),
 ) -> EnrollmentEventRead:
     event = await session.get(EnrollmentEvent, event_id)
     if not event:

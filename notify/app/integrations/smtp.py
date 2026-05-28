@@ -1,192 +1,72 @@
 """
-Cliente para a API de mail merge (envio de e-mails em massa via CSV).
+Cliente SMTP direto para envio de email via Mailcow (STARTTLS na porta 587).
 
-API alvo: Settings.smtp_api_base_url.
-
-Fluxos:
-    - Em massa: configure_smtp() -> preview_csv() -> send_emails()
-    - Unitario: send_single_email() — gera CSV temporario internamente
+Substitui o service `mail` Docker (que conflitava credenciais via
+configure_smtp e mascarava 535 como ReadTimeout).
 """
-TODO: Remova, integracao descontinuada
-import tempfile
-from pathlib import Path
-from typing import Any
 
-import anyio
-import httpx
+import asyncio
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from app.config import get_settings
-from app.exceptions import IntegrationError
-from app.integrations.http_client import request_with_retry
-from app.utils.logging import get_logger
 
-log = get_logger(__name__)
-
-
-async def _read_file_bytes(path: Path) -> tuple[str, bytes]:
-    """Le um arquivo em disco via thread (nao bloqueia o event loop)."""
-
-    def _read() -> tuple[str, bytes]:
-        return path.name, path.read_bytes()
-
-    return await anyio.to_thread.run_sync(_read)
+settings = get_settings()
 
 
 class SMTPClient:
-    """Cliente de alto nivel para a API de mail merge."""
+    """Envio direto STARTTLS:587 com app-password Mailcow."""
 
-    def __init__(self, client: httpx.AsyncClient) -> None:
-        self._client = client
-        self._base_url = get_settings().smtp_api_base_url
+    def __init__(self) -> None:
+        self._host = settings.mailcow_smtp_host
+        self._port = settings.mailcow_smtp_port
+        self._user = settings.mailcow_smtp_user
+        self._password = settings.mailcow_smtp_pass
+        self._timeout = settings.mailcow_timeout_s
 
-    # ------------------------------------------------------------------
-    # SMTP
-    # ------------------------------------------------------------------
-
-    async def configure_smtp(
-        self,
-        smtp_host: str,
-        smtp_port: int,
-        smtp_user: str,
-        smtp_pass: str,
-    ) -> dict[str, Any]:
-        """Configura o servidor SMTP na API remota (armazena em memoria).
-
-        Sem esta chamada, /send_emails retorna erro 400.
-        """
-        resp = await request_with_retry(
-            self._client,
-            "POST",
-            f"{self._base_url}/configure_smtp",
-            data={
-                "smtpHost": smtp_host,
-                "smtpPort": str(smtp_port),
-                "smtpUser": smtp_user,
-                "smtpPass": smtp_pass,
-            },
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
-        if resp.status_code >= 400:
-            raise IntegrationError(
-                f"Falha ao configurar SMTP ({resp.status_code}): {resp.text}"
-            )
-        log.info("smtp.configured", host=smtp_host, port=smtp_port)
-        return resp.json()
-
-    # ------------------------------------------------------------------
-    # Preview do CSV
-    # ------------------------------------------------------------------
-
-    async def preview_csv(self, csv_path: str | Path) -> dict[str, Any]:
-        """Envia um CSV para preview — retorna as 5 primeiras linhas como JSON."""
-        path = Path(csv_path)
-        exists = await anyio.to_thread.run_sync(lambda: path.is_file())
-        if not exists:
-            raise IntegrationError(f"Arquivo CSV nao encontrado: {csv_path}")
-
-        name, content = await _read_file_bytes(path)
-        resp = await request_with_retry(
-            self._client,
-            "POST",
-            f"{self._base_url}/preview_csv",
-            files={"csvFile": (name, content, "text/csv")},
-        )
-        if resp.status_code >= 400:
-            raise IntegrationError(
-                f"Falha ao fazer preview do CSV ({resp.status_code}): {resp.text}"
-            )
-        log.info("csv.previewed", file=str(path))
-        return resp.json()
-
-    # ------------------------------------------------------------------
-    # Envio de e-mails
-    # ------------------------------------------------------------------
-
-    async def send_emails(
-        self,
-        subject: str,
-        sender_name: str,
-        html_content: str,
-        csv_path: str | Path,
-    ) -> dict[str, Any]:
-        """
-        Dispara e-mails em massa via fastapi-mail.
-
-        O CSV precisa ter coluna Email. Subject e htmlContent aceitam
-        placeholders Jinja2 {{coluna}} que serao substituidos por linha.
-
-        A API tenta 3x por e-mail com 1s de intervalo.
-        Retorna resumo de sucessos e falhas.
-        """
-        path = Path(csv_path)
-        exists = await anyio.to_thread.run_sync(lambda: path.is_file())
-        if not exists:
-            raise IntegrationError(f"Arquivo CSV nao encontrado: {csv_path}")
-
-        name, content = await _read_file_bytes(path)
-        resp = await request_with_retry(
-            self._client,
-            "POST",
-            f"{self._base_url}/send_emails",
-            data={
-                "subject": subject,
-                "senderName": sender_name,
-                "htmlContent": html_content,
-            },
-            files={"csvFile": (name, content, "text/csv")},
-        )
-        if resp.status_code >= 400:
-            raise IntegrationError(
-                f"Falha ao enviar e-mails ({resp.status_code}): {resp.text}"
-            )
-        log.info("emails.sent", subject=subject, file=str(path))
-        return resp.json()
-
-    async def send_single_email(
+    async def send_email(
         self,
         to_email: str,
         subject: str,
-        sender_name: str,
-        html_content: str,
-    ) -> dict[str, Any]:
+        html_body: str,
+        *,
+        plain_body: str | None = None,
+        attachments: list | None = None,
+        inline_images: list | None = None,
+    ) -> dict:
+        """Envia email HTML com fallback plain-text opcional.
+
+        Retorna dict com to, subject, from, refused.
         """
-        Envia um e-mail unitario (sem precisar de CSV externo).
+        msg = MIMEMultipart("alternative")
+        msg["To"] = to_email
+        msg["Subject"] = subject
+        from_addr = settings.mailcow_from_email or settings.mailcow_smtp_user
+        from_name = settings.mailcow_from_name or settings.service_name
+        msg["From"] = f"{from_name} <{from_addr}>"
 
-        Cria um CSV temporario com o destinatario e chama send_emails.
-        """
-        import csv
-        import io
+        if plain_body:
+            msg.attach(MIMEText(plain_body, "plain", "utf-8"))
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-        buf = io.StringIO()
-        writer = csv.writer(buf)
-        writer.writerow(["Email"])
-        writer.writerow([to_email])
-        csv_content = buf.getvalue().encode("utf-8")
+        refused: dict = {}
 
-        with tempfile.NamedTemporaryFile(
-            mode="wb", suffix=".csv", delete=False
-        ) as tmp:
-            tmp.write(csv_content)
-            tmp_path = tmp.name
+        def _send_sync() -> None:
+            nonlocal refused
+            try:
+                with smtplib.SMTP(self._host, self._port, timeout=self._timeout) as srv:
+                    srv.starttls()
+                    srv.login(self._user, self._password)
+                    srv.send_message(msg)
+            except smtplib.SMTPRecipientsRefused as exc:
+                refused = exc.recipients
 
-        try:
-            return await self.send_emails(subject, sender_name, html_content, tmp_path)
-        finally:
-            Path(tmp_path).unlink(missing_ok=True)
+        await asyncio.to_thread(_send_sync)
 
-    # ------------------------------------------------------------------
-    # Health check
-    # ------------------------------------------------------------------
-
-    async def health(self) -> dict[str, Any]:
-        """Verifica se a API de mail merge esta no ar."""
-        resp = await request_with_retry(
-            self._client,
-            "GET",
-            f"{self._base_url}/vercel",
-        )
-        if resp.status_code >= 400:
-            raise IntegrationError(
-                f"API de mail merge indisponivel ({resp.status_code})"
-            )
-        return resp.json()
+        return {
+            "to": to_email,
+            "subject": subject,
+            "from": f"{from_name} <{from_addr}>",
+            "refused": refused,
+        }

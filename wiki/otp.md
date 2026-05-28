@@ -6,11 +6,11 @@ Microsserviço responsável pela geração, envio e validação de códigos OTP 
 
 ## Status
 
-**Parcial.** Endpoints implementados e funcionais; 2 migrações Alembic criadas (schema completo no Postgres). Testes existem (`tests/test_health.py`, `tests/test_otp.py`) mas a suíte legada está em skip (migração SQLite → Postgres pendente de ajuste no conftest). TODO principal não resolvido: conexão com Postgres em produção (serviço provavelmente ainda usando SQLite local).
+**Parcial.** Endpoints implementados e funcionais; 2 migrações Alembic criadas (schema `otp`). Testes existem (`tests/test_health.py`, `tests/test_otp.py`) mas a suíte legada está em skip (migração SQLite → Postgres pendente de ajuste no conftest). Config já obriga `DATABASE_URL` via `.env` (sem default) e aponta para Postgres async (asyncpg). Pendência operacional: rodar `alembic upgrade head` no Postgres real e remover o SQLite local órfão (ver §Pendências).
 
 ## Estrutura
 
-**Aninhada incorretamente:** `otp/otp/app/` — há um nível extra de diretório `otp/otp/` antes do pacote `app/`. A convenção exige `otp/app/` diretamente. Desvio registrado no CLAUDE.md do serviço como estado atual, não como intenção.
+`otp/app/` — estrutura **achatada** conforme a convenção (§3); o aninhamento `otp/otp/app/` foi corrigido em 2026-05-23.
 
 ## Endpoints
 
@@ -93,7 +93,7 @@ Microsserviço responsável pela geração, envio e validação de códigos OTP 
 - **"conecte com postgres"** — o serviço tem `data/app.db` (SQLite) indicando que nunca foi conectado ao Postgres em produção. Precisa: (1) confirmar `.env` com `DATABASE_URL` apontando para o Postgres real; (2) rodar `alembic upgrade head`; (3) remover `data/app.db`.
 
 ### TODO no código
-- `config.py` linha 7: `#TODO APAGAR, COLOCAR EM .env` — credenciais do banco (`database_url`) têm valor padrão hardcoded com usuário/senha reais (`v7m:v7m@postgres:5432/v7m`). Deve ser obrigatório via `.env` sem default.
+- **Resolvido (2026-05-23):** `config.py` `database_url` era hardcoded; agora é campo **obrigatório** (`database_url: str`, sem default), vindo do `.env`. Nenhum TODO inline restante em `otp/app/`.
 
 ### Desvios da CONVENTION
 - **Aninhamento:** estrutura `otp/otp/app/` viola a regra `<servico>/app/` (§3).

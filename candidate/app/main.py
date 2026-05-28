@@ -1,77 +1,83 @@
+"""Entrypoint FastAPI — candidate service.
+
+Roda em: uvicorn app.main:app --host 0.0.0.0 --port 8000
+"""
+
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 
-import fastapi_structured_logging
-from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
-load_dotenv()
+from app.api.router import api_router
+from app.config import get_settings
+from app.db import close_db
+from app.exceptions import DomainError
+from app.metrics import setup_metrics
+from app.utils.logging import configure_logging, get_logger
 
-from tortoise.contrib.fastapi import RegisterTortoise
+settings = get_settings()
+configure_logging()
+logger = get_logger("candidate")
 
-from app.routers.public.auth import router as auth_router
-from app.routers.authenticated import (
-    captured_router,
-    personal_router,
-    educational_router,
-    birth_router,
-    address_router,
-)
-from app.schemas import APIModel
+_started_at = datetime.now(UTC)
 
-fastapi_structured_logging.setup_logging(log_level="INFO")
-logger = fastapi_structured_logging.get_logger()
-
-
-# ============================================================================
-# Health
-# ============================================================================
-
-class HealthOut(APIModel):
-    status: str
-    service: str = "candidate"
-
-
-# ============================================================================
-# Lifespan
-# ============================================================================
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    logger.info("candidate_starting")
-    async with RegisterTortoise(
-        app,
-        db_url="sqlite://db.sqlite3",
-        modules={"models": ["app.models"]},
-        generate_schemas=True,
-        add_exception_handlers=True,
-    ):
-        yield
-    logger.info("candidate_stopped")
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    logger.info("service.startup", service=settings.service_name, env=settings.environment)
+    yield
+    await close_db()
+    logger.info("service.shutdown", service=settings.service_name)
 
-
-# ============================================================================
-# App
-# ============================================================================
 
 app = FastAPI(
-    title="candidate",
-    version="0.1.0",
+    title=settings.service_name,
+    version=settings.app_version,
     lifespan=lifespan,
 )
 
-app.include_router(auth_router)
-app.include_router(captured_router)
-app.include_router(personal_router)
-app.include_router(educational_router)
-app.include_router(birth_router)
-app.include_router(address_router)
+# ── Rate limiting (slowapi) ─────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+
+# ── SlowAPI middleware ──────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+from slowapi.middleware import SlowAPIMiddleware  # noqa: E402
+
+app.add_middleware(SlowAPIMiddleware)
 
 
-@app.get("/health", response_model=HealthOut)
+@app.exception_handler(DomainError)
+async def _handle_domain_error(request: Request, exc: DomainError) -> JSONResponse:
+    """Converte excecoes de dominio em respostas HTTP padronizadas."""
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+
+
+app.include_router(api_router)
+setup_metrics(app)
+
+
+@app.get("/health")
 async def health():
-    return {"status": "ok", "service": "candidate"}
+    return {"status": "ok", "service": settings.service_name}
 
 
-@app.get("/ready", response_model=HealthOut)
+@app.get("/ready")
 async def ready():
-    return {"status": "ok", "service": "candidate"}
+    return {"status": "ok", "service": settings.service_name}
+
+
+@app.get("/status")
+async def status():
+    return {
+        "status": "ok",
+        "service": settings.service_name,
+        "version": settings.app_version,
+        "environment": settings.environment,
+        "uptime_seconds": int((datetime.now(UTC) - _started_at).total_seconds()),
+    }

@@ -5,9 +5,16 @@ from app.exceptions import ValidationError
 VALID_KINDS = {"home", "billing", "shipping"}
 
 _KIND_ALIASES = {
-    "home": "home", "residencial": "home", "casa": "home",
-    "billing": "billing", "cobranca": "billing", "cobrança": "billing", "fatura": "billing",
-    "shipping": "shipping", "entrega": "shipping", "envio": "shipping",
+    "home": "home",
+    "residencial": "home",
+    "casa": "home",
+    "billing": "billing",
+    "cobranca": "billing",
+    "cobrança": "billing",
+    "fatura": "billing",
+    "shipping": "shipping",
+    "entrega": "shipping",
+    "envio": "shipping",
 }
 
 
@@ -23,9 +30,33 @@ def validate_kind(value: str | None) -> str:
 
 
 VALID_UF = {
-    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
-    "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
-    "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+    "AC",
+    "AL",
+    "AP",
+    "AM",
+    "BA",
+    "CE",
+    "DF",
+    "ES",
+    "GO",
+    "MA",
+    "MT",
+    "MS",
+    "MG",
+    "PA",
+    "PB",
+    "PR",
+    "PE",
+    "PI",
+    "RJ",
+    "RN",
+    "RS",
+    "RO",
+    "RR",
+    "SC",
+    "SP",
+    "SE",
+    "TO",
 }
 
 

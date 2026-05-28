@@ -8,12 +8,13 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import Conflict, DomainError, NotFound
+from app.utils.logging import get_logger
+from app.utils.pii import mask_phone as _mask_phone
 from app.models.contact import Contact
 from app.models.log import Log
 from app.models.message import Message
 from app.schemas.contact import ContactCreate
 from app.utils.email_validator import validate_email as validate_email_full
-from app.utils.logging import get_logger
 from app.utils.phone import normalize_and_validate
 
 log = get_logger(__name__)
@@ -40,9 +41,7 @@ async def create_contact(session: AsyncSession, payload: ContactCreate) -> Conta
     if payload.phone:
         dup = await session.scalar(select(Contact).where(Contact.phone == payload.phone))
         if dup:
-            raise Conflict(
-                f"Telefone {payload.phone} ja pertence ao contacto {dup.external_id}"
-            )
+            raise Conflict(f"Telefone {payload.phone} ja pertence ao contacto {dup.external_id}")
 
         try:
             normalized_phone = await normalize_and_validate(payload.phone)
@@ -91,14 +90,14 @@ async def create_contact(session: AsyncSession, payload: ContactCreate) -> Conta
     )
     await session.commit()
     await session.refresh(contact)
-    log.info("contact.created", external_id=str(payload.external_id), phone=normalized_phone)
+    log.info(
+        "contact.created", external_id=str(payload.external_id), phone=_mask_phone(normalized_phone)
+    )
     return contact
 
 
 async def get_contact_by_external_id(session: AsyncSession, external_id: UUID) -> Contact:
-    contact = await session.scalar(
-        select(Contact).where(Contact.external_id == external_id)
-    )
+    contact = await session.scalar(select(Contact).where(Contact.external_id == external_id))
     if contact is None:
         raise NotFound(f"Contacto {external_id} nao encontrado")
     return contact
@@ -150,7 +149,9 @@ async def delete_contact(session: AsyncSession, external_id: UUID) -> None:
 
 
 async def list_contacts(
-    session: AsyncSession, limit: int = 50, offset: int = 0,
+    session: AsyncSession,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[Contact]:
     result = await session.scalars(select(Contact).offset(offset).limit(limit))
     return list(result.all())
@@ -172,9 +173,7 @@ async def check_contact(
         if not contact:
             try:
                 normalized = await normalize_and_validate(phone)
-                contact = await session.scalar(
-                    select(Contact).where(Contact.phone == normalized)
-                )
+                contact = await session.scalar(select(Contact).where(Contact.phone == normalized))
             except ValueError:
                 pass
 

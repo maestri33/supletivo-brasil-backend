@@ -10,12 +10,11 @@ async def _criar(client: AsyncClient, external_id: str) -> None:
 
 
 async def _patch(client: AsyncClient, external_id: str, value: str):
-    return await client.patch(
-        f"/api/v1/profiles/{external_id}", json={"description": value}
-    )
+    return await client.patch(f"/api/v1/profiles/{external_id}", json={"description": value})
 
 
 # ── Normalização ──────────────────────────────────────────────────────
+
 
 async def test_description_trim(client: AsyncClient) -> None:
     await _criar(client, "ds1")
@@ -39,6 +38,7 @@ async def test_description_colapsa_whitespace(client: AsyncClient) -> None:
 
 
 # ── Validação ─────────────────────────────────────────────────────────
+
 
 async def test_description_bloqueia_markup(client: AsyncClient) -> None:
     await _criar(client, "ds4")

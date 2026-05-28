@@ -49,9 +49,11 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("external_id"),
         sa.ForeignKeyConstraint(
-            ["external_id"], ["auth.users.external_id"],
+            ["external_id"],
+            ["auth.users.external_id"],
             name="checkouts_external_id_fkey",
-            onupdate="CASCADE", ondelete="RESTRICT",
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
         ),
         schema=SCHEMA,
     )
@@ -71,9 +73,11 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(
-            ["external_id"], ["auth.users.external_id"],
+            ["external_id"],
+            ["auth.users.external_id"],
             name="webhook_logs_external_id_fkey",
-            onupdate="CASCADE", ondelete="SET NULL",
+            onupdate="CASCADE",
+            ondelete="SET NULL",
         ),
         schema=SCHEMA,
     )
@@ -94,9 +98,11 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.ForeignKeyConstraint(
-            ["external_id"], ["auth.users.external_id"],
+            ["external_id"],
+            ["auth.users.external_id"],
             name="outbound_jobs_external_id_fkey",
-            onupdate="CASCADE", ondelete="SET NULL",
+            onupdate="CASCADE",
+            ondelete="SET NULL",
         ),
         schema=SCHEMA,
     )

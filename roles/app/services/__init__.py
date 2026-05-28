@@ -1,7 +1,5 @@
 from app.services.role_service import (
     assign_role,
-    create_rule,
-    delete_rule,
     delete_user,
     get_roles,
     get_rule_by_id,
@@ -9,13 +7,10 @@ from app.services.role_service import (
     list_rules,
     list_users,
     promote,
-    update_rule,
 )
 
 __all__ = [
     "assign_role",
-    "create_rule",
-    "delete_rule",
     "delete_user",
     "get_roles",
     "get_rule_by_id",
@@ -23,5 +18,4 @@ __all__ = [
     "list_rules",
     "list_users",
     "promote",
-    "update_rule",
 ]

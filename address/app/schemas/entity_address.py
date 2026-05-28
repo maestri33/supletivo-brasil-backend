@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -9,7 +10,7 @@ from pydantic import BaseModel
 class AddressDraftRead(BaseModel):
     """Endereço genérico/avulso da entidade — todos os campos opcionais."""
 
-    id: int
+    id: UUID
     street: Optional[str] = None
     number: Optional[str] = None
     complement: Optional[str] = None
@@ -26,7 +27,7 @@ class AddressDraftRead(BaseModel):
 
 
 class EntityAddressRead(BaseModel):
-    id: int
+    id: UUID
     entity_type: str
     external_id: str
     proof_file: Optional[str] = None

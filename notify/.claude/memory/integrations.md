@@ -78,7 +78,7 @@
 - **Auth:** header `apikey` = `Settings.whatsapp_global_api_key` (`7A3F8C2B...`)
 - **Instance:** default "default", sobreponível via `WhatsAppClient(http, instance="...")`
 - **Endpoints usados:**
-  - `GET /instance/status` — health global da API
+  - `GET /instance/fetchInstances` — lista instâncias e status global (substitui /instance/status que 404 em v2.3.7)
   - `POST /chat/whatsappNumbers/{instance}` — verifica números (body: `{"numbers": [...]}`, resposta array plano `[{jid, exists, number, name}]`)
   - `POST /chat/fetchProfile/{instance}` — perfil do usuário (body: `{"number": "5543..."}`, resposta `{wuid, name, picture, status, isBusiness}`)
   - `POST /chat/fetchBusinessProfile/{instance}` — perfil comercial (body: `{"number": "..."}`, resposta `{address, website, category, business_hours}`)

@@ -7,7 +7,6 @@ from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
-    ForeignKey,
     Integer,
     String,
     Text,
@@ -24,14 +23,10 @@ class Checkout(Base):
         PG_UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
     )
 
+    # external_id: UUID opaco referenciando o usuário no serviço auth (§4 da
+    # CONVENTION). Sem FK cross-schema; validação via HTTP quando necessário.
     external_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=False),
-        ForeignKey(
-            "auth.users.external_id",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-            name="checkouts_external_id_fkey",
-        ),
         unique=True,
         index=True,
         nullable=False,

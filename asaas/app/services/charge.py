@@ -28,6 +28,7 @@ from .. import config_store as cfg
 from ..config import get_settings
 from ..exceptions import PaymentError, ValidationError
 from ..integrations.asaas_client import AsaasClient, AsaasError
+from ..metrics import inc_payment
 from ..models import Payment
 from ..utils.logging import log_event
 from . import customer as customer_service
@@ -181,7 +182,7 @@ async def list_all(
         stmt = stmt.where(Payment.status == status)
     if external_id is not None:
         stmt = stmt.where(Payment.customer_external_id == external_id)
-    stmt = stmt.order_by(Payment.created_at.desc()).offset(offset).limit(limit)
+    stmt = stmt.order_by(Payment.created_at.desc(), Payment.id.desc()).offset(offset).limit(limit)
     return list((await db.execute(stmt)).scalars().all())
 
 
@@ -288,6 +289,7 @@ async def apply_webhook(db: AsyncSession, payload: dict) -> Payment | None:
     row.status = new_status
     row.updated_at = datetime.now(UTC)
     await db.flush()
+    inc_payment(kind="charge", status=new_status)
     log_event(
         "charge_status_changed",
         payment_id=row.payment_id,

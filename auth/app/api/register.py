@@ -5,28 +5,30 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, BackgroundTasks
-from pydantic import BaseModel
-from sqlalchemy import select
 
 from app.api.check import dispatch_otp, lookup_cpf, lookup_phone
 from app.api.deps import DbSession
 from app.exceptions import Conflict, IntegrationError, ValidationError
-from app.utils.validation import validate_cpf, validate_phone
+from app.integrations.address import AddressClient
+from app.integrations.documents import DocumentsClient
 from app.integrations.notify import NotifyClient
 from app.integrations.profiles import ProfilesClient
 from app.integrations.roles import RolesClient
 from app.models.user import User
+from app.schemas.auth import RegisterRequest
+from app.utils.logging import get_logger
+from app.utils.validation import validate_cpf, validate_phone
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/register", tags=["register"])
 
 
-class RegisterRequest(BaseModel):
-    role: str
-    phone: str
-    cpf: str
-
-
-@router.post("", status_code=201, summary="Registra novo usuario — sincrono ate criacao, async para provisionamento")
+@router.post(
+    "",
+    status_code=201,
+    summary="Registra novo usuario — sincrono ate criacao, async para provisionamento",
+)
 async def register(data: RegisterRequest, bg: BackgroundTasks, db: DbSession) -> dict:
     # 1. Validate role is entry-level
     await _validate_entry_role(data.role)
@@ -75,7 +77,10 @@ async def register(data: RegisterRequest, bg: BackgroundTasks, db: DbSession) ->
     if phone_result["found"]:
         raise Conflict("Phone ja cadastrado.", code="PHONE_EXISTS")
     if not phone_result.get("phone_valid"):
-        raise ValidationError("Phone nao validado pelo servico de mensageria.", code="PHONE_NOT_VALIDATED")
+        raise ValidationError(
+            "Phone nao validado pelo servico de mensageria.",
+            code="PHONE_NOT_VALIDATED",
+        )
 
     # 4. Create user (sync) — COMMIT antes de retornar para evitar race
     # com servicos a jusante (ex.: lead) que tentam inserir FK->auth.users
@@ -104,19 +109,17 @@ async def validate_entry_role(role: str) -> None:
 
 async def _validate_entry_role(role: str) -> None:
     """Verifica se existe regra com from_role=None e to_role=role."""
-    import niquests
+    import httpx
+
     from app.config import get_settings
 
     base = get_settings().ROLES_SERVICE_URL
-    async with niquests.AsyncSession() as s:
+    async with httpx.AsyncClient() as s:
         resp = await s.get(f"{base}/api/v1/config/roles")
         resp.raise_for_status()
         rules = resp.json()
 
-    entry_rules = [
-        r for r in rules
-        if r.get("to_role") == role and r.get("from_role") is None
-    ]
+    entry_rules = [r for r in rules if r.get("to_role") == role and r.get("from_role") is None]
     if not entry_rules:
         raise ValidationError(
             f"Role '{role}' nao e uma role de entrada valida.",
@@ -125,14 +128,55 @@ async def _validate_entry_role(role: str) -> None:
 
 
 async def _provision(external_id: str, role: str, cpf: str, phone: str) -> None:
-    """Provisiona servicos externos — fire and forget."""
-    async with RolesClient() as roles:
-        await roles.assign(external_id, role)
+    """Provisiona servicos externos — fire and forget.
 
-    async with ProfilesClient() as profiles:
-        await profiles.create(external_id, cpf)
+    Cada passo e best-effort (CONVENTION §12): a falha de uma integracao e
+    logada e nao impede os passos seguintes nem quebra o registro ja efetivado.
+    Documentos e Endereco sao criados vazios (get-or-create) conforme o
+    `auth/TODO`. Email nao e provisionado aqui — sua unicidade fica a cargo dos
+    servicos a jusante quando o email for coletado.
 
-    async with NotifyClient() as notify:
-        await notify.create_contact(external_id, phone=phone)
+    Exception messages are NOT logged directly — they may contain PII (CPF,
+    phone) echoed by downstream services. Only the error type is logged.
+    """
+    try:
+        async with RolesClient() as roles:
+            await roles.assign(external_id, role)
+    except Exception as exc:
+        logger.warning(
+            "[provision] roles falhou", external_id=external_id, error=type(exc).__name__
+        )
+
+    try:
+        async with ProfilesClient() as profiles:
+            await profiles.create(external_id, cpf)
+    except Exception as exc:
+        logger.warning(
+            "[provision] profile falhou", external_id=external_id, error=type(exc).__name__
+        )
+
+    try:
+        async with NotifyClient() as notify:
+            await notify.create_contact(external_id, phone=phone)
+    except Exception as exc:
+        logger.warning(
+            "[provision] contato falhou", external_id=external_id, error=type(exc).__name__
+        )
+
+    try:
+        async with DocumentsClient() as documents:
+            await documents.ensure(external_id)
+    except Exception as exc:
+        logger.warning(
+            "[provision] documentos falhou", external_id=external_id, error=type(exc).__name__
+        )
+
+    try:
+        async with AddressClient() as address:
+            await address.ensure(external_id)
+    except Exception as exc:
+        logger.warning(
+            "[provision] endereco falhou", external_id=external_id, error=type(exc).__name__
+        )
 
     await dispatch_otp(external_id)

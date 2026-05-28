@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     ROLES_SERVICE_URL: str = ""
     NOTIFY_SERVICE_URL: str = ""
     LEAD_SERVICE_URL: str = ""
+    DOCUMENTS_SERVICE_URL: str = ""
+    ADDRESS_SERVICE_URL: str = ""
+
+    # Admin security — define em .env de producao (string longa, tipo UUID)
+    # Usado pelos endpoints /atomic e /log requerem X-Admin-Key header
+    ADMIN_API_KEY: str = ""
 
 
 @lru_cache

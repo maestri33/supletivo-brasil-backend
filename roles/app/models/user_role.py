@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, String, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -20,14 +20,9 @@ class UserRole(Base):
     )
     external_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey(
-            "auth.users.external_id",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-            name="user_roles_external_id_fkey",
-        ),
         index=True,
         nullable=False,
+        comment="UUID opaco do usuário emitido pelo auth (sem FK cross-schema §4)",
     )
     role: Mapped[str] = mapped_column(String(64), nullable=False)
     assigned_at: Mapped[datetime] = mapped_column(

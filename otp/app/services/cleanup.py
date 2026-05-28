@@ -14,7 +14,7 @@ Limpa:
 """
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete
 
@@ -34,7 +34,7 @@ _TERMINAL_PENDING_STATUSES = ("done", "expired")
 
 async def run_once() -> dict:
     """Executa uma rodada de cleanup. Retorna contagens removidas."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cutoff = now - timedelta(days=settings.otp_cleanup_retention_days)
     rate_limit_cutoff = now - timedelta(days=1)
 
@@ -76,6 +76,6 @@ async def cleanup_loop(stop: asyncio.Event) -> None:
             log.error("otp.cleanup.loop.error", error=str(exc))
         try:
             await asyncio.wait_for(stop.wait(), timeout=interval_s)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
     log.info("otp.cleanup.loop.stop")
