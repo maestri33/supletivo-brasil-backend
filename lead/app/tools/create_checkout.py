@@ -34,12 +34,30 @@ from app.integrations.notify import NotifyClient
 from app.integrations.profiles import ProfilesClient
 from app.models import Checkout, Lead, LeadStatus
 from app.tools.messaging import notify_and_track
-from app.tools.qrcode import absolute_qr_url, make_data_uri, save_pix_qr_png
+from app.tools.qrcode import make_data_uri
 
 logger = structlog.get_logger()
 MESSAGES = Path(__file__).resolve().parent.parent / "notify" / "messages"
 
 PAYMENT_METHODS = ("credit_card", "pix")
+
+
+async def _mark_lead_failed(ext_uuid: UUID, reason: str) -> None:
+    """Transiciona o Lead para FAILED quando o BG task de checkout esgota retries.
+
+    Abre uma session propria (BG task nao tem a session do request) e e' idempotente:
+    so transita se ainda estiver em WAITING. Falha silenciosa no log — o BG task ja
+    falhou; nao queremos mascarar isso com erro de DB.
+    """
+    try:
+        async with async_session_maker() as session:
+            lead = await session.scalar(select(Lead).where(Lead.external_id == ext_uuid))
+            if lead and lead.status == LeadStatus.WAITING:
+                lead.status = LeadStatus.FAILED
+                lead.failed_reason = reason[:80]
+                await session.commit()
+    except Exception as exc:
+        logger.error("mark_lead_failed_error", external_id=str(ext_uuid), error=str(exc))
 
 
 class PixCheckoutError(Exception):
@@ -117,7 +135,17 @@ async def create_checkout_for_lead(external_id: str, payment_method: str = "cred
     log = logger.bind(external_id=external_id, payment_method=payment_method)
     ext_uuid = UUID(external_id)
 
-    name, phone, email, cpf = await _fetch_lead_context(external_id)
+    # _fetch_lead_context bate em profiles + notify por HTTP. Se um deles
+    # estiver fora, a excecao subiria e mataria o BG task em silencio —
+    # deixando o lead ETERNO em WAITING (front nunca recebe erro). Capturamos
+    # e transicionamos pra FAILED pra que /waiting devolva error_code.
+    try:
+        name, phone, email, cpf = await _fetch_lead_context(external_id)
+    except Exception as exc:
+        log.error("checkout_context_fetch_failed", error=str(exc))
+        await _mark_lead_failed(ext_uuid, "context_fetch_failed")
+        return
+
     if not name or not phone or not email:
         log.warning(
             "checkout_skip_missing_data",
@@ -125,6 +153,9 @@ async def create_checkout_for_lead(external_id: str, payment_method: str = "cred
             phone=bool(phone),
             email=bool(email),
         )
+        # Mesmo racional do fetch acima: sem marcar FAILED o lead fica preso
+        # em WAITING e o /waiting nunca devolve error_code pro front.
+        await _mark_lead_failed(ext_uuid, "context_incomplete")
         return
 
     encoded_image_b64: str | None = None
@@ -174,14 +205,22 @@ async def create_checkout_for_lead(external_id: str, payment_method: str = "cred
     log.info("checkout_created", provider=checkout_row.provider)
 
     customer_link = checkout_row.checkout_url or checkout_row.qrcode_payload or ""
-    qr_abs = absolute_qr_url(checkout_row.qrcode_image) if checkout_row.qrcode_image else ""
+    # qrcode_image ja vem ABSOLUTA pos-refactor (servida pelo asaas).
+    qr_abs = checkout_row.qrcode_image or ""
+    payment_id = checkout_row.provider_payment_id or ""
+    due_date_iso = checkout_row.due_date.isoformat() if checkout_row.due_date else None
     await asyncio.gather(
         _notify_lead_checkout(
             external_id,
             customer_link,
             qr_abs,
+            payment_id,
+            email,
+            phone,
+            name,
             payment_method,
             encoded_image_b64,
+            due_date_iso,
         ),
         _notify_promoter_checkout(
             external_id,
@@ -189,6 +228,7 @@ async def create_checkout_for_lead(external_id: str, payment_method: str = "cred
             name,
             customer_link,
             qr_abs,
+            payment_id,
             promoter_external_id,
             payment_method,
             encoded_image_b64,
@@ -231,9 +271,11 @@ async def _create_credit_card_checkout(
                     status=exc.response.status_code,
                     body=exc.response.text[:500],
                 )
+                await _mark_lead_failed(ext_uuid, "checkout_create_failed")
                 return None
         except Exception as exc:
             log.error("checkout_create_failed", error=str(exc))
+            await _mark_lead_failed(ext_uuid, "checkout_create_failed")
             return None
 
     return Checkout(
@@ -338,16 +380,14 @@ async def _create_pix_checkout(
             raise PixCheckoutError("asaas_unavailable", str(exc), http_status=502) from exc
 
     pix = charge.pix
-    qr_url_relative: str | None = None
     encoded_image_b64: str | None = None
-    if pix and pix.encoded_image:
-        encoded_image_b64 = pix.encoded_image
-        try:
-            qr_url_relative = save_pix_qr_png(external_id, pix.encoded_image)
-        except Exception as exc:
-            # Frontend pode buscar via GET /api/v1/charge/{payment_id} no asaas
-            # ou rebuscar via POST /qr — nao bloqueia a transicao do lead.
-            log.warning("qr_save_failed", error=str(exc))
+    qr_url: str | None = None
+    if pix:
+        encoded_image_b64 = pix.encoded_image or None
+        # qr_url ja vem ABSOLUTA do asaas (servido em
+        # /api/v1/public/media/qrcodes/<payment_id>.png).
+        # Lead nao salva mais o PNG localmente — asaas e' dono do binario.
+        qr_url = pix.qr_url or None
 
     checkout = Checkout(
         external_id=ext_uuid,
@@ -357,7 +397,10 @@ async def _create_pix_checkout(
         capture_method="pix",
         installments=1,
         qrcode_payload=pix.payload if pix else None,
-        qrcode_image=qr_url_relative,  # URL relativa ('/api/v1/public/media/qrcodes/<eid>.png')
+        # qrcode_image guarda URL ABSOLUTA servida pelo asaas (pos-refactor).
+        # Registros antigos podem ter URL relativa `/api/v1/public/media/...`
+        # do lead — alembic migration 2026-05-28_qrcode_url_to_asaas reescreve.
+        qrcode_image=qr_url,
         due_date=charge.due_date,
         is_paid=charge.status == "PAID",
     )
@@ -415,45 +458,70 @@ async def create_pix_checkout_for_lead(
     log.info("checkout_created", provider="asaas", payment_id=checkout.provider_payment_id)
 
     # Mensageria em background (nao bloqueia a resposta).
-    # Para PIX, manda 2 mensagens: texto explicativo + imagem do QR anexada
-    # (com BR Code no caption) — ver _notify_lead_checkout.
+    # Para PIX, manda 3 etapas: texto explicativo + WhatsApp QR imagem +
+    # email dedicado "Seu PIX Supletivo Brasil" — ver _notify_lead_checkout.
     customer_link = checkout.qrcode_payload or ""
-    qr_abs = absolute_qr_url(checkout.qrcode_image) if checkout.qrcode_image else ""
-    asyncio.create_task(
+    qr_abs = checkout.qrcode_image or ""
+    payment_id = checkout.provider_payment_id or ""
+    due_date_iso = checkout.due_date.isoformat() if checkout.due_date else None
+    task = asyncio.create_task(
         _notify_checkout_safely(
             external_id,
             phone,
             name,
+            email,
             customer_link,
             qr_abs,
+            payment_id,
             promoter_external_id,
             "pix",
             encoded_image_b64,
+            due_date_iso,
         )
     )
+    # Sem ref forte, asyncio pode GC o BG task antes dele completar —
+    # entrega silenciosa do email/imagem some. Set modulo-level segura
+    # a vida do task ate done_callback remover.
+    _BG_NOTIFY_TASKS.add(task)
+    task.add_done_callback(_BG_NOTIFY_TASKS.discard)
 
     return checkout
+
+
+_BG_NOTIFY_TASKS: set[asyncio.Task] = set()
 
 
 async def _notify_checkout_safely(
     external_id: str,
     phone: str,
     first_name: str,
+    email: str,
     customer_link: str,
     qr_abs: str,
+    payment_id: str,
     promoter_id: UUID | None,
     payment_method: str,
     encoded_image_b64: str | None = None,
+    due_date_iso: str | None = None,
 ) -> None:
-    """Wrapper safe — qualquer excecao e' so logada, nunca cancela o flow."""
+    """Wrapper safe — qualquer excecao e' so logada, nunca cancela o flow.
+
+    `due_date_iso` (YYYY-MM-DD) e usado pelo email rico do PIX como linha
+    de vencimento condicional (so renderiza se nao-None).
+    """
     try:
         await asyncio.gather(
             _notify_lead_checkout(
                 external_id,
                 customer_link,
                 qr_abs,
+                payment_id,
+                email,
+                phone,
+                first_name,
                 payment_method,
                 encoded_image_b64,
+                due_date_iso,
             ),
             _notify_promoter_checkout(
                 external_id,
@@ -461,6 +529,7 @@ async def _notify_checkout_safely(
                 first_name,
                 customer_link,
                 qr_abs,
+                payment_id,
                 promoter_id,
                 payment_method,
                 encoded_image_b64,
@@ -477,18 +546,32 @@ async def _notify_lead_checkout(
     external_id: str,
     customer_link: str,
     qr_url: str,
+    payment_id: str,
+    email: str,
+    phone: str,
+    first_name: str,
     payment_method: str,
     encoded_image_b64: str | None = None,
+    due_date_iso: str | None = None,
 ) -> None:
     """Envia mensagem(s) de checkout pro lead.
 
-    PIX (com encoded_image_b64): manda DUAS mensagens —
-      1. Texto explicativo (template `checkout_lead_pix.md`).
-      2. QR PNG anexado via data URI (`media_url=data:image/png;base64,...`)
-         com o BR Code no caption. WhatsApp recebe imagem real + codigo
-         copia-e-cola juntos.
+    PIX (com encoded_image_b64): 3 etapas explicitas, cada uma com
+    `pix_notify_step` logging (step, status, message_id, error):
 
-    Credit card / PIX sem b64 (fallback): manda 1 mensagem texto.
+      1. WhatsApp + Email texto teaser "Cobranca PIX gerada!" (compat —
+         `channels=None`). Template `checkout_lead_pix.md`.
+      2. WhatsApp QR PNG (data URI) + caption copia-e-cola.
+         `channels=['whatsapp']` — NAO duplica no email.
+      3. Email dedicado "Seu PIX Supletivo Brasil" com QR embedado (CID),
+         copia-e-cola, instrucoes e vencimento (se existir).
+         `channels=['email']` — NAO duplica no WhatsApp.
+
+    Cada etapa roda em seu proprio try/except: falha em (2) nao impede
+    (3) de tentar. Erro especifico vai pra log com event
+    `pix_notify_step_failed` (sem retry — notify ja tem retry interno).
+
+    Credit card / PIX sem encoded_image: manda 1 mensagem texto (compat).
     """
     template_name = "checkout_lead_pix.md" if payment_method == "pix" else "checkout_lead.md"
     template_path = MESSAGES / template_name
@@ -499,30 +582,148 @@ async def _notify_lead_checkout(
         template.replace("{{checkout_url}}", customer_link)
         .replace("{{pix_payload}}", customer_link)
         .replace("{{qr_url}}", qr_url)
+        .replace("{{payment_id}}", payment_id)
     )
-    # Mensagem 1: texto explicativo.
-    await notify_and_track(external_id, content, event="checkout_lead")
 
-    # Mensagem 2 (so PIX): imagem do QR anexada via data URI base64.
-    # Notify extrai o base64 puro e passa direto pra Evolution API, que
-    # envia como midia binaria inline no WhatsApp (caption=BR Code).
-    if payment_method == "pix" and encoded_image_b64:
-        caption_template_path = MESSAGES / "checkout_lead_pix_qr.md"
-        if caption_template_path.exists():
-            caption = caption_template_path.read_text(encoding="utf-8").replace(
-                "{{pix_payload}}",
-                customer_link,
-            )
-        else:
-            # Fallback: caption minimo com so o BR Code (copia-e-cola direto).
-            caption = customer_link
-        await notify_and_track(
+    # Log estruturado do payload que o notify vai receber (rastreabilidade).
+    # email/phone/name ficam no log mas NAO sao enviados no body — notify
+    # resolve esses campos via lookup em `contact` pelo external_id. O log
+    # serve pra auditar que o contact ja tem email/phone setados antes do
+    # dispatch (se nao tiver, notify pula o canal).
+    # `event` colide com a 1a posicional do structlog.info; renomeei
+    # pra `notify_event` (semantic: nome do evento que sera enviado ao
+    # notify), nao quebra estrutura do log mas evita TypeError.
+    logger.info(
+        "notify_dispatch_lead",
+        notify_event="checkout_lead",
+        payment_method=payment_method,
+        external_id=external_id,
+        payment_id=payment_id,
+        email=email or None,
+        phone=phone or None,
+        name=first_name or None,
+        has_pix_payload=bool(customer_link),
+        has_qr_url=bool(qr_url),
+        has_qr_image=bool(encoded_image_b64),
+        due_date=due_date_iso,
+        content_len=len(content),
+    )
+
+    is_pix = payment_method == "pix"
+
+    # ── Etapa 1 — texto teaser (WhatsApp + Email, compat) ────────────────
+    await _run_pix_step(
+        step="whatsapp_text" if is_pix else "checkout_text",
+        external_id=external_id,
+        coro_factory=lambda: notify_and_track(
+            external_id,
+            content,
+            event="checkout_lead",
+        ),
+    )
+
+    # Sem QR (CC ou PIX fallback sem encoded_image) — flow termina aqui.
+    if not (is_pix and encoded_image_b64):
+        return
+
+    # ── Etapa 2 — WhatsApp QR imagem + caption copia-e-cola ──────────────
+    caption_template_path = MESSAGES / "checkout_lead_pix_qr.md"
+    if caption_template_path.exists():
+        caption = caption_template_path.read_text(encoding="utf-8").replace(
+            "{{pix_payload}}",
+            customer_link,
+        )
+    else:
+        # Fallback: caption minimo com so o BR Code (copia-e-cola direto).
+        caption = customer_link
+
+    await _run_pix_step(
+        step="whatsapp_image",
+        external_id=external_id,
+        coro_factory=lambda: notify_and_track(
             external_id,
             caption,
             media_url=make_data_uri(encoded_image_b64),
             title="QR Code PIX",
-            event="checkout_lead_qr",
+            event="checkout_lead_pix_qr",
+            channels=["whatsapp"],
+        ),
+    )
+
+    # ── Etapa 3 — Email dedicado "Seu PIX Supletivo Brasil" ──────────────
+    email_template_path = MESSAGES / "checkout_lead_pix_email.md"
+    if email_template_path.exists():
+        email_template = email_template_path.read_text(encoding="utf-8")
+    else:
+        # Defensive: template sumiu do disco — degrade pra caption + payload.
+        email_template = (
+            "# Seu PIX Supletivo Brasil\n\n{{pix_payload}}\n\n{{due_date_line}}\n"
         )
+    due_date_line = (
+        f"**Vencimento:** {due_date_iso}\n" if due_date_iso else ""
+    )
+    email_body = (
+        email_template.replace("{{pix_payload}}", customer_link)
+        .replace("{{due_date_line}}", due_date_line)
+        .replace("{{payment_id}}", payment_id)
+    )
+
+    await _run_pix_step(
+        step="email",
+        external_id=external_id,
+        coro_factory=lambda: notify_and_track(
+            external_id,
+            email_body,
+            media_url=make_data_uri(encoded_image_b64),
+            title="Seu PIX Supletivo Brasil",
+            event="checkout_lead_pix_email",
+            channels=["email"],
+        ),
+    )
+
+
+async def _run_pix_step(
+    *,
+    step: str,
+    external_id: str,
+    coro_factory,
+) -> None:
+    """Executa 1 etapa de notify_and_track com log `pix_notify_step` per-step.
+
+    Cada etapa loga `pix_notify_step` (sucesso) ou `pix_notify_step_failed`
+    (excecao) com external_id + step + status + message_id/erro. Nao re-raise:
+    uma etapa falha nao deve impedir as proximas (decisao do prompt #4 do
+    operador — sem retry; notify ja retenta WhatsApp internamente).
+    """
+    try:
+        msg = await coro_factory()
+    except Exception as exc:  # noqa: BLE001
+        logger.error(
+            "pix_notify_step_failed",
+            step=step,
+            external_id=external_id,
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+        return
+    if msg is None:
+        # notify_and_track engole HTTPStatusError e devolve None apos
+        # persistir Message com status=failed/skipped — log explicito aqui
+        # pra que cada etapa apareca no audit trail.
+        logger.warning(
+            "pix_notify_step",
+            step=step,
+            external_id=external_id,
+            status="failed_or_skipped",
+        )
+        return
+    logger.info(
+        "pix_notify_step",
+        step=step,
+        external_id=external_id,
+        status=msg.status,
+        message_id=msg.message_id,
+    )
 
 
 async def _notify_promoter_checkout(
@@ -531,6 +732,7 @@ async def _notify_promoter_checkout(
     first_name: str,
     customer_link: str,
     qr_url: str,
+    payment_id: str,
     promoter_id: UUID | None,
     payment_method: str,
     encoded_image_b64: str | None = None,
@@ -550,6 +752,21 @@ async def _notify_promoter_checkout(
         .replace("{{checkout_url}}", customer_link)
         .replace("{{pix_payload}}", customer_link)
         .replace("{{qr_url}}", qr_url)
+        .replace("{{payment_id}}", payment_id)
+    )
+    logger.info(
+        "notify_dispatch_promoter",
+        event="checkout_promoter",
+        payment_method=payment_method,
+        external_id=external_id,
+        promoter_id=str(promoter_id),
+        payment_id=payment_id,
+        lead_phone=phone or None,
+        lead_name=first_name or None,
+        has_pix_payload=bool(customer_link),
+        has_qr_url=bool(qr_url),
+        has_qr_image=bool(encoded_image_b64),
+        content_len=len(content),
     )
     await notify_and_track(str(promoter_id), content, event="checkout_promoter")
 

@@ -156,20 +156,77 @@ class TestCreateCheckoutForLead:
         assert result is None
         mock_log.error.assert_called_once()
 
-    async def test_skip_missing_data(self):
-        """Dados incompletos → log warning e return."""
+    async def test_skip_missing_data_marks_failed(self, make_lead):
+        """Dados incompletos → lead WAITING transiciona pra FAILED (nao fica preso).
+
+        Regressao: antes o guard fazia `return` puro e o lead ficava ETERNO em
+        WAITING; /waiting nunca devolvia error_code pro front.
+        """
+        from sqlalchemy import select
+
         from app.tools.create_checkout import create_checkout_for_lead
 
-        eid = str(uuid4())
-        with (
-            patch(
-                "app.tools.create_checkout._fetch_lead_context",
-                new_callable=AsyncMock,
-                return_value=("", "", "", ""),
-            ),
+        ext = uuid4()
+        await make_lead(external_id=ext, status="waiting")
+        with patch(
+            "app.tools.create_checkout._fetch_lead_context",
+            new_callable=AsyncMock,
+            return_value=("", "", "", ""),
         ):
-            result = await create_checkout_for_lead(eid)
+            result = await create_checkout_for_lead(str(ext))
         assert result is None
+
+        async with async_session_maker() as session:
+            lead = await session.scalar(select(Lead).where(Lead.external_id == ext))
+        assert lead.status == LeadStatus.FAILED
+        assert lead.failed_reason == "context_incomplete"
+
+    async def test_context_fetch_failure_marks_failed(self, make_lead):
+        """_fetch_lead_context lanca (notify/profiles down) → lead WAITING vira FAILED.
+
+        Regressao: a chamada rodava sem try/except; a excecao matava o BG task
+        em silencio e o lead ficava ETERNO em WAITING.
+        """
+        from sqlalchemy import select
+
+        from app.tools.create_checkout import create_checkout_for_lead
+
+        ext = uuid4()
+        await make_lead(external_id=ext, status="waiting")
+        with patch(
+            "app.tools.create_checkout._fetch_lead_context",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("notify down"),
+        ):
+            result = await create_checkout_for_lead(str(ext))
+        assert result is None
+
+        async with async_session_maker() as session:
+            lead = await session.scalar(select(Lead).where(Lead.external_id == ext))
+        assert lead.status == LeadStatus.FAILED
+        assert lead.failed_reason == "context_fetch_failed"
+
+    async def test_context_failure_does_not_downgrade_non_waiting_lead(self, make_lead):
+        """Idempotencia: se o lead ja saiu de WAITING (ex.: COMPLETED por corrida),
+        uma falha de contexto NAO rebaixa pra FAILED. Protege caminho de dinheiro."""
+        from sqlalchemy import select
+
+        from app.tools.create_checkout import create_checkout_for_lead
+
+        ext = uuid4()
+        await make_lead(external_id=ext, status="completed")
+        with patch(
+            "app.tools.create_checkout._fetch_lead_context",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("notify down"),
+        ):
+            result = await create_checkout_for_lead(str(ext))
+        assert result is None
+
+        async with async_session_maker() as session:
+            lead = await session.scalar(select(Lead).where(Lead.external_id == ext))
+        assert lead.status == LeadStatus.COMPLETED
+        assert lead.failed_reason is None
 
     async def test_credit_card_creates_checkout_and_promotes_lead(self, make_lead):
         """Fluxo feliz credit_card: busca context, cria checkout no InfinitePay,
@@ -295,6 +352,8 @@ class TestCreatePixCheckout:
         mock_pix = MagicMock()
         mock_pix.payload = "00020126580014br.gov.bcb.pix0136..."
         mock_pix.encoded_image = fake_png_b64
+        # qr_url ja vem absoluta do asaas (pos-refactor); lead nao salva mais.
+        mock_pix.qr_url = "https://asaas.example.com/api/v1/public/media/qrcodes/pay_pix_abc.png"
         mock_charge.pix = mock_pix
 
         with (
@@ -305,10 +364,6 @@ class TestCreatePixCheckout:
                 AsaasClient, "create_charge_pix",
                 new_callable=AsyncMock,
                 return_value=mock_charge,
-            ),
-            patch(
-                "app.tools.create_checkout.save_pix_qr_png",
-                return_value="/api/v1/public/media/qrcodes/fake.png",
             ),
         ):
             checkout, encoded_b64 = await _create_pix_checkout(
@@ -399,8 +454,11 @@ class TestCreatePixCheckoutForLead:
                 new_callable=AsyncMock,
                 return_value=(mock_checkout, "b64_encoded_image"),
             ),
+            # Patcha o wrapper BG p/ noop em vez de mockar asyncio.create_task
+            # globalmente — patch global de create_task quebra sqlalchemy
+            # (`async with session` chama create_task internamente).
             patch(
-                "app.tools.create_checkout.asyncio.create_task",
+                "app.tools.create_checkout._notify_checkout_safely",
                 new_callable=AsyncMock,
             ),
         ):
@@ -706,64 +764,215 @@ class TestNotifyAndTrack:
         assert call_kwargs["title"] == "QR Code"
         assert call_kwargs["flags"] == {"important": True}
 
+    async def test_channels_whatsapp_only_propagated(self):
+        """channels=['whatsapp'] e' propagado ao notify + reflete no campo channel."""
+        from app.tools.messaging import notify_and_track
+
+        eid = str(uuid4())
+        mock_client = AsyncMock()
+        mock_client.send_message = AsyncMock()
+        mock_client.last_message_id = 11
+
+        with patch("app.tools.messaging.NotifyClient", return_value=mock_client):
+            msg = await notify_and_track(
+                eid,
+                "WA-only",
+                channels=["whatsapp"],
+                event="checkout_lead_pix_qr",
+            )
+
+        assert msg is not None
+        assert msg.channel == "whatsapp"
+        kwargs = mock_client.send_message.await_args.kwargs
+        assert kwargs["channels"] == ["whatsapp"]
+
+    async def test_channels_email_only_propagated(self):
+        """channels=['email'] reflete em msg.channel='email' e vai no body."""
+        from app.tools.messaging import notify_and_track
+
+        eid = str(uuid4())
+        mock_client = AsyncMock()
+        mock_client.send_message = AsyncMock()
+        mock_client.last_message_id = 12
+
+        with patch("app.tools.messaging.NotifyClient", return_value=mock_client):
+            msg = await notify_and_track(
+                eid,
+                "Email-only",
+                channels=["email"],
+                event="checkout_lead_pix_email",
+            )
+
+        assert msg is not None
+        assert msg.channel == "email"
+        assert mock_client.send_message.await_args.kwargs["channels"] == ["email"]
+
+
+class TestNotifyLeadCheckoutPix:
+    """_notify_lead_checkout — fluxo PIX de 3 etapas (texto + WhatsApp QR + email)."""
+
+    async def test_pix_three_steps_dispatched(self):
+        """PIX com encoded_image dispara 3 etapas (text, whatsapp_image, email)."""
+        from app.tools.create_checkout import _notify_lead_checkout
+
+        eid = str(uuid4())
+        sent_calls: list[dict] = []
+
+        async def _fake_notify(external_id, content, **kw):
+            sent_calls.append({"content": content, **kw})
+            m = MagicMock()
+            m.status = "pending"
+            m.message_id = len(sent_calls)
+            return m
+
+        with patch(
+            "app.tools.create_checkout.notify_and_track",
+            side_effect=_fake_notify,
+        ):
+            await _notify_lead_checkout(
+                external_id=eid,
+                customer_link="00020126...COPIA_E_COLA",
+                qr_url="https://example.com/qr.png",
+                payment_id="pay_abc",
+                email="lead@example.com",
+                phone="+5511999998888",
+                first_name="Joao",
+                payment_method="pix",
+                encoded_image_b64="iVBORw0KGgo=",
+                due_date_iso="2026-06-01",
+            )
+
+        assert len(sent_calls) == 3, "PIX deve emitir 3 etapas"
+
+        # Etapa 1: teaser texto, sem channels override (mantem WA + Email).
+        step1 = sent_calls[0]
+        assert step1["event"] == "checkout_lead"
+        assert step1.get("channels") is None
+        assert step1.get("media_url") is None
+
+        # Etapa 2: WhatsApp QR imagem, channels=['whatsapp'].
+        step2 = sent_calls[1]
+        assert step2["event"] == "checkout_lead_pix_qr"
+        assert step2["channels"] == ["whatsapp"]
+        assert step2["media_url"].startswith("data:image/png;base64,")
+        assert step2["title"] == "QR Code PIX"
+        # Caption inclui o BR Code copia-e-cola.
+        assert "00020126" in step2["content"]
+
+        # Etapa 3: email dedicado "Seu PIX Supletivo Brasil", channels=['email'].
+        step3 = sent_calls[2]
+        assert step3["event"] == "checkout_lead_pix_email"
+        assert step3["channels"] == ["email"]
+        assert step3["title"] == "Seu PIX Supletivo Brasil"
+        assert step3["media_url"].startswith("data:image/png;base64,")
+        # Email tem vencimento renderizado (due_date_iso != None).
+        assert "2026-06-01" in step3["content"]
+        # Email tem o copia-e-cola.
+        assert "00020126" in step3["content"]
+
+    async def test_pix_without_due_date_omits_line(self):
+        """Sem due_date_iso, a linha de vencimento nao aparece no email."""
+        from app.tools.create_checkout import _notify_lead_checkout
+
+        eid = str(uuid4())
+        sent_calls: list[dict] = []
+
+        async def _fake(external_id, content, **kw):
+            sent_calls.append({"content": content, **kw})
+            m = MagicMock()
+            m.status = "pending"
+            m.message_id = 1
+            return m
+
+        with patch("app.tools.create_checkout.notify_and_track", side_effect=_fake):
+            await _notify_lead_checkout(
+                external_id=eid,
+                customer_link="00020126...",
+                qr_url="https://example.com/qr.png",
+                payment_id="pay_abc",
+                email="lead@example.com",
+                phone="+5511999998888",
+                first_name="Joao",
+                payment_method="pix",
+                encoded_image_b64="iVBORw0KGgo=",
+                due_date_iso=None,
+            )
+
+        assert len(sent_calls) == 3
+        email_step = sent_calls[2]
+        # Sem due_date a linha de "Vencimento:" some.
+        assert "Vencimento:" not in email_step["content"]
+
+    async def test_pix_without_encoded_image_skips_image_and_email(self):
+        """PIX sem encoded_image (fallback) so manda etapa 1; etapas 2/3 puladas."""
+        from app.tools.create_checkout import _notify_lead_checkout
+
+        eid = str(uuid4())
+        sent_calls: list[dict] = []
+
+        async def _fake(external_id, content, **kw):
+            sent_calls.append({"content": content, **kw})
+            m = MagicMock()
+            m.status = "pending"
+            m.message_id = 1
+            return m
+
+        with patch("app.tools.create_checkout.notify_and_track", side_effect=_fake):
+            await _notify_lead_checkout(
+                external_id=eid,
+                customer_link="link",
+                qr_url="",
+                payment_id="pay_abc",
+                email="lead@example.com",
+                phone="+5511999998888",
+                first_name="Joao",
+                payment_method="pix",
+                encoded_image_b64=None,  # sem QR -> so etapa 1
+                due_date_iso=None,
+            )
+
+        assert len(sent_calls) == 1
+        assert sent_calls[0]["event"] == "checkout_lead"
+
+    async def test_pix_step_failure_does_not_block_remaining_steps(self):
+        """Falha em uma etapa loga pix_notify_step_failed mas nao bloqueia as outras."""
+        from app.tools.create_checkout import _notify_lead_checkout
+
+        eid = str(uuid4())
+        call_count = {"n": 0}
+
+        async def _flaky(external_id, content, **kw):
+            call_count["n"] += 1
+            # Etapa 2 (whatsapp_image) explode; etapas 1 e 3 sucesso.
+            if kw.get("event") == "checkout_lead_pix_qr":
+                raise RuntimeError("evolution down")
+            m = MagicMock()
+            m.status = "pending"
+            m.message_id = call_count["n"]
+            return m
+
+        with patch("app.tools.create_checkout.notify_and_track", side_effect=_flaky):
+            # Nao deve levantar — falha de etapa e' so logada.
+            await _notify_lead_checkout(
+                external_id=eid,
+                customer_link="link",
+                qr_url="",
+                payment_id="pay_abc",
+                email="lead@example.com",
+                phone="+5511999998888",
+                first_name="Joao",
+                payment_method="pix",
+                encoded_image_b64="iVBORw0KGgo=",
+                due_date_iso=None,
+            )
+
+        # 3 tentativas independentes — etapa 2 explodiu mas 1 e 3 rodaram.
+        assert call_count["n"] == 3
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # tools/qrcode.py  (40% coverage → alvo 85%+)
 # ═══════════════════════════════════════════════════════════════════════════════
-
-
-class TestSavePixQrPng:
-    """save_pix_qr_png — decodifica base64 e salva PNG no disco."""
-
-    def test_saves_png(self, tmp_path):
-        """Decodifica PNG válido e salva no diretório."""
-        from app.tools.qrcode import save_pix_qr_png
-
-        eid = str(uuid4())
-        png_bytes = b"\x89PNG\r\n\x1a\n" + b"x" * 100  # Cabeçalho PNG válido + padding
-        encoded = base64.b64encode(png_bytes).decode()
-
-        qr_dir = tmp_path / "media" / "qrcodes"
-        qr_dir.mkdir(parents=True, exist_ok=True)
-        with patch("app.tools.qrcode._qr_dir", return_value=qr_dir):
-            url = save_pix_qr_png(eid, encoded)
-
-        expected_file = qr_dir / f"{eid}.png"
-        assert expected_file.exists()
-        assert expected_file.read_bytes() == png_bytes
-        assert eid in url
-        assert url.startswith("/api/v1/public/media/qrcodes/")
-
-    def test_invalid_base64_raises(self):
-        """Base64 inválido → levanta exceção."""
-        from app.tools.qrcode import save_pix_qr_png
-
-        with pytest.raises(Exception):
-            save_pix_qr_png(str(uuid4()), "not-valid-base64!!!")
-
-    def test_creates_directory_if_not_exists(self, tmp_path):
-        """Diretório qrcodes/ é criado se não existir."""
-        # This test verifies the REAL _qr_dir() creates directories.
-        from app.tools.qrcode import _qr_dir, save_pix_qr_png
-
-        png_bytes = b"\x89PNG\r\n\x1a\n" + b"x" * 50
-        encoded = base64.b64encode(png_bytes).decode()
-
-        qr_dir = tmp_path / "nonexistent" / "qrcodes"
-        assert not qr_dir.exists()
-
-        with patch("app.tools.qrcode.settings.MEDIA_DIR", str(tmp_path / "nonexistent")):
-            # _qr_dir uses MEDIA_DIR, so patching settings.MEDIA_DIR means
-            # _qr_dir() will call tmp_path / "nonexistent" / "qrcodes" and
-            # create it via mkdir(parents=True, exist_ok=True)
-            d = _qr_dir()
-            # Now save the QR
-            url = save_pix_qr_png(str(uuid4()), encoded)
-
-        assert d.exists()
-        assert qr_dir.exists()
-        assert url.startswith("/api/v1/public/media/qrcodes/")
-        assert url.endswith(".png")
 
 
 class TestMakeDataUri:
@@ -778,49 +987,3 @@ class TestMakeDataUri:
         from app.tools.qrcode import make_data_uri
         uri = make_data_uri("xyz", mime="image/jpeg")
         assert uri == "data:image/jpeg;base64,xyz"
-
-
-class TestAbsoluteQrUrl:
-    """absolute_qr_url — prefixa URL com LEAD_PUBLIC_BASE_URL."""
-
-    def test_prepends_base(self):
-        from app.tools.qrcode import absolute_qr_url
-
-        with patch("app.tools.qrcode.settings.LEAD_PUBLIC_BASE_URL", "http://lead.example.com"):
-            url = absolute_qr_url("/api/v1/public/media/qrcodes/abc.png")
-
-        assert url == "http://lead.example.com/api/v1/public/media/qrcodes/abc.png"
-
-    def test_rewrites_legacy_prefix(self):
-        """URLs com prefixo /media/ antigo são reescritas."""
-        from app.tools.qrcode import absolute_qr_url
-
-        with patch("app.tools.qrcode.settings.LEAD_PUBLIC_BASE_URL", "http://lead.example.com"):
-            url = absolute_qr_url("/media/qrcodes/abc.png")
-
-        # Legacy /media/ prefix rewritten to /api/v1/public/media/
-        assert url == "http://lead.example.com/api/v1/public/media/qrcodes/abc.png"
-        # The result contains the correct public prefix, not the legacy one
-        assert "/api/v1/public/media/" in url
-        assert url.startswith("http://lead.example.com")
-        assert url.endswith("abc.png")
-
-
-class TestQrDir:
-    """_qr_dir — retorna Path para diretório de QR codes."""
-
-    def test_returns_path(self, tmp_path):
-        from app.tools.qrcode import _qr_dir
-
-        with patch("app.tools.qrcode.settings.MEDIA_DIR", str(tmp_path)):
-            d = _qr_dir()
-        assert d.name == "qrcodes"
-        assert d.parent == tmp_path
-
-    def test_creates_directory(self, tmp_path):
-        from app.tools.qrcode import _qr_dir
-
-        media = tmp_path / "media"
-        with patch("app.tools.qrcode.settings.MEDIA_DIR", str(media)):
-            d = _qr_dir()
-        assert d.exists()

@@ -3,7 +3,7 @@
 import enum
 from uuid import UUID
 
-from sqlalchemy import BigInteger, Enum
+from sqlalchemy import BigInteger, Enum, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -16,6 +16,7 @@ class LeadStatus(str, enum.Enum):
     WAITING = "waiting"
     CHECKOUT = "checkout"
     COMPLETED = "completed"
+    FAILED = "failed"  # BG task de criar checkout esgotou retries; front polla /waiting e recebe error_code.
 
 
 class Lead(Base, TimestampMixin):
@@ -49,6 +50,12 @@ class Lead(Base, TimestampMixin):
         nullable=True,
         index=True,
         comment="UUID do promotor/parceiro responsável pela captação",
+    )
+
+    failed_reason: Mapped[str | None] = mapped_column(
+        String(80),
+        nullable=True,
+        comment="Código curto do erro quando status=FAILED (ex.: checkout_create_failed). Lido pelo /waiting.",
     )
 
     def __repr__(self) -> str:

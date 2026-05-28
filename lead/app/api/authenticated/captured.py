@@ -22,7 +22,6 @@ from app.tools.create_checkout import (
     create_checkout_for_lead,
     create_pix_checkout_for_lead,
 )
-from app.tools.qrcode import absolute_qr_url
 
 router = APIRouter(prefix="/api/v1/authenticated", tags=["authenticated"])
 
@@ -197,6 +196,21 @@ async def post_captured(
     current_phone = contact_data.get("phone") or ""
     current_email = contact_data.get("email") or ""
 
+    # Audit: confirma que email/phone/name ja estao em notify ANTES do
+    # dispatch PIX. Notify resolve canais a partir do contact (lookup
+    # por external_id) — se email vier vazio aqui, notify NAO dispara
+    # SMTP. Esse log permite distinguir "lead nao mandou" vs "notify
+    # nao entregou".
+    log.info(
+        "captured_post_context_ready",
+        has_name=bool(current_name),
+        has_phone=bool(current_phone),
+        has_email=bool(current_email),
+        email=current_email or None,
+        phone=current_phone or None,
+        name=current_name or None,
+    )
+
     if is_blank(current_name) or is_blank(current_email) or is_blank(current_phone):
         return CapturedPostResponse(
             status="incomplete",
@@ -227,7 +241,7 @@ async def post_captured(
         pix_data = PixData(
             payment_id=checkout.provider_payment_id or "",
             payload=checkout.qrcode_payload or "",
-            qr_url=absolute_qr_url(checkout.qrcode_image) if checkout.qrcode_image else "",
+            qr_url=checkout.qrcode_image or "",
         )
         # session ja foi commitada dentro de create_pix_checkout_for_lead
         return CapturedPostResponse(

@@ -44,20 +44,49 @@ async def notify_and_track(
     media_url: str | None = None,
     title: str | None = None,
     flags: dict | None = None,
+    channels: list[str] | None = None,
 ) -> Message | None:
     """Envia mensagem via notify e salva registro local com status=pending.
 
     `media_url` aceita URL HTTP publica OU data URI `data:image/png;base64,...`
     Notify cuida do upload/anexo no WhatsApp (vai como midia, caption=content).
 
+    `channels` (opcional) restringe os canais de entrega no notify. None =
+    ambos (whatsapp + email se contato tiver). ['whatsapp'] = so WhatsApp.
+    ['email'] = so email. Quando explicito, o campo `channel` persistido no
+    lead reflete a uniao (`whatsapp+email`, `whatsapp`, `email`).
+
     O status final (`sent`/`failed`) chega via webhook em
     /api/v1/webhook/notify/{message_id} — ate la, o registro fica `pending`.
     """
     log = logger.bind(external_id=external_id, event=event)
+    if channels:
+        channel = "+".join(sorted(channels))
 
     failure_status: str | None = None
     failure_event: str | None = None
     message_id: int | None = None
+
+    # Log do payload exato que sera POSTado em /api/v1/messages/send.
+    # Truncamos `content` no log (pode ter QR base64 ou markdown longo)
+    # mas mantemos sinais binarios (media presence) e tamanho. Permite
+    # auditar `Notify recebeu X` vs `Lead enviou Y` em outage de canal
+    # (ex.: WhatsApp ok mas email vazio).
+    log.info(
+        "notify_send_request",
+        url="/api/v1/messages/send",
+        channel=channel,
+        channels=channels,
+        title=title,
+        has_media=bool(media_url),
+        media_kind=("data_uri" if media_url and media_url.startswith("data:") else
+                    ("url" if media_url else None)),
+        flags=flags,
+        instruction=instruction,
+        content_len=len(content),
+        content_preview=content[:200],
+        webhook_url=settings.NOTIFY_CALLBACK_URL,
+    )
 
     # Timeout curto: notify responde rapido (cria Message + BG task, ~100ms).
     # SEM retry aqui — POST /messages/send nao e idempotente; retry duplica
@@ -75,6 +104,7 @@ async def notify_and_track(
                 media_url=media_url,
                 title=title,
                 flags=flags,
+                channels=channels,
                 webhook_url=settings.NOTIFY_CALLBACK_URL,
                 max_retries=1,  # idempotency: sem retry no POST de envio
             )

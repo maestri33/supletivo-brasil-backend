@@ -12,6 +12,7 @@ from fastapi_structured_logging import AccessLogConfig, AccessLogMiddleware
 
 from app.config import settings
 from app.db import engine
+from app.metrics import setup_metrics
 from app.api.public.auth import router as auth_router
 from app.api.demilitarized.webhooks import router as webhooks_router
 from app.api.demilitarized.leads import router as leads_crud_router
@@ -57,6 +58,10 @@ app.add_middleware(
         exclude_paths_if_ok_or_missing={"/health", "/ready", "/status"},
     ),
 )
+
+# Registra GET /metrics (Prometheus) + middleware de duração HTTP.
+# Sem esta chamada a rota /metrics e as métricas ficam mortas.
+setup_metrics(app)
 
 app.include_router(auth_router)
 app.include_router(webhooks_router)

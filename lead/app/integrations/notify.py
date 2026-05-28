@@ -29,6 +29,7 @@ class NotifyClient(BaseClient):
         flags: dict | None = None,
         instruction: str | None = None,
         webhook_url: str | None = None,
+        channels: list[str] | None = None,
         max_retries: int = 1,
     ) -> dict:
         """POST /api/v1/messages/send com webhook_url opcional.
@@ -49,6 +50,8 @@ class NotifyClient(BaseClient):
             body["instruction"] = instruction
         if webhook_url is not None:
             body["webhook_url"] = webhook_url
+        if channels is not None:
+            body["channels"] = channels
         resp = await request_with_retry(
             self.client,
             "POST",

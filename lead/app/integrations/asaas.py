@@ -43,6 +43,7 @@ class AsaasChargeCreate(BaseModel):
 class AsaasPixOut(BaseModel):
     payload: str  # BR Code copia-e-cola
     encoded_image: str  # PNG base64
+    qr_url: str | None = None  # URL absoluta do PNG (servida pelo asaas)
     expiration_date: str | None = None
 
 
