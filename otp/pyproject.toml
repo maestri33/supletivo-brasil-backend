@@ -22,6 +22,7 @@ dependencies = [
     "structlog>=24.4",
     "python-dotenv>=1.0",
     "slowapi>=0.1.9",
+    "asyncpg>=0.31.0",
 ]
 
 [dependency-groups]
