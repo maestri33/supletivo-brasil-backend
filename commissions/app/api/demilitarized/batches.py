@@ -10,7 +10,7 @@ from app.schemas import (
     TriggerProcessingRequest,
     TriggerProcessingResponse,
 )
-from app.services.commissions import PaymentBatchService, process_weekly_batch, submit_batch_for_payment
+from app.services.commissions import PaymentBatchService, process_weekly_batch
 from app.utils.logging import get_logger
 from datetime import datetime, UTC
 
@@ -71,12 +71,14 @@ async def trigger_processing(
     body: TriggerProcessingRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TriggerProcessingResponse:
-    """Dispara processamento semanal de comissoes manualmente."""
+    """Dispara o lote semanal manualmente (agrega + enfileira payouts; nao move dinheiro)."""
     batch = await process_weekly_batch(
         db,
         week_of=body.week_of,
         force_reprocess=body.force_reprocess,
     )
+    await db.commit()
+
     if not batch:
         return TriggerProcessingResponse(
             success=True,
@@ -85,18 +87,13 @@ async def trigger_processing(
             processed_at=datetime.now(UTC),
         )
 
-    # Submit batch for payment via Asaas
-    asaas_id = await submit_batch_for_payment(db, batch)
-
-    await db.commit()
-
+    await db.refresh(batch)
     return TriggerProcessingResponse(
-        success=asaas_id is not None,
+        success=True,
         payment_batch_id=batch.id,
         message=(
-            f"Lote {batch.id} processado com sucesso. "
-            f"Total: R$ {batch.total_cents / 100:.2f}. "
-            f"Asaas ID: {asaas_id or 'pendente'}"
+            f"Lote {batch.id} agregado. Total: R$ {batch.total_cents / 100:.2f}. "
+            "Payouts enfileirados; o worker empurra pro asaas."
         ),
         processed_at=datetime.now(UTC),
     )

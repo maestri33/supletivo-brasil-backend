@@ -85,6 +85,15 @@ class Commission(Base, TimestampMixin):
         comment="Lote de pagamento ao qual esta comissao pertence",
     )
 
+    # Carimbo de idempotencia: a referencia do payout que paga esta comissao.
+    # = {ordinal-sexta}_{MM}_{AAAA}_{external_id_do_beneficiario}. NULL ate ser processada.
+    external_reference: Mapped[str | None] = mapped_column(
+        String(128),
+        nullable=True,
+        index=True,
+        comment="Referencia do payout (Payout.external_reference) que liquida esta comissao",
+    )
+
     def __repr__(self) -> str:
         return (
             f"<Commission {self.id} role={self.recipient_role} "

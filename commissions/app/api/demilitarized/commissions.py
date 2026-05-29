@@ -12,6 +12,8 @@ from app.schemas import (
     CommissionResponse,
     PaymentBatchListResponse,
     PaymentBatchResponse,
+    PayoutListResponse,
+    PayoutResponse,
     TriggerProcessingRequest,
     TriggerProcessingResponse,
 )
@@ -21,8 +23,8 @@ from app.services import (
     list_commissions,
     get_payment_batch,
     list_payment_batches,
+    list_payouts,
     process_weekly_batch,
-    submit_batch_for_payment,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["commissions"])
@@ -124,6 +126,36 @@ async def get_payment_batch_endpoint(
 
 
 # ---------------------------------------------------------------------------
+# Payout endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/payouts", response_model=PayoutListResponse)
+async def list_payouts_endpoint(
+    status: str | None = Query(None, description="Filtra por status do payout"),
+    week_of: str | None = Query(None, description="Filtra por semana (segunda-feira ISO)"),
+    recipient_external_id: str | None = Query(None, description="Filtra por beneficiario"),
+    limit: int = Query(50, ge=1, le=200, description="Max items per page"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    session: AsyncSession = Depends(get_session),
+) -> PayoutListResponse:
+    """Lista os payouts (1 por beneficiario por semana) com filtros opcionais."""
+    recipient_uuid: UUID | None = UUID(recipient_external_id) if recipient_external_id else None
+    items, total = await list_payouts(
+        session,
+        status=status,
+        week_of=week_of,
+        recipient_external_id=recipient_uuid,
+        offset=offset,
+        limit=limit,
+    )
+    return PayoutListResponse(
+        items=[PayoutResponse.model_validate(p) for p in items],
+        total=total,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Processing endpoints
 # ---------------------------------------------------------------------------
 
@@ -133,32 +165,36 @@ async def trigger_processing_endpoint(
     body: TriggerProcessingRequest,
     session: AsyncSession = Depends(get_session),
 ) -> TriggerProcessingResponse:
-    """Manually trigger weekly commission processing."""
-    from datetime import datetime, timezone
+    """Dispara o lote semanal (agrega comissoes e enfileira 1 payout por beneficiario).
+
+    Os Payouts nascem QUEUED; o worker os empurra pro asaas. Aqui NAO se move dinheiro.
+    """
+    from datetime import UTC, datetime
 
     batch = await process_weekly_batch(
         session,
         week_of=body.week_of,
         force_reprocess=body.force_reprocess,
     )
+    await session.commit()
 
     if batch is None:
-        # No pending commissions or batch already exists — still a valid response
+        # Sem comissoes pendentes ou lote ja existe — resposta valida mesmo assim.
         return TriggerProcessingResponse(
             success=True,
             payment_batch_id=None,
             message="Nenhuma comissão pendente para processar ou lote já existe para esta semana.",
-            processed_at=datetime.now(timezone.utc),
+            processed_at=datetime.now(UTC),
         )
 
-    # Submit batch for payment via Asaas
-    await submit_batch_for_payment(session, batch)
-    await session.commit()
     await session.refresh(batch)
-
     return TriggerProcessingResponse(
-        success=batch.status.value != "failed",
+        success=True,
         payment_batch_id=batch.id,
-        message=f"Lote {batch.id} processado com status {batch.status.value}.",
-        processed_at=datetime.now(timezone.utc),
+        message=(
+            f"Lote {batch.id} agregado (status {batch.status.value}): "
+            f"total R$ {batch.total_cents / 100:.2f}, bônus R$ {batch.bonus_cents / 100:.2f}. "
+            "Payouts enfileirados — o worker empurra pro asaas."
+        ),
+        processed_at=datetime.now(UTC),
     )

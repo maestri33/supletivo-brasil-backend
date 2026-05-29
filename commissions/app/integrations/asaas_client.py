@@ -1,142 +1,157 @@
-"""Asaas HTTP client for PIX payout integration.
+"""Cliente HTTP para o payout Pix via servico interno `asaas`.
 
-CONVENTION §12: asaas is the ONLY authorized payout provider.
-This client wraps the internal Asaas service (not the external Asaas API directly).
+CONVENTION §12: o asaas e o UNICO provedor de payout autorizado. Este cliente fala
+com o SERVICO interno asaas (nao com a API publica do Asaas).
 
-Endpoints used (internal asaas service, NOT the public Asaas API):
-- POST /api/v1/payout          — execute a PIX payout to a beneficiary
-- GET  /api/v1/payout/{id}     — check payout status
+O asaas detem a fila pesada do dinheiro saindo: enfileira a transferencia, espera
+saldo (status AWAITING_BALANCE), retenta e confirma. Aqui so:
+  - POST /api/v1/payment           cria o pagamento Pix por pixkey (idempotente por payment_id)
+  - GET  /api/v1/payment/{payment_id}  consulta o estado atual
+
+Idempotencia: enviamos `payment_id = Payout.external_reference`. Se o asaas ja conhece
+esse payment_id, responde 400 `payment_id_already_exists` — tratamos como "ja existe"
+e consultamos o estado, NUNCA duplicamos o pagamento.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from uuid import UUID
 
 import httpx
 
 from app.config import get_settings
-from app.integrations import BaseClient, IntegrationError, request_with_retry
-
-_DEFAULT_TIMEOUT = 30.0
+from app.integrations import BaseClient, request_with_retry
 
 
 @dataclass
 class PayoutResult:
-    """Result from a payout attempt."""
+    """Estado de um payout no asaas apos criar ou consultar.
 
-    success: bool
-    asaas_transfer_id: str | None = None
-    pix_transaction_id: str | None = None
+    `asaas_status` e o status verbatim do asaas (SCHEDULED/QUEUED/SUBMITTING/SUBMITTED/
+    PAID/FAILED/CANCELLED/AWAITING_BALANCE). `error` so vem preenchido em falha
+    PERMANENTE (4xx de negocio, ex: pixkey_not_found). Falha transitoria (5xx/timeout)
+    NAO retorna aqui — levanta IntegrationError pro worker retentar.
+    """
+
+    payment_id: str
+    asaas_status: str | None = None
+    asaas_id: str | None = None
     error: str | None = None
+    already_existed: bool = False
+
+    @property
+    def is_permanent_error(self) -> bool:
+        return self.error is not None
 
 
 def _make_default_client() -> httpx.AsyncClient:
-    """Create a default httpx client from settings (internal asaas service)."""
     settings = get_settings()
     return httpx.AsyncClient(
         base_url=settings.asaas_base_url,
-        timeout=_DEFAULT_TIMEOUT,
+        timeout=settings.http_timeout,
     )
 
 
+def _detail(resp: httpx.Response) -> str | None:
+    """Extrai o codigo de erro de negocio do corpo {"detail": "..."} do asaas."""
+    try:
+        body = resp.json()
+    except Exception:  # noqa: BLE001 — corpo nao-JSON
+        return None
+    if isinstance(body, dict):
+        d = body.get("detail")
+        return d if isinstance(d, str) else None
+    return None
+
+
 class AsaasPayoutClient(BaseClient):
-    """HTTP client to the internal Asaas service for PIX payouts.
-
-    The Asaas service (asaas/) exposes internal endpoints for payout operations.
-    This client calls those endpoints, not the external Asaas API directly.
-
-    In dev/test mode, returns mock success without making HTTP calls.
-
-    If no httpx.AsyncClient is provided, one is created from settings
-    (asaas_base_url) for backward compatibility with callers that don't
-    use dependency injection.
-    """
+    """Cliente do servico interno asaas para payout Pix por pixkey."""
 
     def __init__(self, client: httpx.AsyncClient | None = None) -> None:
         super().__init__(client or _make_default_client())
 
-    async def request_pix_payout(
+    async def create_payout(
         self,
-        pix_key: str,
+        *,
+        external_id: str | UUID,
         amount_cents: int,
-        description: str = "Comissão semanal",
+        payment_id: str,
+        description: str | None = None,
     ) -> PayoutResult:
-        """Request a PIX payout to a beneficiary.
+        """Cria um pagamento Pix imediato para a pixkey do beneficiario.
 
-        This calls the internal Asaas service's payout endpoint.
-        In sandbox/test mode, this is a no-op that returns success.
+        `external_id` = external_id da pixkey cadastrada no asaas (no nosso sistema,
+        o proprio UUID do usuario). `payment_id` = external_reference (idempotencia).
+        `amount_cents` e convertido pra BRL (o asaas recebe reais).
 
-        Args:
-            pix_key: The beneficiary's PIX key.
-            amount_cents: Amount in cents.
-            description: Optional description for the transfer.
-
-        Returns:
-            PayoutResult with operation outcome.
+        Levanta IntegrationError em falha transitoria (worker deve retentar).
+        Retorna PayoutResult.error preenchido em falha permanente.
         """
-        # — In dev/test mode, skip real API call —
-        if get_settings().env in ("dev", "test"):
-            self.log.info("payout_mock", pix_key=pix_key, amount_cents=amount_cents)
-            return PayoutResult(
-                success=True,
-                asaas_transfer_id="mock_transfer_id",
-                pix_transaction_id="mock_pix_tx_id",
-                error=None,
-            )
-
-        # Real call to internal asaas service
         body = {
-            "pix_key": pix_key,
-            "amount_cents": amount_cents,
+            "external_id": str(external_id),
+            "amount": round(amount_cents / 100, 2),
+            "payment_id": payment_id,
             "description": description,
         }
-
         try:
             resp = await request_with_retry(
-                self.client, "POST", "/api/v1/payout", json=body
+                self.client, "POST", "/api/v1/payment", json=body
             )
-            data = resp.json()
-            self.log.info(
-                "payout_success",
-                transfer_id=data.get("transfer_id"),
-                pix_tx=data.get("pix_transaction_id"),
-            )
-            return PayoutResult(
-                success=True,
-                asaas_transfer_id=data.get("transfer_id"),
-                pix_transaction_id=data.get("pix_transaction_id"),
-            )
-        except IntegrationError as exc:
-            self.log.error("payout_failed", error=str(exc))
-            return PayoutResult(
-                success=False,
-                error=str(exc),
-            )
-
-    async def get_payout_status(self, asaas_transfer_id: str) -> dict:
-        """Check the status of a previously submitted payout transfer.
-
-        Args:
-            asaas_transfer_id: The Asaas transfer ID to check.
-
-        Returns:
-            Dict with status information from the Asaas service.
-        """
-        if get_settings().env in ("dev", "test"):
-            return {"status": "CONFIRMED", "transfer_id": asaas_transfer_id}
-
-        try:
-            resp = await request_with_retry(
-                self.client, "GET", f"/api/v1/payout/{asaas_transfer_id}"
-            )
-            return resp.json()
-        except IntegrationError as exc:
+        except httpx.HTTPStatusError as exc:
+            detail = _detail(exc.response)
+            if detail == "payment_id_already_exists":
+                # Idempotente: ja existe no asaas. Consulta o estado atual.
+                self.log.info("payout_already_exists", payment_id=payment_id)
+                return await self.get_payout(payment_id, _existed=True)
+            # Demais 4xx = falha permanente de negocio (pixkey_not_found, invalid_amount...)
             self.log.error(
-                "payout_status_failed",
-                transfer_id=asaas_transfer_id,
-                error=str(exc),
+                "payout_rejected", payment_id=payment_id,
+                status=exc.response.status_code, detail=detail,
             )
-            return {
-                "status": "ERROR",
-                "transfer_id": asaas_transfer_id,
-                "error": str(exc),
-            }
+            return PayoutResult(
+                payment_id=payment_id,
+                error=detail or f"http_{exc.response.status_code}",
+            )
+
+        data = resp.json()
+        self.log.info(
+            "payout_created",
+            payment_id=data.get("payment_id", payment_id),
+            asaas_status=data.get("status"),
+            asaas_id=data.get("asaas_id"),
+        )
+        return PayoutResult(
+            payment_id=data.get("payment_id", payment_id),
+            asaas_status=data.get("status"),
+            asaas_id=data.get("asaas_id"),
+        )
+
+    async def get_payout(self, payment_id: str, *, _existed: bool = False) -> PayoutResult:
+        """Consulta o estado de um pagamento no asaas por payment_id.
+
+        Levanta IntegrationError em falha transitoria. Retorna error='not_found'
+        se o asaas nao conhece o payment_id.
+        """
+        try:
+            resp = await request_with_retry(
+                self.client, "GET", f"/api/v1/payment/{payment_id}"
+            )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return PayoutResult(payment_id=payment_id, error="not_found", already_existed=_existed)
+            return PayoutResult(
+                payment_id=payment_id,
+                error=_detail(exc.response) or f"http_{exc.response.status_code}",
+                already_existed=_existed,
+            )
+
+        data = resp.json()
+        return PayoutResult(
+            payment_id=data.get("payment_id", payment_id),
+            asaas_status=data.get("status"),
+            asaas_id=data.get("asaas_id"),
+            already_existed=_existed,
+        )
+
+    async def aclose(self) -> None:
+        await self.client.aclose()

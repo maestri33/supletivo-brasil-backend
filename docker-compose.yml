@@ -682,94 +682,12 @@ services:
       - "traefik.http.middlewares.training-strip.stripprefix.prefixes=/training"
       - "traefik.http.routers.training.middlewares=training-strip"
 
-  # ── Observabilidade (Grafana + Loki + Prometheus) ──────────────────────────
-
-  prometheus:
-    image: prom/prometheus:v2.53.0
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
-      - prometheus_data:/prometheus
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.path=/prometheus"
-      - "--storage.tsdb.retention.time=30d"
-    healthcheck:
-      test: ["CMD", "wget", "-q", "http://localhost:9090/-/healthy", "-O", "/dev/null"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  loki:
-    image: grafana/loki:3.0.0
-    ports:
-      - "3101:3100"
-      - "9097:9096"
-    volumes:
-      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
-      - loki_data:/loki
-    command:
-      - "-config.file=/etc/loki/loki-config.yml"
-    healthcheck:
-      test: ["CMD", "wget", "-q", "http://localhost:3100/ready", "-O", "/dev/null"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  grafana:
-    image: grafana/grafana:11.0.0
-    ports:
-      - "3000:3000"
-    env_file: .env
-    volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - grafana_data:/var/lib/grafana
-    environment:
-      GF_INSTALL_PLUGINS: ""
-    depends_on:
-      prometheus:
-        condition: service_healthy
-      loki:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "http://localhost:3000/api/health", "-O", "/dev/null"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ── Log shipping (Promtail → Loki) ─────────────────────────────────────────
-
-  promtail:
-    image: grafana/promtail:3.0.0
-    volumes:
-      - ./promtail:/promtail:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-    command:
-      - "-config.file=/promtail/promtail-config.yml"
-    depends_on:
-      loki:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "pidof", "promtail"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-        reservations:
-          memory: 64M
-
   # ── Secret manager (Infisical) ─────────────────────────────────────────────
 
   infisical-db:
     image: postgres:16-alpine
     environment:
+      
       POSTGRES_DB: infisical
       POSTGRES_USER: infisical
       POSTGRES_PASSWORD: infisical_dev
@@ -810,7 +728,4 @@ services:
 volumes:
   pgdata:
   pgadmin_data:
-  prometheus_data:
-  loki_data:
-  grafana_data:
   infisical_pgdata:
