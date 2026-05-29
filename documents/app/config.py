@@ -23,10 +23,6 @@ class Settings(BaseSettings):
     database_url: str
     database_schema: str = "documents"
 
-    # URLs internas — defaults apontam para nomes de servico no docker-compose.
-    auth_base_url: str = "http://auth:8000"
-    notify_base_url: str = "http://notify:8000"
-
     # Upload
     media_root: str = "/root/media"
     max_upload_mb: int = 10

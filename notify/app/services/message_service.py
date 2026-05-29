@@ -83,26 +83,28 @@ def _detect_media(source: str) -> tuple[str, str | None]:
     return "document", mimetypes.types_map.get(ext)
 
 
-def _public_url(relative_path: str) -> str:
-    base = get_settings().public_base_url.rstrip("/")
-    return f"{base}/media/{relative_path}"
+def _to_lan(public_url: str) -> str:
+    """Troca host publico externo por LAN (WhatsApp/Evolution acessa direto).
+
+    Pra adicionar service novo, registre o par `<x>_public_base`/
+    `<x>_lan_base` em config e adicione um elif aqui.
+    """
+    s = get_settings()
+    if s.ai_public_base and public_url.startswith(s.ai_public_base):
+        return public_url.replace(s.ai_public_base, s.ai_lan_base, 1)
+    if s.notify_public_base and public_url.startswith(s.notify_public_base):
+        return public_url.replace(s.notify_public_base, s.notify_lan_base, 1)
+    return public_url
 
 
-def _dmz_url(relative_path: str) -> str:
-    base = get_settings().dmz_base_url.rstrip("/")
-    return f"{base}/media/{relative_path}"
-
-
-def _handle_base64_media(data_uri: str) -> tuple[str, str, str, str]:
-    """Decodifica data URI base64, salva em disco e devolve URLs + base64 puro.
+def _handle_base64_media(data_uri: str) -> tuple[str, str, str]:
+    """Decodifica data URI base64, salva em disco e devolve URL publica + b64.
 
     Returns:
-        (public_url, dmz_url, media_type, pure_b64)
+        (public_url, media_type, pure_b64)
 
-    O `pure_b64` (sem prefixo `data:`) e' o que devemos passar pra Evolution
-    API no campo `media`. Evolution rejeita URLs HTTP internas com
-    `"Owned media must be a url or base64"` (requer HTTPS ou base64 puro);
-    `public_url`/`dmz_url` ficam pra outros canais (email HTML).
+    `public_url` aponta pro Traefik externo (notify_public_base). Pra
+    WhatsApp/Evolution use `_to_lan(public_url)`.
     """
     import base64 as b64
     import uuid
@@ -136,15 +138,15 @@ def _handle_base64_media(data_uri: str) -> tuple[str, str, str, str]:
     out.mkdir(parents=True, exist_ok=True)
     (out / filename).write_bytes(raw)
     relative = f"imagem/{filename}"
-    public_url = _public_url(relative)
-    dmz_url = _dmz_url(relative)
+    base = get_settings().notify_public_base.rstrip("/")
+    public_url = f"{base}/media/{relative}"
     log.info(
         "media.base64_decoded",
         mime=mime,
         relative=relative,
         bytes=len(raw),
     )
-    return public_url, dmz_url, media_type, pure_b64
+    return public_url, media_type, pure_b64
 
 
 def _email_media_html(media_url: str, media_type: str, caption: str) -> str:
@@ -426,41 +428,17 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
             media_url = payload.media_url
             whatsapp_media_url: str | None = None
             email_media_url: str | None = None
-            # Bytes da imagem p/ CID inline embed no email (vide MIME
-            # multipart/related em SMTPClient.send_email).
-            inline_email_images: dict[str, tuple[bytes, str]] = {}
 
             if payload.media_url:
                 if payload.media_url.startswith("data:"):
-                    # Para WhatsApp passamos o base64 PURO (sem prefixo data:);
-                    # a Evolution API rejeita URLs HTTP internas com
-                    # "Owned media must be a url or base64".
-                    media_url, _dmz_unused, media_type, _wa_b64 = _handle_base64_media(
-                        payload.media_url
-                    )
-                    whatsapp_media_url = _wa_b64
-                    # Pra email: tambem embute via CID se for imagem (QR PIX,
-                    # comprovantes, etc). Sem isso o email vira so texto +
-                    # caption, sem a imagem que o usuario espera.
-                    if media_type == "image":
-                        import base64 as _b64
-
-                        try:
-                            img_bytes = _b64.b64decode(_wa_b64, validate=True)
-                            # Detecta subtype do data URI header (default jpeg).
-                            mime_prefix = payload.media_url.split(",", 1)[0]
-                            subtype = "jpeg"
-                            if "/" in mime_prefix:
-                                m = re.search(r"image/(\w+)", mime_prefix)
-                                if m:
-                                    subtype = m.group(1)
-                            cid = "notify-img-1"
-                            inline_email_images[cid] = (img_bytes, subtype)
-                            email_media_url = f"cid:{cid}"
-                        except Exception as exc:
-                            log.warning("inline_email_img_decode_failed", error=str(exc))
+                    public_url, media_type, _ = _handle_base64_media(payload.media_url)
+                    media_url = public_url
+                    whatsapp_media_url = _to_lan(public_url)
+                    email_media_url = public_url
                 else:
                     media_type, _ = _detect_media(payload.media_url)
+                    whatsapp_media_url = _to_lan(payload.media_url)
+                    email_media_url = payload.media_url
 
             msg_type = "media" if media_type else "text"
             tts_enabled = payload.flags.tts and msg_type == "text"
@@ -482,40 +460,16 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
             if payload.flags.img:
                 img_used = True
                 try:
-                    import base64 as _b64
-
                     ref_url = media_url if media_type == "image" else None
                     prompt = f"{payload.instruction} | {text}" if payload.instruction else text
                     result = await ai.image(prompt=prompt, reference_url=ref_url)
-                    # WhatsApp: Evolution 2.3.7 rejeita URLs HTTP internas e
-                    # publicas tipo `ai.m33.live`. notify baixa via URL
-                    # interna docker e passa base64 puro pro Evolution.
-                    internal_url = (
-                        f"{settings.ai_base_url.rstrip('/')}/media/image/{result['filename']}"
-                    )
-                    dl = await http.get(internal_url, timeout=30.0)
-                    dl.raise_for_status()
-                    whatsapp_media_url = _b64.b64encode(dl.content).decode("ascii")
-
-                    # Email: CID inline embed em vez de URL publica
-                    # `ai.m33.live` (NXDOMAIN em DNS publico — Gmail
-                    # renderiza icone de imagem quebrada). Reusa os bytes
-                    # ja baixados.
-                    mime = result.get("mime_type") or "image/jpeg"
-                    subtype = mime.split("/", 1)[-1] if "/" in mime else "jpeg"
-                    cid = "notify-img-1"
-                    inline_email_images[cid] = (dl.content, subtype)
-                    email_media_url = f"cid:{cid}"
-
+                    public_url = result["url"]
+                    whatsapp_media_url = _to_lan(public_url)
+                    email_media_url = public_url
                     media_type = "image"
                     msg_type = "media"
                     tts_enabled = False
-                    log.info(
-                        "img.generated",
-                        bytes=len(dl.content),
-                        mime=mime,
-                        public_url=result["url"],
-                    )
+                    log.info("img.generated", mime=result.get("mime_type"), public_url=public_url)
                 except Exception as exc:  # noqa: BLE001
                     log.error("img.generation_failed", error=str(exc)[:200])
 
@@ -557,7 +511,11 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
             whatsapp_error: str | None = None
             tts_failed = False
             tts_fallback_reason: str | None = None
-            if contact.phone:
+            # `channels` opcional restringe entrega. None = ambos (compat).
+            allowed_channels = payload.channels
+            whatsapp_allowed = allowed_channels is None or "whatsapp" in allowed_channels
+            email_allowed = allowed_channels is None or "email" in allowed_channels
+            if contact.phone and whatsapp_allowed:
                 # Resolve a variante BR (com/sem nono digito) que esta
                 # efetivamente registrada no WhatsApp. Sem isso, Evolution
                 # 2.3.7 normaliza errado (perde o 9°) e entrega silenciosa.
@@ -706,8 +664,14 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                             )
             else:
                 message.whatsapp_status = STATUS_SKIPPED
+                if contact.phone and not whatsapp_allowed:
+                    log.info(
+                        "whatsapp.skipped_by_channels",
+                        external_id=str(payload.external_id),
+                        channels=allowed_channels,
+                    )
 
-            if contact.email:
+            if contact.email and email_allowed:
                 # Envio direto via Mailcow SMTP (STARTTLS 587). Substitui
                 # o service `mail` Docker (que conflitava credenciais via
                 # configure_smtp e mascarava 535 como ReadTimeout).
@@ -718,7 +682,6 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                         subject=title,
                         html_body=html,
                         plain_body=text,
-                        inline_images=inline_email_images or None,
                     )
                     message.email_status = STATUS_SENT
                 except Exception as exc:  # noqa: BLE001
@@ -729,6 +692,12 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                     message.email_status = STATUS_FAILED
             else:
                 message.email_status = STATUS_SKIPPED
+                if contact.email and not email_allowed:
+                    log.info(
+                        "email.skipped_by_channels",
+                        external_id=str(payload.external_id),
+                        channels=allowed_channels,
+                    )
 
         message.email_subject = title
 

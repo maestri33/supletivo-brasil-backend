@@ -486,7 +486,7 @@ services:
       LEAD_CONTACT_POLL_TIMEOUT_S: "30"
       LEAD_CONTACT_POLL_INTERVAL_S: "1"
       MEDIA_DIR: /app/media
-      WEBHOOK_ENROLLMENT_URL: http://enrollment:8000/api/v1/from-lead
+      WEBHOOK_ENROLLMENT_URL: http://enrollment:8000/api/v1/webhook/new
       WEBHOOK_PROMOTERS_URL: http://promoter:8000/api/v1/from-lead
       NOTIFY_CALLBACK_URL: http://lead:8000/api/v1/webhook/notify
     healthcheck: *healthcheck

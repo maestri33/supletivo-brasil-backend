@@ -76,6 +76,14 @@ class ChargeCreateRequest(BaseModel):
 class ChargePixData(BaseModel):
     payload: str = Field(..., description="BR Code copia-e-cola (Pix)")
     encoded_image: str = Field(..., description="PNG base64 do QR Code")
+    qr_url: str | None = Field(
+        default=None,
+        description=(
+            "URL absoluta do PNG servido pelo asaas em "
+            "/api/v1/public/media/qrcodes/<payment_id>.png. "
+            "Null quando ASAAS_PUBLIC_BASE_URL nao configurada ou arquivo ausente."
+        ),
+    )
     expiration_date: str | None = Field(
         default=None, description="ISO 8601 do vencimento do QR Code"
     )

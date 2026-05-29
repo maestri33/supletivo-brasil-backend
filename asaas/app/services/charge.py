@@ -30,6 +30,7 @@ from ..exceptions import PaymentError, ValidationError
 from ..integrations.asaas_client import AsaasClient, AsaasError
 from ..models import Payment
 from ..utils.logging import log_event
+from ..utils.qrcode import absolute_qr_url_for, save_pix_qr_png
 from ..metrics import inc_payment
 from . import customer as customer_service
 
@@ -122,12 +123,21 @@ async def create(
             log_event("charge_qr_fetch_failed", asaas_id=created.get("id"), body=str(e.body))
             qr = None
 
+    encoded_image = (qr or {}).get("encodedImage")
+    if encoded_image:
+        try:
+            save_pix_qr_png(pid, encoded_image)
+        except Exception as exc:
+            # Decode/IO falhou — nao bloqueia criacao da charge. URL publica
+            # ficara None ate refresh_qr ou ate operador corrigir manualmente.
+            log_event("qrcode_save_failed", payment_id=pid, error=str(exc))
+
     row = Payment(
         payment_id=pid,
         kind="charge",
         customer_external_id=cust.external_id,
         qrcode_payload=(qr or {}).get("payload"),
-        pix_qr_image=(qr or {}).get("encodedImage"),
+        pix_qr_image=encoded_image,
         amount=round(float(amount), 2),
         description=description,
         due_date=due,
@@ -215,7 +225,13 @@ async def refresh_qr(db: AsyncSession, payment_id: str) -> Payment:
         except AsaasError as e:
             raise PaymentError(f"asaas_qr_fetch_failed: {e.body}") from e
     row.qrcode_payload = qr.get("payload") or row.qrcode_payload
-    row.pix_qr_image = qr.get("encodedImage") or row.pix_qr_image
+    encoded_image = qr.get("encodedImage")
+    if encoded_image:
+        row.pix_qr_image = encoded_image
+        try:
+            save_pix_qr_png(row.payment_id, encoded_image)
+        except Exception as exc:
+            log_event("qrcode_save_failed", payment_id=row.payment_id, error=str(exc))
     row.updated_at = datetime.now(UTC)
     await db.flush()
     return row
@@ -308,12 +324,14 @@ def to_dict(row: Payment) -> dict:
         pix = {
             "payload": row.qrcode_payload,
             "encoded_image": row.pix_qr_image,
+            "qr_url": absolute_qr_url_for(row.payment_id),
             "expiration_date": None,
         }
     elif row.qrcode_payload:
         pix = {
             "payload": row.qrcode_payload,
             "encoded_image": "",
+            "qr_url": None,
             "expiration_date": None,
         }
     return {

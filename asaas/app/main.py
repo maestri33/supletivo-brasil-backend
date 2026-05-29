@@ -8,8 +8,11 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import config_store as cfg
 from .api.router import api_router, root_router
@@ -20,6 +23,7 @@ from .schemas import ERROR_CODES
 from .services import payment as payment_service
 from .services.webhook_security import webhook_hmac_configured
 from .utils.logging import configure_logging, log_event, logger
+from .workers import outbound_queue
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -199,10 +203,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     set_hmac_configured(hmac_ok)
 
     worker = asyncio.create_task(payment_service.worker_loop(30.0))
+    outbound_worker = asyncio.create_task(outbound_queue.run_worker_loop())
+    log_event("outbound_worker_started")
     try:
         yield
     finally:
         worker.cancel()
+        outbound_worker.cancel()
         log_event("service.shutdown")
         await close_db()
 
@@ -238,6 +245,17 @@ async def _handle_domain_error(request: Request, exc: DomainError) -> JSONRespon
 app.include_router(api_router)
 app.include_router(root_router)
 setup_metrics(app)
+
+# ── Static media (QR PNGs) ──────────────────────────────────
+# Serve QRs gravados por utils/qrcode.save_pix_qr_png em
+# /api/v1/public/media/qrcodes/<payment_id>.png. Prefixo `/api/v1/public/*`
+# casa com o matcher do Caddy listener publico (:8081) — URL absoluta
+# devolvida em ChargePixData.qr_url funciona via Tailscale Funnel sem
+# regra extra de proxy.
+from .config import get_settings as _gs  # noqa: E402
+_media_dir = Path(_gs().media_dir)
+_media_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/api/v1/public/media", StaticFiles(directory=str(_media_dir)), name="public_media")
 
 
 @app.get("/healthz", include_in_schema=False)

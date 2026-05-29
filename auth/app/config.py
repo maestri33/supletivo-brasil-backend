@@ -3,6 +3,7 @@
 from enum import StrEnum
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
 
@@ -16,7 +17,8 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
     DATABASE_URL: str = "sqlite+aiosqlite:///auth.db"
-    DB_SCHEMA: str = "auth"
+    # Aceita DATABASE_SCHEMA (padrao novo, todos os outros services) ou DB_SCHEMA (legacy).
+    DB_SCHEMA: str = Field(default="auth", validation_alias=AliasChoices("DATABASE_SCHEMA", "DB_SCHEMA"))
     REDIS_URL: str = "redis://localhost:6379/0"
     ENVIRONMENT: Environment = Environment.DEVELOPMENT
     APP_VERSION: str = "0.3.0"
@@ -30,11 +32,8 @@ class Settings(BaseSettings):
     NOTIFY_SERVICE_URL: str = ""
     LEAD_SERVICE_URL: str = ""
     DOCUMENTS_SERVICE_URL: str = ""
+    # Usado por integrations/address.py (AddressClient sem base_url no register).
     ADDRESS_SERVICE_URL: str = ""
-
-    # Admin security — define em .env de producao (string longa, tipo UUID)
-    # Usado pelos endpoints /atomic e /log requerem X-Admin-Key header
-    ADMIN_API_KEY: str = ""
 
 
 @lru_cache

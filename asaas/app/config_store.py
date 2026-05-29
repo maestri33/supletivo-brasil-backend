@@ -85,6 +85,7 @@ _ENV_BOOTSTRAP = (
     ("asaas_internal_url_payout", K_INTERNAL_URL_PAYOUT),
     ("asaas_internal_url_scheduling", K_INTERNAL_URL_SCHEDULING),
     ("asaas_webhook_secret", K_ASAAS_WEBHOOK_SECRET),
+    ("asaas_security_token", K_ASAAS_SECURITY_TOKEN),
 )
 
 

@@ -174,3 +174,121 @@ Todas as chamadas HTTP usam `integrations/http_client.py` com retry configuráve
 - **Env vars órfãs** no `config.py` para providers removidos: violação de §9 (sem ruído).
 - **Sem testes** para `messages/send`, `whatsapp` e `instructions`: cobertura parcial.
 - **`media/`** local com arquivos de áudio/imagem versionados no repositório: violação de §9 (dados locais não devem ser versionados).
+
+---
+
+## Padrões validados (2026-05-28)
+
+### Envio de mídia — WhatsApp vs Email
+
+| Canal     | Usar URL    | Por quê                                                                                                                                                          |
+|-----------|-------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| WhatsApp  | **LAN interna** (ex. `http://10.1.20.30:8002/media/image/<uuid>.jpg`) | O Evolution (em `10.1.20.200`) precisa baixar o arquivo. Se a URL pública (`api.m33.live`) estiver firewalled na rota dele, a sendMedia retorna 500 `AggregateError` ou 201 com entrega silenciosa falha. URL LAN evita essa rota. |
+| Email     | **URL pública** embedada via `<img src="https://api.m33.live/...">` no HTML | O cliente de email (Gmail/Outlook) é quem baixa a imagem na hora de renderizar — precisa de URL alcançável pela internet. URL LAN não funciona pro destinatário. |
+
+### Pré-requisitos para `POST /api/v1/messages/send`
+
+1. **Contact existe** em `notify.contacts` apontando para um `auth.users.external_id` válido (FK obrigatório). Pra criar um contact novo precisa primeiro inserir o user:
+   ```sql
+   INSERT INTO auth.users DEFAULT VALUES RETURNING external_id;
+   -- depois POST /api/v1/contacts com esse external_id (UUID), email e/ou phone
+   ```
+2. Phone no formato `DDI+DDD+numero` sem máscara, ex `5543996648750`.
+
+### Envio de email — padrão canônico (Mailcow via SSH + sendmail)
+
+O Mailcow vive na **VM 150** (`mail.v7m.org`, IP público `135.181.216.147`), acessível como host `mail` no tailnet **goat-gila**. A receita canônica para disparar email é injetar a mensagem direto no Postfix do container, sem SMTP AUTH — o rspamd assina DKIM automaticamente:
+
+```bash
+ssh mail 'cat > /tmp/mail.eml <<EOF
+From: "Nome" <noreply@v7m.org>
+To: alvo@exemplo.com
+Subject: Assunto
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+
+<!DOCTYPE html><html><body>
+  <p>HTML body com <a href="...">link</a> e <img src="https://..."/>.</p>
+</body></html>
+EOF
+docker exec -i mailcowdockerized-postfix-mailcow-1 sendmail -t -f noreply@v7m.org < /tmp/mail.eml'
+```
+
+**Pré-requisitos:**
+- Tailscale instalado e logado no tailnet `goat-gila` (host emissor precisa enxergar o nó `mail`). Sem Tailscale: `ssh: Could not resolve hostname mail`.
+- `From:` em domínio com DKIM publicado no Mailcow. **Validado:** `v7m.org`. Outros (`m33.live`, `ieadpg.com/org`, `supletivo.com.br`, `v7m.live/net/org`) requer `dig +short dkim._domainkey.<dominio> TXT` antes.
+- Envelope-from (`-f`) bate com header `From:` (alinhamento SPF/DMARC).
+
+**Verificação da entrega:**
+```bash
+ssh mail 'docker logs --tail 200 mailcowdockerized-postfix-mailcow-1 2>&1 | grep -iE "alvo@exemplo|<subject-unico>"'
+# Padrão de sucesso: status=sent (250 ...) seguido de queue removed
+ssh mail 'docker logs --tail 200 mailcowdockerized-rspamd-mailcow-1 2>&1 | grep "<QID>"'
+# Score saudável: < 5.0, com DKIM_SIGNED presente
+```
+
+`status=sent` é entrega no servidor remoto, **não** garantia de inbox. Gmail pode dropar silenciosamente domínio novo. `_dmarc.v7m.org` está em `p=quarantine`, então DKIM/SPF falhando → spam direto.
+
+### Por que NÃO usar `MAILCOW_SMTP_*` no `notify` deste host
+
+O `SMTPClient` em `app/integrations/smtp.py` tenta conectar TCP em `mail.v7m.org:587`. Daqui (`10.1.20.30`) a rota pública para `135.181.216.0/24` está bloqueada — sintoma: `OSError(101, 'Network is unreachable')`. Opções:
+1. **Preferida:** trocar o envio do notify para usar a receita SSH/sendmail acima (refatorar `SMTPClient` para shell-out via Tailscale). Mantém DKIM e reputação do v7m.org.
+2. Apontar `MAILCOW_SMTP_HOST` para um relay alcançável daqui (ex: `smtp.gmail.com` com app-pass) — perde alinhamento de domínio e DKIM da v7m.
+3. Liberar egress 587 do host pra `135.181.216.0/24` — autoriza o SMTPClient atual a falar com o Mailcow público.
+
+### Configuração legada (vars `MAILCOW_*` no `/backend/.env`)
+
+Enquanto opção 1 não acontece, as envs ainda vivem no `.env` da raiz `/backend` (NÃO em `/backend/notify/.env` — o compose usa `env_file: .env` da raiz):
+
+```env
+MAILCOW_SMTP_HOST=<host SMTP alcançável>
+MAILCOW_SMTP_PORT=587
+MAILCOW_SMTP_USER=<user>
+MAILCOW_SMTP_PASS=<app-password>
+MAILCOW_FROM_EMAIL=<from>
+MAILCOW_FROM_NAME=Supletivo
+MAILCOW_TIMEOUT_S=30
+```
+
+Após editar: `docker compose -f docker-compose.dev.yml up -d notify`.
+
+### Evolution sendMedia — payload válido
+
+`POST http://10.1.20.200/message/sendMedia/{instance}` com header `apikey: <WHATSAPP_GLOBAL_API_KEY>`:
+
+```json
+{
+  "number": "5543996648750",
+  "mediatype": "image",
+  "mimetype": "image/jpeg",
+  "caption": "Texto opcional",
+  "media": "http://10.1.20.30:8002/media/image/<uuid>.jpg",
+  "fileName": "<uuid>.jpg"
+}
+```
+
+- `mediatype` aceita lowercase (`image|video|audio|document`) — apesar dos docs mostrarem TitleCase.
+- `mimetype` e `fileName` são opcionais mas recomendados — sem eles a entrega pode falhar silenciosamente para JPGs grandes.
+- Status `PENDING` no retorno é normal — significa enfileirado na rede do WhatsApp, **não erro**.
+- A URL em `media` precisa ser baixável **a partir do container Evolution** — não da máquina que está chamando.
+
+### Receita mínima — enviar imagem por WhatsApp + email no mesmo send
+
+```bash
+# 1) Garante contato com phone e email
+curl -X POST http://localhost:8015/api/v1/contacts \
+  -H "Content-Type: application/json" \
+  -d '{"external_id":"<UUID-de-auth.users>","phone":"5543996648750","email":"alvo@gmail.com"}'
+
+# 2) Manda mensagem — notify usa URL LAN no WhatsApp e embeda pública no email (template default)
+curl -X POST http://localhost:8015/api/v1/messages/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "external_id":"<UUID>",
+    "title":"Assunto",
+    "content":"Texto/HTML — links no HTML são preservados pro email",
+    "media_url":"http://10.1.20.30:8002/media/image/<uuid>.jpg"
+  }'
+```
+
+Se quiser URL diferente para email e WhatsApp (LAN vs pública), hoje **não há suporte direto** no payload — `media_url` é um campo só. Workaround: dois sends separados, ou enviar o HTML com `<img src="https://...">` no `content` para email + base64/URL-LAN no `media_url` para WhatsApp.

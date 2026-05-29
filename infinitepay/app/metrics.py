@@ -5,7 +5,6 @@ Exposes:
     infinitepay_checkouts_total               — Counter: checkout transactions by status
     infinitepay_webhook_events_total          — Counter: webhook events received
     infinitepay_http_request_duration_seconds — Histogram: HTTP request latency
-    infinitepay_webhook_security_configured   — Gauge: 1 if fully secure, 0 otherwise
 
 Usage:
     from app.metrics import setup_metrics, inc_checkout, inc_webhook_event
@@ -57,12 +56,11 @@ def _get_registry() -> CollectorRegistry:
 _checkouts_total = None
 _webhook_events_total = None
 _http_duration = None
-_security_gauge = None
 
 
 def setup_metrics(app) -> None:
     """Register /metrics endpoint and HTTP duration middleware."""
-    global _checkouts_total, _webhook_events_total, _http_duration, _security_gauge
+    global _checkouts_total, _webhook_events_total, _http_duration
 
     if _checkouts_total is None:
         try:
@@ -82,11 +80,6 @@ def setup_metrics(app) -> None:
                 "infinitepay_http_request_duration_seconds",
                 "HTTP request latency for InfinitePay app",
                 ("method", "path"),
-                registry=_get_registry(),
-            )
-            _security_gauge = Gauge(
-                "infinitepay_webhook_security_configured",
-                "1 if InfinitePay webhook security (HMAC + CIDRs) is fully configured, 0 otherwise",
                 registry=_get_registry(),
             )
         except Exception:
@@ -149,11 +142,3 @@ def inc_webhook_event(event: str) -> None:
             pass
 
 
-def set_security_configured(value: bool) -> None:
-    """Set infinitepay_webhook_security_configured gauge."""
-    global _security_gauge
-    if _security_gauge is not None:
-        try:
-            _security_gauge.set(1 if value else 0)
-        except Exception:
-            pass

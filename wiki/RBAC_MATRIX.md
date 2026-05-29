@@ -1,204 +1,393 @@
-# RBAC Matrix — WS-SEC (COD-18)
+# RBAC Matrix — CONVENTION §5
 
-> **Author:** CEO (Agent 2d6b0774) / Security Review WS-SEC  
-> **Date:** 2026-05-27  
-> **Basis:** CONVENTION.md §5 — 3 categorias de endpoint  
-> **Input:** A1 Endpoint Auth Audit (`.hermes/secreviewer_a1_audit.md`)  
-
----
-
-## 1. Categories (CONVENTION §5)
-
-| # | Categoria | Auth Required | Rate Limit | Logging | Uso |
-|---|-----------|:---:|:---:|:---:|------|
-| 1 | **Desmilitarizado** (DMZ) | ❌ Nenhuma | Opcional | Mínimo | Comunicação interna entre apps da plataforma |
-| 2 | **Autenticado** | ✅ JWT + Role | Por endpoint | Log de acesso | Usuários autenticados com role válida |
-| 3 | **Público** | ❌ Nenhuma | ✅ Obrigatório | Máximo (IP, UA, payload hash) | Login, registro, webhooks externos |
+> **Fonte de verdade:** este documento mapeia cada endpoint do backend às 3 categorias
+> definidas na CONVENTION §5 e documenta os gates de role/status exigidos.
+>
+> Atualizado: 2026-05-28 (CEO — WS-SEC COD-18)
 
 ---
 
-## 2. Role Hierarchy
+## 1. Categorias de Endpoint (CONVENTION §5)
 
-| Role | Scope | Admin? | Can Issue JWT? | Notes |
-|------|-------|:------:|:---------------:|-------|
-| `admin` | Global | ✅ | ✅ | Full system access; can call `/atomic`, `/log` |
-| `staff` | Hub-level | ⚠️ Own hub | ❌ | Operations boss — manages hub + coordinator |
-| `coordinator` | Hub-level | ⚠️ Own hub | ❌ | Manages training, exams, documents per hub |
-| `promoter` | Self | ❌ | ❌ | Captures leads via `/ref=<external_id>` |
-| `candidate` | Self | ❌ | ❌ | Pre-enrollment — check/register/login |
-| `student` | Self | ❌ | ❌ | Enrolled student — docs, exams, diploma |
-| `lead` | Self | ❌ | ❌ | Pre-candidate — raw lead from landing page |
-
-**Rules:**
-- `admin` bypasses all role checks — has `require_admin` guard on destructive endpoints
-- Hub-scoped roles can only access their hub's resources
-- Self-scoped roles can only access their own data
-- Token issuance (`JWTClient.issue`) validates role exists in user's role set
+| Categoria | Pasta | Auth | Rate-Limit | Exposição |
+|---|---|---|---|---|
+| **Desmilitarizado** | `api/demilitarized/` | Nenhuma | Não | Interna (rede Proxmox) |
+| **Autenticado** | `api/authenticated/` | JWT (RS256) + role + status | Sim | Via gateway |
+| **Público** | `api/public/` | Nenhuma | Sim (Redis) | Mundo |
 
 ---
 
-## 3. Endpoint Classification by Service
+## 2. Matriz Completa por Serviço
 
-### 3.1 auth
+### 2.1 address
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /health` | health | — | — | — | Health check |
 
-| Endpoint | Method | Category | Auth | Rate Limit | Notes |
-|----------|--------|-----------|------|:----------:|-------|
-| `/check` | POST | Público | ❌ | ✅ 1/30s per phone | User enumeration mitigated (COD-32) |
-| `/login` | POST | Público | ❌ | ✅ per-IP | Returns JWT on success |
-| `/recover` | POST | Público | ❌ | ✅ per-phone | Password recovery |
-| `/register` | POST | Público | ❌ | ✅ per-phone | New user registration |
-| `/atomic` | POST/DELETE | Autenticado | `require_admin` | — | Destructive op — admin only |
-| `/log` | GET/DELETE | Autenticado | `require_admin` | — | Audit log — admin only |
-
-### 3.2 asaas
-
-| Endpoint | Method | Category | Auth | Rate Limit | Notes |
-|----------|--------|-----------|------|:----------:|-------|
-| `/webhooks/asaas` | POST | Público | ❌ (HMAC ✅) | ✅ | Webhook signature verified (COD-31) |
-| All others | CRUD | Desmilitarizado | ❌ | — | Internal payment processing |
-
-### 3.3 infinitepay
-
-| Endpoint | Method | Category | Auth | Rate Limit | Notes |
-|----------|--------|-----------|------|:----------:|-------|
-| `/webhooks/infinitepay` | POST | Público | ❌ (HMAC ✅) | ✅ | Webhook signature verified (COD-30) |
-| All others | CRUD | Desmilitarizado | ❌ | — | Internal payment processing |
-
-### 3.4 jwt
-
-| Endpoint | Method | Category | Auth | Rate Limit | Notes |
-|----------|--------|-----------|------|:----------:|-------|
-| `/.well-known/jwks.json` | GET | Público | ❌ | ✅ | Public key distribution |
-| All others | — | Desmilitarizado | ❌ | — | Internal token operations |
-
-### 3.5 candidate
-
-| Endpoint | Method | Category | Auth | Rate Limit | Notes |
-|----------|--------|-----------|------|:----------:|-------|
-| `/public/*` | POST | Público | ❌ | ✅ | Check/register/login |
-| `/authenticated/*` | CRUD | Autenticado | JWT + candidate role | — | 8 modules |
-
-### 3.6 hub
-
-| Endpoint | Method | Category | Auth | Rate Limit | Notes |
-|----------|--------|-----------|------|:----------:|-------|
-| `GET /`, `GET /{id}` | GET | Público | ❌ | ✅ advisory | Public hub listing |
-| `POST/PATCH/PUT` | CUD | Autenticado | JWT + staff/admin | — | Hub management |
-
-### 3.7 enrollment
-
-| Endpoint | Method | Category | Auth | Rate Limit | Notes |
-|----------|--------|-----------|------|:----------:|-------|
-| Webhook callback | POST | Público | ❌ | ✅ | External enrollment webhook |
-| All others | CRUD | Desmilitarizado | ❌ | — | Internal enrollment processing |
-
-### 3.8 otp
-
-| Endpoint | Method | Category | Auth | Rate Limit | Notes |
-|----------|--------|-----------|------|:----------:|-------|
-| `/webhook/notify` | POST | Público | ❌ | ✅ | Internal webhook (notify→otp) |
-| All others | — | Desmilitarizado | ❌ | — | Internal OTP operations |
-
-### 3.9 address
-
-| Endpoint | Method | Category | Auth | Rate Limit | Notes |
-|----------|--------|-----------|------|:----------:|-------|
-| `GET /cep/{zipcode}` | GET | Público | ❌ | ✅ advisory | Proxies ViaCEP — add rate-limit |
-| All others | — | Desmilitarizado | ❌ | — | Internal address operations |
-
-### 3.10 Remaining Services (all Desmilitarizado, internal-only)
-
-| Service | Category | Notes |
-|---------|-----------|-------|
-| ai | Desmilitarizado | Internal AI/OCR processing |
-| commissions | Desmilitarizado | Commission calculation (worker loop) |
-| coordinator | Desmilitarizado | Hub-level admin operations |
-| documents | Desmilitarizado | Document storage/retrieval |
-| fees | Desmilitarizado | Fee calculation via asaas |
-| lead | Desmilitarizado | Lead capture pipeline |
-| notify | Desmilitarizado | Notification dispatch |
-| profiles | Desmilitarizado | User profile management |
-| promoter | Desmilitarizado | Promoter landing/leads |
-| roles | Desmilitarizado | Role management |
-| staff | Desmilitarizado | Staff operations |
-| student | Desmilitarizado | Student lifecycle |
-| training | Desmilitarizado | LMS content |
+**Gap:** Sem endpoints expostos. Serviço interno-only via `demilitarized` de outros apps.
+**Ação:** Nenhuma. Correto por design (§6).
 
 ---
 
-## 4. Cross-Cutting Security Rules
+### 2.2 ai
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /health` | health | — | — | — | Health check |
 
-### 4.1 Authentication
-- JWT signed with RS256 (private key in `jwt/`, never committed)
-- JWKS endpoint serves public key for verification
-- Token includes: `external_id`, `roles[]`, `exp`, `iat`
-- All authenticated endpoints validate via `get_current_user` dependency
-
-### 4.2 Authorization
-- `require_admin` guard on destructive endpoints (`/atomic`, `/log`)
-- Role validation: requested role must be in user's role set
-- Cross-service: shadow tables read-only, no importing models from other services
-
-### 4.3 Rate Limiting
-- `slowapi` with `get_remote_address` key function
-- Default: 200/minute on all services
-- Stricter limits on public endpoints (OTP: 1/30s, login: per-IP)
-- `RateLimitExceeded` → 429 with retry-after header
-
-### 4.4 Webhook Security
-- External webhooks: HMAC signature verification (asaas, infinitepay)
-- Internal webhooks: desmilitarized, source IP logging
-- Rule: external webhooks NEVER go directly to app code — route through service-specific app
-
-### 4.5 PII Protection
-- No PII in logs (CPF, RG, phone, email, address, photos)
-- `notify` service: exemplary — `mask_phone()`, `mask_email()` on all PII
-- `documents` service: document numbers masked before logging (COD-18 fix)
-- Defense in depth: consider structlog processor for PII pattern redaction
-
-### 4.6 Secrets
-- `.env` files NEVER committed (`.gitignore` enforced)
-- `private.pem` NEVER committed (jwt — `.gitignore` enforced)
-- No hardcoded credentials (Fase 1 fix: `database_url` no longer has `v7m:v7m` default)
-- Future: secret manager migration (§7 Q3 — pending)
+**Gap:** Sem endpoints expostos. Serviço interno-only.
+**Ação:** Nenhuma. Correto por design (§7 — IA só via app `ai`).
 
 ---
 
-## 5. Risk Policy (CONVENTION §4.8 + WS-SEC veto)
+### 2.3 asaas
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `POST /webhook` | público | Nenhuma | — | — | Webhook externo do Asaas |
+| `POST /payment` | desmilitarizado | — | — | — | Criação de pagamento |
+| `GET/POST /config` | desmilitarizado | — | — | — | Config de pagamento |
+| `GET/POST /charge` | desmilitarizado | — | — | — | Cobranças |
+| `GET/POST /pixkey` | desmilitarizado | — | — | — | Chaves PIX |
 
-**Prohibited without human approval:**
-1. Running destructive migration in production
-2. Moving real money (asaas/infinitepay payments)
-3. Exposing public endpoint without auth/rate-limit
-4. Modifying keys/secrets
-5. Bypassing webhook signature verification
-
-**WS-SEC has veto power over:**
-- Onboarding new external service (CONVENTION §4.8)
-- Public endpoint without auth/rate-limit must pass SEC review
-
----
-
-## 6. Gaps & Recommendations
-
-| Gap | Priority | Issue | Status |
-|-----|:--------:|-------|:------:|
-| address `/cep` rate-limit | 🟡 Low | COD-18 advisory | Open |
-| hub GET rate-limit | 🟡 Low | COD-18 advisory | Open |
-| documents DMZ confirmation | 🟡 Low | Verify internal-only callers | Open |
-| Secret manager migration | 🔴 High | §7 Q3 pending | Blocked |
-| structlog PII processor | 🟡 Medium | Defense in depth | Open |
-| CI PII audit automation | 🟡 Medium | grep for PII patterns in CI | Open |
+**Gap:** Webhook público precisa de verificação de assinatura HMAC.
+**Status:** ✅ COD-30/COD-31 concluído — HMAC verificação + alertas implementados.
 
 ---
 
-## 7. Verification
+### 2.4 auth
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /health` | health | — | — | — | Health check |
 
-- [x] All 22 services classified (A1 audit)
-- [x] 4 critical auth fixes applied (COD-45: `require_admin` on atomic/log)
-- [x] Webhook signatures verified (COD-30, COD-31)
-- [x] User enumeration mitigated (COD-32)
-- [x] PII audit complete + docs fix applied
-- [ ] Secret manager migration (blocked — §7 Q3)
-- [ ] OWASP-10 assessment (pending)
-- [ ] Pre-prod security smoke test (pending)
+**Gap:** Endpoints de registro/login não visíveis no scan (podem estar em sub-rotas).
+**Ação:** Verificar se endpoints públicos de auth estão com rate-limit (COD-46 ✅).
+
+---
+
+### 2.5 candidate
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `POST /check` | público | Nenhuma | — | — | Verifica CPF/phone |
+| `POST /login` | público | Nenhuma | — | — | Login OTP |
+| `POST /refresh` | público | Nenhuma | — | — | Refresh token |
+| `GET /selfie` | autenticado | JWT | candidate | — | Selfie do candidato |
+| `GET /birth` | autenticado | JWT | candidate | — | Dados nascimento |
+| `POST /birth` | autenticado | JWT | candidate | — | Salvar nascimento |
+| `GET /pixkey` | autenticado | JWT | candidate | — | Chave PIX |
+| `POST /pixkey` | autenticado | JWT | candidate | — | Salvar PIX |
+| `GET /educational` | autenticado | JWT | candidate | — | Dados educacionais |
+| `GET /captured` | autenticado | JWT | candidate | — | Dados capturados |
+| `POST /captured` | autenticado | JWT | candidate | — | Salvar capturados |
+| `GET /personal` | autenticado | JWT | candidate | — | Dados pessoais |
+| `POST /personal` | autenticado | JWT | candidate | — | Salvar pessoais |
+| `GET /address` | autenticado | JWT | candidate | — | Endereço |
+| `POST /address` | autenticado | JWT | candidate | — | Salvar endereço |
+| `GET /documents` | autenticado | JWT | candidate | — | Documentos |
+| `PUT /documents` | autenticado | JWT | candidate | — | Atualizar docs |
+| `POST /documents/submit` | autenticado | JWT | candidate | — | Submeter para review |
+| `GET /candidates` | desmilitarizado | — | — | — | Lista interna |
+
+**Gap:** ⚠️ Endpoints `/check` e `/login` públicos — mitigação de enumeração feita (COD-32 ✅).
+**Gap:** ⚠️ Verificar se `authenticated` endpoints têm gate de **status** (ex.: candidate só avança se status anterior bate).
+
+---
+
+### 2.6 commissions
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /batches` | desmilitarizado | — | — | — | Lista batches |
+| `GET /batches/{id}` | desmilitarizado | — | — | — | Batch específico |
+| `POST /trigger-processing` | desmilitarizado | — | — | — | Trigger processamento |
+| `GET /commissions` | desmilitarizado | — | — | — | Lista comissões |
+| `GET /commissions/{id}` | desmilitarizado | — | — | — | Comissão específica |
+| `POST /commissions` | desmilitarizado | — | — | — | Criar comissão |
+| `GET /payment-batches` | desmilitarizado | — | — | — | Batches de pagamento |
+| `GET /payment-batches/{id}` | desmilitarizado | — | — | — | Batch pagamento |
+| `POST /processing/trigger` | desmilitarizado | — | — | — | Trigger processamento |
+
+**Gap:** Todos desmilitarizados — correto para serviço interno.
+**Nota:** `trigger-processing` e `processing/trigger` parecem duplicados.
+
+---
+
+### 2.7 coordinator
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /health` | health | — | — | — | Health check |
+
+**Gap:** Sem endpoints implementados. Módulo sub-implementado.
+
+---
+
+### 2.8 documents
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /health` | health | — | — | — | Health check |
+
+**Gap:** Sem endpoints expostos. Serviço interno-only.
+**Ação:** Verificar se há endpoints demilitarizados faltando para outros apps consultarem documentos.
+
+---
+
+### 2.9 enrollment
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /documents` | autenticado | JWT | ? | ? | Docs do enrollment |
+| `PUT /documents/rg` | autenticado | JWT | ? | ? | Atualizar RG |
+| `GET /selfie` | autenticado | JWT | ? | ? | Selfie |
+| `GET /profile` | autenticado | JWT | ? | ? | Perfil |
+| `POST /profile` | autenticado | JWT | ? | ? | Salvar perfil |
+| `GET /education` | autenticado | JWT | ? | ? | Educação |
+| `POST /education` | autenticado | JWT | ? | ? | Salvar educação |
+| `GET /address` | autenticado | JWT | ? | ? | Endereço |
+| `POST /address` | autenticado | JWT | ? | ? | Salvar endereço |
+
+**Gap:** ⚠️ Role gates e status gates não verificados — precisa auditar `dependencies.py`.
+**Ação:** Verificar se enrollment exige role `candidate` ou `training` e status específico.
+
+---
+
+### 2.10 fees
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /` | autenticado | JWT | ? | ? | Lista fees |
+| `GET /{fee_id}` | autenticado | JWT | ? | ? | Fee específica |
+| `POST /asaas-payout` | desmilitarizado | — | — | — | Webhook payout Asaas |
+
+**Gap:** ⚠️ Verificar role gate em endpoints autenticados.
+
+---
+
+### 2.11 hub
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /health` | health | — | — | — | Health check |
+
+**Gap:** Sem endpoints implementados. Módulo sub-implementado.
+
+---
+
+### 2.12 infinitepay
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /` (webhook) | público | Nenhuma | — | — | Webhook InfinitePay |
+| `GET /` (checkout) | desmilitarizado | — | — | — | Checkout interno |
+
+**Gap:** ✅ `/health/integration` removido/secured (COD-91).
+**Gap:** ⚠️ Webhook público precisa verificação de assinatura (COD-30 ✅).
+
+---
+
+### 2.13 jwt
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /health` | health | — | — | — | Health check |
+
+**Gap:** JWKS endpoint não visível — pode estar em rota raiz.
+**Ação:** Verificar se JWKS está acessível internamente.
+
+---
+
+### 2.14 lead
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `POST /check` | público | Nenhuma | — | — | Verifica CPF/phone |
+| `POST /login` | público | Nenhuma | — | — | Login OTP |
+| `POST /refresh` | público | Nenhuma | — | — | Refresh token |
+| `GET /waiting` | autenticado | JWT | lead? | waiting? | Leads em espera |
+| `GET /completed` | autenticado | JWT | lead? | completed? | Leads completos |
+| `GET /checkout` | autenticado | JWT | lead? | — | Checkout |
+| `GET /captured` | autenticado | JWT | lead? | — | Dados capturados |
+| `GET /checkouts` | desmilitarizado | — | — | — | Lista checkouts |
+| `POST /notify/{id}` | desmilitarizado | — | — | — | Webhook notify |
+| `POST /infinitepay` | desmilitarizado | — | — | — | Webhook InfinitePay |
+| `POST /asaas-charge` | desmilitarizado | — | — | — | Webhook Asaas charge |
+| `GET /leads` | desmilitarizado | — | — | — | Lista leads |
+| `GET /leads/{id}` | desmilitarizado | — | — | — | Lead específico |
+
+**Gap:** ⚠️ Endpoints `/check` e `/login` públicos — mitigação de enumeração (COD-32 ✅).
+**Gap:** ⚠️ Verificar role/status gates em endpoints autenticados.
+
+---
+
+### 2.15 notify
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /check` | desmilitarizado | — | — | — | Verifica contato |
+| `POST /` | desmilitarizado | — | — | — | Criar notificação |
+| `GET /` | desmilitarizado | — | — | — | Lista notificações |
+| `GET /{id}` | desmilitarizado | — | — | — | Notificação específica |
+| `GET /logs` | desmilitarizado | — | — | — | Logs de envio |
+| `GET /metrics` | desmilitarizado | — | — | — | Métricas |
+| `GET /templates` | desmilitarizado | — | — | — | Lista templates |
+| `GET /templates/{slug}` | desmilitarizado | — | — | — | Template específica |
+| `PUT /templates/{slug}` | desmilitarizado | — | — | — | Atualizar template |
+| `GET /email/health` | desmilitarizado | — | — | — | Health email |
+| `GET /email/status` | desmilitarizado | — | — | — | Status email |
+| `GET /email/domains` | desmilitarizado | — | — | — | Domínios |
+| `GET /email/domains/{d}` | desmilitarizado | — | — | — | Domínio específico |
+| `GET /email/mailboxes/{d}` | desmilitarizado | — | — | — | Mailboxes |
+| `GET /email/mailbox/{addr}` | desmilitarizado | — | — | — | Mailbox específica |
+| `GET /email/aliases` | desmilitarizado | — | — | — | Aliases |
+| `GET /email/dkim/{d}` | desmilitarizado | — | — | — | DKIM |
+| `GET /email/queue` | desmilitarizado | — | — | — | Fila de email |
+| `POST /email/queue/flush` | desmilitarizado | — | — | — | Flush fila |
+| `GET /instructions` | desmilitarizado | — | — | — | Instruções |
+| `GET /messages` | desmilitarizado | — | — | — | Mensagens |
+| `GET /messages/{id}` | desmilitarizado | — | — | — | Mensagem específica |
+
+**Gap:** Todos desmilitarizados — correto para serviço interno.
+**Nota:** Endpoints de email expõem muita informação — verificar se deveriam ser demilitarizados ou autenticados com role admin.
+
+---
+
+### 2.16 otp
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /health` | health | — | — | — | Health check |
+
+**Gap:** Endpoints de geração/validação OTP não visíveis — podem estar em rotas internas.
+**Ação:** Verificar se OTP endpoints estão com rate-limit (prevenção brute-force).
+
+---
+
+### 2.17 profiles
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /health` | health | — | — | — | Health check |
+
+**Gap:** Sem endpoints expostos. Serviço interno-only.
+**Ação:** Verificar se há endpoints demilitarizados para outros apps consultarem perfis.
+
+---
+
+### 2.18 promoter
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `POST /check` | público | Nenhuma | — | — | Verifica CPF/phone |
+| `POST /login` | público | Nenhuma | — | — | Login OTP |
+| `POST /refresh` | público | Nenhuma | — | — | Refresh token |
+| `GET /me` | autenticado | JWT | promoter | — | Dados do promoter |
+| `GET /me/leads` | autenticado | JWT | promoter | — | Leads do promoter |
+| `GET /promoters` | desmilitarizado | — | — | — | Lista promoters |
+
+**Gap:** ⚠️ Endpoints `/check` e `/login` públicos — mitigação de enumeração (COD-32 ✅).
+**Gap:** ⚠️ Verificar se `GET /me` exige role `promoter` explicitamente.
+
+---
+
+### 2.19 roles
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /health` | health | — | — | — | Health check |
+
+**Gap:** Endpoints de gestão de roles não visíveis — podem estar em rotas internas.
+**Ação:** Verificar se endpoints de transição de role estão protegidos (só admin/coordinator).
+
+---
+
+### 2.20 staff
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /me` | autenticado | JWT | staff? | — | Dados do staff |
+| `GET /hubs` | autenticado | JWT | staff? | — | Hubs do staff |
+| `GET /health` | autenticado | JWT | staff? | — | Health interno |
+
+**Gap:** ⚠️ Verificar se role `staff` é exigido explicitamente.
+
+---
+
+### 2.21 student
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /me/documents` | autenticado | JWT | student | — | Documentos |
+| `POST /me/documents/submit` | autenticado | JWT | student | — | Submeter docs |
+| `POST /` | autenticado | JWT | ? | — | Criar student |
+| `GET /me` | autenticado | JWT | student | — | Dados do student |
+| `GET /me/pending-items` | autenticado | JWT | student | — | Itens pendentes |
+| `GET /me/exams` | autenticado | JWT | student | — | Provas |
+| `PATCH /{id}/exams/{id}` | autenticado | JWT | ? | — | Atualizar prova |
+| `POST /me/diploma/pickup` | autenticado | JWT | student | — | Retirar diploma |
+
+**Gap:** ⚠️ `PATCH /{id}/exams/{id}` — verificar se exige role coordinator/admin (não student).
+
+---
+
+### 2.22 training
+| Endpoint | Categoria | Auth | Role Gate | Status Gate | Notas |
+|---|---|---|---|---|---|
+| `GET /coordinator` | autenticado | JWT | coordinator? | — | Painel coordinator |
+| `GET /submissions` | autenticado | JWT | ? | — | Submissões |
+| `GET /materials` | autenticado | JWT | training? | — | Materiais |
+| `GET /materials/{id}` | desmilitarizado | — | — | — | Material específico |
+| `PUT /materials/{id}` | desmilitarizado | — | — | — | Atualizar material |
+| `GET /materials/{id}/video` | desmilitarizado | — | — | — | Vídeo |
+| `GET /materials/{id}/photo` | desmilitarizado | — | — | — | Foto |
+
+**Gap:** ⚠️ `PUT /materials/{id}` desmilitarizado — qualquer serviço interno pode alterar materiais. Considerar mover para autenticado com role coordinator.
+
+---
+
+## 3. Resumo de Gaps
+
+### 3.1 Gaps Críticos (bloqueiam produção)
+| # | Serviço | Gap | Status |
+|---|---|---|---|
+| 1 | asaas | Webhook sem HMAC | ✅ COD-30/COD-31 |
+| 2 | infinitepay | `/health/integration` sem auth | ✅ COD-91 |
+| 3 | candidate/lead/promoter | Enumeração via `/check` | ✅ COD-32 |
+
+### 3.2 Gaps de Role Gate (verificar)
+| # | Serviço | Endpoint | Role esperado | Verificado? |
+|---|---|---|---|---|
+| 1 | enrollment | Todos autenticados | candidate/training | ❌ |
+| 2 | fees | GET autenticados | promoter/coordinator | ❌ |
+| 3 | staff | Todos autenticados | staff | ❌ |
+| 4 | student | PATCH exams | coordinator | ❌ |
+| 5 | training | coordinator/submissions | coordinator | ❌ |
+| 6 | promoter | GET /me | promoter | ❌ |
+
+### 3.3 Gaps de Status Gate (verificar)
+| # | Serviço | Endpoint | Status esperado | Verificado? |
+|---|---|---|---|---|
+| 1 | candidate | documents/submit | captured? | ❌ |
+| 2 | enrollment | documents/rg | ? | ❌ |
+| 3 | student | documents/submit | ? | ❌ |
+
+### 3.4 Gaps de Rate-Limit (públicos)
+| # | Serviço | Endpoint | Rate-limit? |
+|---|---|---|---|
+| 1 | candidate | /check, /login, /refresh | ✅ COD-46 |
+| 2 | lead | /check, /login, /refresh | ✅ COD-46 |
+| 3 | promoter | /check, /login, /refresh | ✅ COD-46 |
+| 4 | asaas | /webhook | ✅ COD-46 |
+| 5 | infinitepay | /webhook | ✅ COD-46 |
+
+### 3.5 Gaps de Design (melhorias)
+| # | Serviço | Issue | Sugestão |
+|---|---|---|---|
+| 1 | training | PUT materials desmilitarizado | Mover para autenticado + role coordinator |
+| 2 | notify | Email endpoints expõem muito | Considerar role admin para endpoints sensíveis |
+| 3 | commissions | Endpoints duplicados | Consolidar trigger-processing |
+
+---
+
+## 4. Ações Pendentes
+
+- [ ] Auditar `dependencies.py` de enrollment, fees, staff, student, training, promoter para confirmar role gates
+- [ ] Auditar status gates em endpoints de funnel (candidate, enrollment, student)
+- [ ] Verificar OTP endpoints têm rate-limit anti-brute-force
+- [ ] Verificar JWT/JWKS endpoints estão acessíveis internamente
+- [ ] Mover `training PUT /materials` para autenticado
+- [ ] Consolidar endpoints duplicados em commissions
+
+---
+
+## 5. Referências
+
+- CONVENTION §5: APIs — Três tipos de endpoint
+- CONVENTION §8: Sistema de Roles
+- COD-45: Auditoria de endpoints sem auth
+- COD-46: Verificação de rate-limit
+- COD-32: Mitigação de enumeração
+- COD-30/COD-31: Webhook signature verification
+- COD-91: /health/integration secured

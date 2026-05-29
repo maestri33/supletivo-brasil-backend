@@ -10,7 +10,7 @@ BACKUP_DIR="${BACKUP_DIR:-$PROJECT_DIR/backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-7}"
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H-%M-%SZ")
 
-DEFAULT_DB_URL="postgresql://supletivo:supletivo_dev@localhost:5432/supletivo"
+DEFAULT_DB_URL="postgresql://supletivo:supletivo_dev@localhost:5433/supletivo"
 DB_URL="${DATABASE_URL:-$DEFAULT_DB_URL}"
 
 PARSE_URL() {
@@ -32,7 +32,7 @@ PARSE_URL() {
     PGUSER="$user"
     PGPASSWORD="$pass"
     export PGHOST PGPORT PGUSER PGPASSWORD
-    echo "$dbname"
+    DBNAME="$dbname"
 }
 
 SCHEMA_FILTER=""
@@ -46,7 +46,7 @@ while getopts "s:h" opt; do
     esac
 done
 
-DBNAME=$(PARSE_URL "$DB_URL")
+PARSE_URL "$DB_URL"
 mkdir -p "$BACKUP_DIR"
 BACKUP_FILE="$BACKUP_DIR/backup-${TIMESTAMP}.sql.gz"
 

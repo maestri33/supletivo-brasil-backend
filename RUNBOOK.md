@@ -9,8 +9,9 @@
 
 | Layer | Technology | Port | Config |
 |-------|-----------|------|--------|
-| API Gateway | None (direct per-service) | 8001-8022 | docker-compose.dev.yml |
-| **Production** | **docker-compose.prod.yml** | **5432, 6379, 3000, 9090, 3100** | **docker-compose.prod.yml + .env** |
+| API Gateway | Traefik v2.11 | 80 / 443 (prod TLS) / 8090 dashboard (dev) | docker-compose.{dev,prod}.yml |
+| Direct service access (dev only) | per-service | 8001-8022 | docker-compose.dev.yml |
+| **Production** | **docker-compose.prod.yml** | **80, 443, 5432, 6379, 3000, 9090, 3100** | **docker-compose.prod.yml + .env** |
 | Database | PostgreSQL 16 | 5433 (dev) / 5432 (prod) | postgres service |
 | Cache | Redis 7 | 6379 | redis service |
 | Metrics | Prometheus 2.53 | 9090 | prometheus/prometheus.yml |
@@ -18,8 +19,17 @@
 | Dashboards | Grafana 11.0 | 3000 | grafana/provisioning/ |
 | Secrets | Infisical | 8080 | docker-compose (profile: infisical) |
 
-**All 22 microservices** run on port 8000 internally, mapped to 8001-8022 externally.
+**All 22 microservices** run on port 8000 internally. In dev também ficam expostos diretamente em 8001-8022. Em prod o acesso público é **somente via Traefik** em `https://api.supletivo.net/<service>/...`.
 Each has: `/health` endpoint, `/metrics` (Prometheus), structured logging (structlog).
+
+### API Gateway (Traefik)
+
+- **Dev:** `http://localhost/<service>/...` — ex.: `curl http://localhost/auth/api/v1/check`
+  Dashboard insecure: `http://localhost:8090/dashboard/`
+- **Prod:** `https://api.supletivo.net/<service>/...` — TLS automático via Let's Encrypt (TLS-ALPN-01).
+  Dashboard NÃO exposto; acesse via SSH tunnel (`docker exec -it backend-traefik-1 ...`) ou habilite manualmente.
+- **Requisitos prod:** `ACME_EMAIL` no `.env`, portas 80/443 livres, DNS `api.supletivo.net` → host.
+- **Como funciona:** stripprefix middleware remove `/<service>` antes de encaminhar. `GET /auth/api/v1/check` chega ao container `auth:8000` como `GET /api/v1/check`.
 
 ---
 
