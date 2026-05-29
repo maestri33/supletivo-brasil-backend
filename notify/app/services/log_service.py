@@ -14,7 +14,9 @@ log = get_logger(__name__)
 
 
 async def list_logs(
-    session: AsyncSession, limit: int = 50, offset: int = 0,
+    session: AsyncSession,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[Log]:
     result = await session.scalars(
         select(Log).order_by(Log.created_at.desc()).offset(offset).limit(limit)
@@ -23,7 +25,10 @@ async def list_logs(
 
 
 async def list_logs_by_message(
-    session: AsyncSession, message_id: int, limit: int = 50, offset: int = 0,
+    session: AsyncSession,
+    message_id: int,
+    limit: int = 50,
+    offset: int = 0,
 ) -> list[Log]:
     result = await session.scalars(
         select(Log)
@@ -47,9 +52,7 @@ async def list_logs_by_external_id(
     contact aponta para esse external_id (cobre logs criados antes da
     migration 0002 que ainda nao tem external_id direto).
     """
-    contact_id_stmt = (
-        select(Contact.id).where(Contact.external_id == external_id).scalar_subquery()
-    )
+    contact_id_stmt = select(Contact.id).where(Contact.external_id == external_id).scalar_subquery()
     message_ids_stmt = (
         select(Message.id).where(Message.contact_id == contact_id_stmt).scalar_subquery()
     )

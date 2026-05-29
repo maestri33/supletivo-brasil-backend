@@ -3,30 +3,29 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from pydantic import BaseModel
 
 from app.exceptions import ForbiddenError, UnauthorizedError
 from app.integrations.jwt import JWTClient
 from app.integrations.otp import OTPClient, OTPError
 from app.integrations.roles import RolesClient
+from app.schemas.auth import LoginRequest, TokenResponse
+from app.utils.logging import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/login", tags=["login"])
 
 
-class LoginRequest(BaseModel):
-    external_id: str
-    otp: str
-    role: str
-
-
 @router.post("", summary="Login — verifica role, valida OTP, emite JWT")
-async def login(data: LoginRequest) -> dict:
+async def login(data: LoginRequest) -> TokenResponse:
     # 1. Busca roles e verifica se a pedida esta entre elas
     user_roles = await _get_roles(data.external_id)
     if data.role not in user_roles:
+        logger.warning("login_role_denied", external_id=data.external_id, requested_role=data.role, available_roles=user_roles)
         raise ForbiddenError(
             f"Usuario nao possui a role '{data.role}'.",
             code="ROLE_NOT_HELD",
+            extra={"requested_role": data.role, "held_roles": user_roles},
         )
 
     # 2. Verify OTP
@@ -36,7 +35,9 @@ async def login(data: LoginRequest) -> dict:
     async with JWTClient() as jwt:
         tokens = await jwt.issue(data.external_id, user_roles)
 
-    return tokens
+    logger.info("login_success", external_id=data.external_id, role=data.role)
+
+    return TokenResponse(**tokens)
 
 
 # ── Reusable ──────────────────────────────────────

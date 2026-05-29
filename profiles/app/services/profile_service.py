@@ -1,8 +1,9 @@
 """Serviço de Profile — CRUD atômico (SQLAlchemy 2)."""
 
+import re
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -29,12 +30,21 @@ from app.validators.name import normalize_name
 logger = get_logger(__name__)
 
 _PROFILE_FIELDS = {
-    "name", "gender", "mother_name", "father_name",
-    "blood_type", "civil_status", "description",
+    "name",
+    "gender",
+    "mother_name",
+    "father_name",
+    "blood_type",
+    "civil_status",
+    "description",
 }
 _EDUCATIONAL_FIELDS = {
-    "level", "last_elementary_year", "elementary_completed",
-    "elementary_year", "last_high_school_year", "high_school_completed",
+    "level",
+    "last_elementary_year",
+    "elementary_completed",
+    "elementary_year",
+    "last_high_school_year",
+    "high_school_completed",
 }
 _BIRTH_INFO_FIELDS = {"state", "city", "birth_date"}
 
@@ -69,7 +79,8 @@ async def create_profile(session: AsyncSession, data: ProfileCreate) -> ProfileR
 
 
 def _classify_integrity_error(
-    exc: IntegrityError, data: ProfileCreate,
+    exc: IntegrityError,
+    data: ProfileCreate,
 ) -> Conflict | ValidationError:
     """Mapeia IntegrityError do Postgres para o erro de domínio correto.
 
@@ -92,7 +103,8 @@ def _classify_integrity_error(
 
 
 async def _enrich_from_cpfhub(
-    session: AsyncSession, profile: Profile,
+    session: AsyncSession,
+    profile: Profile,
 ) -> BirthInfo | None:
     """Pós-save: enriquece o profile com dados da CPFHub.io. Best-effort.
 
@@ -133,7 +145,9 @@ async def _enrich_from_cpfhub(
 
 
 def _apply_identity(
-    session: AsyncSession, profile: Profile, identity: CPFHubIdentity,
+    session: AsyncSession,
+    profile: Profile,
+    identity: CPFHubIdentity,
 ) -> BirthInfo | None:
     """Aplica os campos da CPFHub no profile. Retorna BirthInfo se criado."""
     if identity.name:
@@ -202,8 +216,6 @@ async def list_profiles(
             stmt = stmt.where(func.lower(Profile.name).like(func.lower(pattern)))
 
     if cpf:
-        import re
-
         digits = re.sub(r"[^0-9]", "", cpf)
         if digits:
             stmt = stmt.where(Profile.cpf.like(f"{digits}%"))
@@ -212,13 +224,14 @@ async def list_profiles(
 
     result = await session.scalars(stmt)
     return [
-        ProfileListItem(external_id=p.external_id, cpf=p.cpf, name=p.name)
-        for p in result.all()
+        ProfileListItem(external_id=p.external_id, cpf=p.cpf, name=p.name) for p in result.all()
     ]
 
 
 async def patch_profile(
-    session: AsyncSession, external_id: UUID, data: ProfilePatch,
+    session: AsyncSession,
+    external_id: UUID,
+    data: ProfilePatch,
 ) -> ProfileRead:
     profile = await _get_profile_with_relations(session, external_id)
     if not profile:

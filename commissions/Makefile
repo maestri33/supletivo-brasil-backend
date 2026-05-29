@@ -1,0 +1,37 @@
+.PHONY: help install dev run test lint fmt migrate clean
+
+help:
+	@echo "make install   - sincroniza dependencias (uv sync)"
+	@echo "make dev       - roda uvicorn com reload"
+	@echo "make run       - roda uvicorn em modo prod"
+	@echo "make test      - roda pytest"
+	@echo "make lint      - ruff check"
+	@echo "make fmt       - ruff format"
+	@echo "make migrate   - alembic upgrade head"
+	@echo "make clean     - remove caches"
+
+install:
+	uv sync
+
+dev:
+	uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+run:
+	uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+test:
+	uv run pytest -q
+
+lint:
+	uv run ruff check app tests
+
+fmt:
+	uv run ruff format app tests
+	uv run ruff check --fix app tests
+
+migrate:
+	uv run alembic upgrade head
+
+clean:
+	rm -rf .pytest_cache .ruff_cache __pycache__
+	find . -type d -name __pycache__ -exec rm -rf {} +

@@ -43,7 +43,8 @@ async def test_create_contact_basic(client: AsyncClient, make_auth_user) -> None
 
 
 async def test_create_contact_duplicate_conflict(
-    client: AsyncClient, make_auth_user,
+    client: AsyncClient,
+    make_auth_user,
 ) -> None:
     eid = await make_auth_user()
     await client.post(
@@ -77,11 +78,13 @@ async def test_get_contact_found(client: AsyncClient, make_auth_user) -> None:
 
 
 async def test_create_contact_no_phone_or_email(
-    client: AsyncClient, make_auth_user,
+    client: AsyncClient,
+    make_auth_user,
 ) -> None:
     eid = await make_auth_user()
     resp = await client.post(
-        "/api/v1/contacts", json={"external_id": eid},
+        "/api/v1/contacts",
+        json={"external_id": eid},
     )
     assert resp.status_code == 400
 
@@ -90,10 +93,12 @@ async def test_list_contacts(client: AsyncClient, make_auth_user) -> None:
     e1 = await make_auth_user()
     e2 = await make_auth_user()
     await client.post(
-        "/api/v1/contacts", json={"external_id": e1, "phone": "5511987654325"},
+        "/api/v1/contacts",
+        json={"external_id": e1, "phone": "5511987654325"},
     )
     await client.post(
-        "/api/v1/contacts", json={"external_id": e2, "phone": "5511987654326"},
+        "/api/v1/contacts",
+        json={"external_id": e2, "phone": "5511987654326"},
     )
     resp = await client.get("/api/v1/contacts?limit=10")
     assert resp.status_code == 200

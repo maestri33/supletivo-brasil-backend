@@ -35,8 +35,6 @@ class Settings(BaseSettings):
     JWT_BASE_URL: str
     NOTIFY_BASE_URL: str
     PROFILES_BASE_URL: str
-    ROLES_BASE_URL: str
-
     HTTP_TIMEOUT: int = Field(default=10, ge=1)
 
     # ── Regras de negócio ───────────────────────────────────────────────────

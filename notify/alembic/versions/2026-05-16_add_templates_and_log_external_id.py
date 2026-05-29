@@ -72,22 +72,33 @@ def upgrade() -> None:
         sa.Column("html", sa.Text(), nullable=False),
         sa.Column("version", sa.Integer(), server_default=sa.text("1"), nullable=False),
         sa.Column(
-            "is_active", sa.Boolean(), server_default=sa.text("true"), nullable=False,
+            "is_active",
+            sa.Boolean(),
+            server_default=sa.text("true"),
+            nullable=False,
         ),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="templates_pkey"),
         sa.UniqueConstraint("slug", name="templates_slug_key"),
         schema=SCHEMA,
     )
     op.create_index(
-        "templates_slug_idx", "templates", ["slug"], schema=SCHEMA, unique=False,
+        "templates_slug_idx",
+        "templates",
+        ["slug"],
+        schema=SCHEMA,
+        unique=False,
     )
 
     # Seed do template default — operador pode editar via PUT /templates/default
@@ -121,20 +132,30 @@ def upgrade() -> None:
     )
     op.create_foreign_key(
         "logs_external_id_fkey",
-        "logs", "users",
-        ["external_id"], ["external_id"],
-        source_schema=SCHEMA, referent_schema="auth",
-        onupdate="CASCADE", ondelete="RESTRICT",
+        "logs",
+        "users",
+        ["external_id"],
+        ["external_id"],
+        source_schema=SCHEMA,
+        referent_schema="auth",
+        onupdate="CASCADE",
+        ondelete="RESTRICT",
     )
     op.create_index(
-        "logs_external_id_idx", "logs", ["external_id"], schema=SCHEMA,
+        "logs_external_id_idx",
+        "logs",
+        ["external_id"],
+        schema=SCHEMA,
     )
 
 
 def downgrade() -> None:
     op.drop_index("logs_external_id_idx", table_name="logs", schema=SCHEMA)
     op.drop_constraint(
-        "logs_external_id_fkey", "logs", schema=SCHEMA, type_="foreignkey",
+        "logs_external_id_fkey",
+        "logs",
+        schema=SCHEMA,
+        type_="foreignkey",
     )
     op.drop_column("logs", "external_id", schema=SCHEMA)
 

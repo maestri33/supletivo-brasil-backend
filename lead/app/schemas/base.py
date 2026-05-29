@@ -1,5 +1,7 @@
+"""Pydantic base model for the lead service."""
+
 from pydantic import BaseModel, ConfigDict
-#TODO: Realoque esta funcao, sen sentido ter um diretório só pra este trecho de funcao
+
 
 class APIModel(BaseModel):
     model_config = ConfigDict(

@@ -81,6 +81,14 @@ class MessageSend(BaseModel):
         "com o resultado ao final do processamento",
         examples=["https://meuapp.com/webhook"],
     )
+    channels: list[str] | None = Field(
+        default=None,
+        description="Restringe os canais de entrega. None (default) = usa todos "
+        "os canais disponiveis do contato (whatsapp + email se houver). Lista "
+        "explicita (ex.: ['whatsapp'] ou ['email']) limita o envio apenas aos "
+        "canais listados; canais omitidos ficam status='skipped'.",
+        examples=[["whatsapp"], ["email"], ["whatsapp", "email"]],
+    )
 
 
 class MessageCreated(BaseModel):

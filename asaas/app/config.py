@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     )
 
     # Banco — Postgres central v7m com schema asaas
-    database_url: str = Field(validation_alias="ASAAS_APP_DB_URL")
+    database_url: str
     database_schema: str = "asaas"
 
     # Asaas — production-only por padrao; habilita sandbox via env
@@ -46,6 +46,16 @@ class Settings(BaseSettings):
         default=None, validation_alias="ASAAS_INTERNAL_URL_SCHEDULING"
     )
 
+    # Webhook HMAC secret — mesma chave configurada no painel Asaas
+    asaas_webhook_secret: str | None = Field(default=None, validation_alias="ASAAS_WEBHOOK_SECRET")
+
+    # Security validator token — header asaas-access-token nas chamadas
+    # /security-validator e /webhook/. Mesmo valor cadastrado no painel
+    # Asaas (Validação de saque via Webhook → Token de autenticação).
+    asaas_security_token: str | None = Field(
+        default=None, validation_alias="ASAAS_SECURITY_TOKEN"
+    )
+
     # Nonce TTL for external URL verification
     url_verify_nonce_ttl: int = 600
 
@@ -57,6 +67,25 @@ class Settings(BaseSettings):
 
     # Default due date offset (days) when creating charges sem due_date explicito
     charge_default_due_days: int = 3
+
+    # Public base URL where QR PNGs are served (used pra montar URL absoluta
+    # devolvida no response de POST /charge/pix). Antigamente o `lead` salvava
+    # o PNG localmente e servia via LEAD_PUBLIC_BASE_URL; agora o asaas e' o
+    # dono do binario (chave = payment_id, NAO external_id).
+    asaas_public_base_url: str | None = Field(
+        default=None, validation_alias="ASAAS_PUBLIC_BASE_URL"
+    )
+    # Diretorio onde os PNGs sao gravados — montado em main.py via StaticFiles
+    # em /api/v1/public/media. Default casa com o WORKDIR /app do container.
+    media_dir: str = Field(default="media", validation_alias="ASAAS_MEDIA_DIR")
+
+    # Outbound queue (notify_internal -> asaas.outbound_jobs)
+    # http_timeout: timeout do POST de cada job (segundos).
+    # worker_poll_seconds: intervalo entre passes do run_worker_loop.
+    http_timeout: float = Field(default=15.0, validation_alias="ASAAS_HTTP_TIMEOUT")
+    worker_poll_seconds: float = Field(
+        default=5.0, validation_alias="ASAAS_WORKER_POLL_SECONDS"
+    )
 
 
 # Application constants — nao sao env-driven

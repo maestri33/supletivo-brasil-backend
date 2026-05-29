@@ -1,13 +1,13 @@
-import time
+"""Base de integracoes HTTP — cliente base + retry exponencial assincrono."""
+
+import asyncio
 
 import httpx
-import structlog
 
-logger = structlog.get_logger()
+from app.exceptions import IntegrationError
+from app.utils.logging import get_logger
 
-
-class IntegrationError(Exception):
-    """Erro em chamada a servico externo."""
+logger = get_logger("candidate.integrations")
 
 
 async def request_with_retry(
@@ -18,7 +18,11 @@ async def request_with_retry(
     max_retries: int = 3,
     **kwargs,
 ) -> httpx.Response:
-    """Faz request HTTP com retry exponencial e log estruturado."""
+    """Request HTTP com retry exponencial (so em 5xx/transporte) e log estruturado.
+
+    4xx nao e' retentado: levanta `httpx.HTTPStatusError` para o chamador tratar.
+    Esgotadas as tentativas, levanta `IntegrationError` (vira 502 no handler).
+    """
     last_exc: Exception | None = None
     for attempt in range(1, max_retries + 1):
         try:
@@ -44,14 +48,13 @@ async def request_with_retry(
                 error=str(exc),
             )
         if attempt < max_retries:
-            time.sleep(2**attempt * 0.1)
-    raise IntegrationError(
-        f"{method} {url} failed after {max_retries} tentativas"
-    ) from last_exc
+            # backoff exponencial NAO bloqueante (event loop livre durante a espera)
+            await asyncio.sleep(2**attempt * 0.1)
+    raise IntegrationError(f"{method} {url} falhou apos {max_retries} tentativas") from last_exc
 
 
 class BaseClient:
-    """Cliente base para integracoes — recebe httpx.AsyncClient."""
+    """Cliente base para integracoes — recebe um httpx.AsyncClient ja' configurado."""
 
     def __init__(self, client: httpx.AsyncClient):
         self.client = client

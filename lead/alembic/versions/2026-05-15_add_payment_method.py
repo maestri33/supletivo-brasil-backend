@@ -80,9 +80,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(
-        "checkouts_provider_payment_id_idx", table_name="checkouts", schema=SCHEMA
-    )
+    op.drop_index("checkouts_provider_payment_id_idx", table_name="checkouts", schema=SCHEMA)
     op.drop_column("checkouts", "due_date", schema=SCHEMA)
     op.drop_column("checkouts", "qrcode_image", schema=SCHEMA)
     op.drop_column("checkouts", "qrcode_payload", schema=SCHEMA)

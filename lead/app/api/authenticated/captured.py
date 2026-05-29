@@ -22,7 +22,6 @@ from app.tools.create_checkout import (
     create_checkout_for_lead,
     create_pix_checkout_for_lead,
 )
-from app.tools.qrcode import absolute_qr_url
 
 router = APIRouter(prefix="/api/v1/authenticated", tags=["authenticated"])
 
@@ -90,10 +89,12 @@ def is_blank(value: str | None) -> bool:
 async def fetch_lead_context(external_id: str):
     async with (
         httpx.AsyncClient(
-            base_url=settings.PROFILES_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+            base_url=settings.PROFILES_BASE_URL,
+            timeout=settings.HTTP_TIMEOUT,
         ) as profiles_http,
         httpx.AsyncClient(
-            base_url=settings.NOTIFY_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+            base_url=settings.NOTIFY_BASE_URL,
+            timeout=settings.HTTP_TIMEOUT,
         ) as notify_http,
     ):
         profile_data = await ProfilesClient(profiles_http).first_name(external_id)
@@ -101,7 +102,9 @@ async def fetch_lead_context(external_id: str):
     return profile_data, contact_data
 
 
-@router.get("/captured", response_model=CapturedGetResponse, summary="Busca dados do lead capturado")
+@router.get(
+    "/captured", response_model=CapturedGetResponse, summary="Busca dados do lead capturado"
+)
 async def get_captured(external_id: UUID = require_captured()):
     profile_data, contact_data = await fetch_lead_context(str(external_id))
     # Retorna full_name (canonico, vindo do CPFHub) — primeiro nome derivavel
@@ -158,7 +161,8 @@ async def post_captured(
                 detail={"name": "name_required"},
             )
         async with httpx.AsyncClient(
-            base_url=settings.PROFILES_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+            base_url=settings.PROFILES_BASE_URL,
+            timeout=settings.HTTP_TIMEOUT,
         ) as client:
             try:
                 await ProfilesClient(client).patch(external_id_str, name=submitted_name)
@@ -171,7 +175,8 @@ async def post_captured(
 
     # 3) Email: sempre settable
     async with httpx.AsyncClient(
-        base_url=settings.NOTIFY_BASE_URL, timeout=settings.HTTP_TIMEOUT,
+        base_url=settings.NOTIFY_BASE_URL,
+        timeout=settings.HTTP_TIMEOUT,
     ) as client:
         try:
             await NotifyClient(client).update_email(external_id_str, payload.email)
@@ -190,6 +195,21 @@ async def post_captured(
     current_name = profile_data.get("full_name") or profile_data.get("first_name") or ""
     current_phone = contact_data.get("phone") or ""
     current_email = contact_data.get("email") or ""
+
+    # Audit: confirma que email/phone/name ja estao em notify ANTES do
+    # dispatch PIX. Notify resolve canais a partir do contact (lookup
+    # por external_id) — se email vier vazio aqui, notify NAO dispara
+    # SMTP. Esse log permite distinguir "lead nao mandou" vs "notify
+    # nao entregou".
+    log.info(
+        "captured_post_context_ready",
+        has_name=bool(current_name),
+        has_phone=bool(current_phone),
+        has_email=bool(current_email),
+        email=current_email or None,
+        phone=current_phone or None,
+        name=current_name or None,
+    )
 
     if is_blank(current_name) or is_blank(current_email) or is_blank(current_phone):
         return CapturedPostResponse(
@@ -221,7 +241,7 @@ async def post_captured(
         pix_data = PixData(
             payment_id=checkout.provider_payment_id or "",
             payload=checkout.qrcode_payload or "",
-            qr_url=absolute_qr_url(checkout.qrcode_image) if checkout.qrcode_image else "",
+            qr_url=checkout.qrcode_image or "",
         )
         # session ja foi commitada dentro de create_pix_checkout_for_lead
         return CapturedPostResponse(
@@ -239,7 +259,9 @@ async def post_captured(
         lead.status = LeadStatus.WAITING
         await session.commit()
         background_tasks.add_task(
-            create_checkout_for_lead, external_id_str, payload.payment_method,
+            create_checkout_for_lead,
+            external_id_str,
+            payload.payment_method,
         )
 
     return CapturedPostResponse(

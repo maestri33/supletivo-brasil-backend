@@ -12,7 +12,9 @@ router = APIRouter(prefix="/api/v1/entities", tags=["entities"])
 
 @router.get("/{entity_type}/{external_id}", response_model=EntityAddressRead)
 async def get_entity_address(
-    entity_type: str, external_id: str, session: AsyncSession = Depends(get_session),
+    entity_type: str,
+    external_id: str,
+    session: AsyncSession = Depends(get_session),
 ):
     return await entity_address_service.get_or_create(session, entity_type, external_id)
 
@@ -25,7 +27,10 @@ async def update_cep(
     session: AsyncSession = Depends(get_session),
 ):
     return await entity_address_service.update_address_by_cep(
-        session, entity_type, external_id, cep,
+        session,
+        entity_type,
+        external_id,
+        cep,
     )
 
 
@@ -41,6 +46,8 @@ async def upload_proof(
 
 @router.post("/{entity_type}/{external_id}/unlink", response_model=EntityAddressRead)
 async def unlink_address(
-    entity_type: str, external_id: str, session: AsyncSession = Depends(get_session),
+    entity_type: str,
+    external_id: str,
+    session: AsyncSession = Depends(get_session),
 ):
     return await entity_address_service.unlink_and_create_new(session, entity_type, external_id)

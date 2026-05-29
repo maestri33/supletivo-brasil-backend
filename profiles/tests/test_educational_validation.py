@@ -10,12 +10,11 @@ async def _criar(client: AsyncClient, external_id: str) -> None:
 
 
 async def _patch(client: AsyncClient, external_id: str, field: str, value: str):
-    return await client.patch(
-        f"/api/v1/profiles/{external_id}", json={field: value}
-    )
+    return await client.patch(f"/api/v1/profiles/{external_id}", json={field: value})
 
 
 # ── level ──────────────────────────────────────────────────────────────
+
 
 async def test_level_valido(client: AsyncClient) -> None:
     await _criar(client, "ed-lv1")
@@ -47,6 +46,7 @@ async def test_level_vazio(client: AsyncClient) -> None:
 
 # ── last_elementary_year ───────────────────────────────────────────────
 
+
 async def test_last_elem_valido(client: AsyncClient) -> None:
     await _criar(client, "ed-le1")
     resp = await _patch(client, "ed-le1", "last_elementary_year", "5th")
@@ -68,6 +68,7 @@ async def test_last_elem_vazio(client: AsyncClient) -> None:
 
 # ── last_high_school_year ──────────────────────────────────────────────
 
+
 async def test_last_hs_valido(client: AsyncClient) -> None:
     await _criar(client, "ed-hs1")
     resp = await _patch(client, "ed-hs1", "last_high_school_year", "2nd_hs")
@@ -88,6 +89,7 @@ async def test_last_hs_vazio(client: AsyncClient) -> None:
 
 
 # ── elementary_completed ───────────────────────────────────────────────
+
 
 async def test_elem_completed_true(client: AsyncClient) -> None:
     await _criar(client, "ed-ec1")
@@ -140,6 +142,7 @@ async def test_elem_completed_invalido(client: AsyncClient) -> None:
 
 # ── elementary_year ────────────────────────────────────────────────────
 
+
 async def test_elem_year_valido(client: AsyncClient) -> None:
     await _criar(client, "ed-ey1")
     resp = await _patch(client, "ed-ey1", "elementary_year", "2010")
@@ -174,6 +177,7 @@ async def test_elem_year_nao_numero(client: AsyncClient) -> None:
 
 
 # ── high_school_completed ──────────────────────────────────────────────
+
 
 async def test_hs_completed_true(client: AsyncClient) -> None:
     await _criar(client, "ed-hc1")

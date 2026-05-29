@@ -22,14 +22,9 @@ class EnrollmentEvent(Base):
 
     external_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey(
-            "auth.users.external_id",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-            name="enrollment_events_external_id_fkey",
-        ),
         index=True,
         nullable=False,
+        comment="UUID opaco do matriculando (referência lógica, sem FK §4)",
     )
 
     event: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
@@ -43,11 +38,14 @@ class EnrollmentEvent(Base):
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
 
     received_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False,
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )
 
     processed_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True,
+        DateTime(timezone=True),
+        nullable=True,
         comment="Quando lógica de matrícula real processar (futuro)",
     )
 

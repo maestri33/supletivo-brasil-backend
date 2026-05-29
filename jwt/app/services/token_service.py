@@ -45,11 +45,21 @@ async def refresh_token(refresh_token_str: str) -> dict:
         payload = jwt.decode(
             refresh_token_str,
             options={"verify_signature": False},
-            algorithms=["RS256","RS384","RS512","HS256","HS384","HS512","ES256","ES384","ES512"],
+            algorithms=[
+                "RS256",
+                "RS384",
+                "RS512",
+                "HS256",
+                "HS384",
+                "HS512",
+                "ES256",
+                "ES384",
+                "ES512",
+            ],
         )
     except Exception:
         log.warning("token.refresh.payload_invalido")
-        raise ValidationError("Refresh token invalido")
+        raise ValidationError("Refresh token invalido") from None
 
     if payload.get("type") != "refresh":
         log.warning("token.refresh.tipo_errado", tipo=payload.get("type"))
@@ -60,7 +70,7 @@ async def refresh_token(refresh_token_str: str) -> dict:
         decode_token(refresh_token_str, _PUBLIC_KEY, algorithms=[settings.jwt_algorithm])
     except Exception:
         log.warning("token.refresh.assinatura_invalida")
-        raise ValidationError("Token nao foi emitido por este servidor")
+        raise ValidationError("Token nao foi emitido por este servidor") from None
 
     claims = {k: v for k, v in payload.items() if k not in ("iat", "exp", "type", "iss", "aud")}
     access_token = create_access_token_from_config(_PRIVATE_KEY, settings, claims)
@@ -68,7 +78,11 @@ async def refresh_token(refresh_token_str: str) -> dict:
 
     log.info("token.refresh.ok", external_id=claims.get("external_id"))
     get_stats().inc_refreshed()
-    return {"access_token": access_token, "refresh_token": new_refresh_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "refresh_token": new_refresh_token,
+        "token_type": "bearer",
+    }
 
 
 async def get_jwks() -> dict:

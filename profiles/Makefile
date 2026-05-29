@@ -1,13 +1,14 @@
-.PHONY: help install dev run test lint fmt migrate clean
+.PHONY: help install dev run test lint fmt migrate migrate-new clean
 
 help:
 	@echo "make install   - sincroniza dependencias (uv sync)"
 	@echo "make dev       - roda uvicorn com reload na porta 80"
 	@echo "make run       - roda uvicorn em modo prod (sem reload)"
 	@echo "make test      - roda pytest"
-	@echo "make lint      - ruff check + mypy"
-	@echo "make fmt       - ruff format"
-	@echo "make migrate   - aerich migrate && upgrade"
+	@echo "make lint      - ruff check"
+	@echo "make fmt       - ruff format + ruff check --fix"
+	@echo "make migrate   - alembic upgrade head"
+	@echo "make migrate-new msg='descricao' - cria revision (autogenerate)"
 	@echo "make clean     - remove caches"
 
 install:
@@ -24,15 +25,16 @@ test:
 
 lint:
 	uv run ruff check app tests
-	uv run mypy app
 
 fmt:
 	uv run ruff format app tests
 	uv run ruff check --fix app tests
 
 migrate:
-	uv run aerich migrate
-	uv run aerich upgrade
+	uv run alembic upgrade head
+
+migrate-new:
+	uv run alembic revision --autogenerate -m "$(msg)"
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache __pycache__

@@ -84,8 +84,7 @@
 │   ├── services/             # regras de negócio (contact, message, log, template, metrics)
 │   ├── integrations/         # clientes externos
 │   │   ├── http_client.py    # httpx shared com retry
-│   │   ├── mailcow.py        # MailcowSMTPClient — email SMTP direto (canal atual)
-│   │   ├── smtp.py           # SMTPClient — mail merge API (DEPRECATED)
+│   │   ├── smtp.py           # SMTPClient — envio SMTP direto + helpers admin Mailcow
 │   │   ├── whatsapp.py       # WhatsAppClient — Evolution GO v2 (+resolve_br_number)
 │   │   ├── ai.py             # AIClient — texto/imagem/TTS/JSON (service ai)
 │   │   ├── profiles.py       # ProfilesClient — gênero p/ voz TTS

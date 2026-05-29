@@ -35,28 +35,32 @@ def upgrade() -> None:
         sa.Column("promoter_external_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("payload", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column(
-            "received_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "received_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column("processed_at", sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint("id", name="enrollment_events_pkey"),
-        sa.ForeignKeyConstraint(
-            ["external_id"], ["auth.users.external_id"],
-            name="enrollment_events_external_id_fkey",
-            onupdate="CASCADE", ondelete="RESTRICT",
-        ),
         schema=SCHEMA,
     )
     op.create_index(
-        "enrollment_events_external_id_idx", "enrollment_events",
-        ["external_id"], schema=SCHEMA,
+        "enrollment_events_external_id_idx",
+        "enrollment_events",
+        ["external_id"],
+        schema=SCHEMA,
     )
     op.create_index(
-        "enrollment_events_event_idx", "enrollment_events", ["event"], schema=SCHEMA,
+        "enrollment_events_event_idx",
+        "enrollment_events",
+        ["event"],
+        schema=SCHEMA,
     )
     op.create_index(
-        "enrollment_events_promoter_external_id_idx", "enrollment_events",
-        ["promoter_external_id"], schema=SCHEMA,
+        "enrollment_events_promoter_external_id_idx",
+        "enrollment_events",
+        ["promoter_external_id"],
+        schema=SCHEMA,
     )
 
 

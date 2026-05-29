@@ -2,6 +2,7 @@
 
 from .config_kv import ConfigKV
 from .customer import Customer
+from .outbound_job import OutboundJob
 from .payment import Payment
 from .pix_key import PixKey
 from .url_verify_nonce import UrlVerifyNonce
@@ -10,6 +11,7 @@ from .webhook_event import WebhookEvent
 __all__ = [
     "ConfigKV",
     "Customer",
+    "OutboundJob",
     "Payment",
     "PixKey",
     "UrlVerifyNonce",

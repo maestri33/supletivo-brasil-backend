@@ -102,7 +102,15 @@ O worker async (`workers/outbound_queue.py::run_worker_loop`, no lifespan) roda 
 
 ## Segurança do webhook
 
-Sem HMAC, mas robusto: o `external_id` chega **cifrado (Fernet)** na query (`?external_id=`) e é decriptado em `api/webhooks.py` (token inválido → 422); a confirmação do pagamento é feita **out-of-band** via `payment_check` na InfinitePay antes de marcar pago. A auditoria (`webhook_logs`) grava `source_ip` (resolve X-Forwarded-For/X-Real-IP atrás do proxy) e `user_agent` da origem (§5).
+Defesa em profundidade com duas camadas (COD-30):
+
+1. **IP allow-list** — restringe o endpoint a faixas CIDR conhecidas da InfinitePay. Configurada via `INFINITEPAY_WEBHOOK_ALLOWED_CIDRS`. Em dev/staging: aceita todos (`0.0.0.0/0`). Em produção: fail-closed — sem CIDRs configurados, todos os webhooks são rejeitados.
+
+2. **HMAC signature** — valida o header `x-infinitepay-signature` (HMAC-SHA256 do body bruto) contra `INFINITEPAY_WEBHOOK_SECRET` usando `hmac.compare_digest`. Em dev/staging: bypass quando secret não configurado. Em produção: readiness retorna NOT ok se secret ausente.
+
+O `external_id` também chega **cifrado (Fernet)** na query (`?external_id=`) e é decriptado em `api/webhooks.py` (token inválido → 422); a confirmação do pagamento é feita **out-of-band** via `payment_check` na InfinitePay antes de marcar pago. A auditoria (`webhook_logs`) grava `source_ip` (resolve X-Forwarded-For/X-Real-IP atrás do proxy) e `user_agent` da origem (§5).
+
+Health check (`/health` e `/ready`) expõe `webhook_security` status para alertas de monitoring quando inseguro em produção.
 
 ## Tipos de endpoint (§5)
 

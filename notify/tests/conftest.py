@@ -33,6 +33,11 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.pool import NullPool
 
+# Override DATABASE_URL antes de importar app.db: o .env pode conter URL
+# SQLite invalida (sqlite://data/app.db), e db.py tenta criar engine Postgres
+# no momento do import.  O engine real de teste e' criado no fixture `engine`.
+os.environ.setdefault("DATABASE_URL", "postgresql+asyncpg://skip:skip@localhost:5432/skip")
+
 from app.db import Base, get_session
 from app.main import app
 from app.models.template import DEFAULT_SLUG
@@ -113,11 +118,7 @@ async def engine() -> AsyncIterator[Any]:
                 await conn.execute(text("CREATE SCHEMA IF NOT EXISTS auth"))
                 await conn.execute(text("CREATE SCHEMA IF NOT EXISTS notify"))
                 await conn.execute(
-                    text(
-                        "CREATE TABLE IF NOT EXISTS auth.users ("
-                        "external_id UUID PRIMARY KEY"
-                        ")"
-                    )
+                    text("CREATE TABLE IF NOT EXISTS auth.users (external_id UUID PRIMARY KEY)")
                 )
                 await conn.run_sync(Base.metadata.create_all)
                 await conn.execute(
@@ -157,13 +158,19 @@ async def session_factory(engine, monkeypatch) -> async_sessionmaker[AsyncSessio
     # main.py importa async_session_maker no nivel de modulo para /ready
     monkeypatch.setattr("app.main.async_session_maker", sm, raising=False)
     monkeypatch.setattr(
-        "app.services.message_service.async_session_maker", sm, raising=False,
+        "app.services.message_service.async_session_maker",
+        sm,
+        raising=False,
     )
     monkeypatch.setattr(
-        "app.services.template_service.async_session_maker", sm, raising=False,
+        "app.services.template_service.async_session_maker",
+        sm,
+        raising=False,
     )
     monkeypatch.setattr(
-        "app.services.metrics_service.async_session_maker", sm, raising=False,
+        "app.services.metrics_service.async_session_maker",
+        sm,
+        raising=False,
     )
     return sm
 
@@ -244,8 +251,6 @@ def _isolate_external_io(monkeypatch):
       em formato 55+DDD+numero sem chamar Evolution API.
     - `validate_email` (DNS+SMTP): retorna formato+MX validos para
       qualquer email que contenha `@` e `.`.
-    - `SMTPClient.configure_smtp` / `send_single_email`: noop, retorna
-      payload faking sucesso.
     - `DeepSeekClient.edit_html_template`: retorna HTML inalterado +
       um marcador (`<!-- edited -->`) para os testes verificarem que
       passou pela IA sem precisar de API key.
@@ -271,37 +276,20 @@ def _isolate_external_io(monkeypatch):
 
     monkeypatch.setattr(phone_mod, "normalize_and_validate", fake_normalize)
     monkeypatch.setattr(
-        "app.services.contact_service.normalize_and_validate", fake_normalize,
+        "app.services.contact_service.normalize_and_validate",
+        fake_normalize,
     )
     monkeypatch.setattr(ev_mod, "validate_email", fake_validate_email)
     monkeypatch.setattr(
-        "app.services.contact_service.validate_email_full", fake_validate_email,
+        "app.services.contact_service.validate_email_full",
+        fake_validate_email,
     )
 
-    # SMTPClient (legacy/service mail): no-op p/ caso seja invocado
+    # SMTPClient (envio direto): no-op — testes nao tocam SMTP real
     from app.integrations import smtp as smtp_mod
 
-    async def fake_configure_smtp(self, **_):
-        return {"status": "configured"}
-
-    async def fake_send_single_email(
-        self, *, to_email, subject, sender_name, html_content
-    ):
-        return {
-            "sent": [to_email],
-            "summary": {"sent": 1, "failed": 0, "invalid": 0},
-        }
-
-    monkeypatch.setattr(smtp_mod.SMTPClient, "configure_smtp", fake_configure_smtp)
-    monkeypatch.setattr(
-        smtp_mod.SMTPClient, "send_single_email", fake_send_single_email,
-    )
-
-    # MailcowSMTPClient (direto): no-op — testes nao tocam SMTP real
-    from app.integrations import mailcow as mailcow_mod
-
-    async def fake_mailcow_send_email(
-        self, to_email, subject, html_body, *, plain_body=None, attachments=None,
+    async def fake_smtp_send_email(
+        self, to_email, subject, html_body, *, plain_body=None, attachments=None
     ):
         return {
             "to": to_email,
@@ -310,9 +298,7 @@ def _isolate_external_io(monkeypatch):
             "refused": {},
         }
 
-    monkeypatch.setattr(
-        mailcow_mod.MailcowSMTPClient, "send_email", fake_mailcow_send_email,
-    )
+    monkeypatch.setattr(smtp_mod.SMTPClient, "send_email", fake_smtp_send_email)
 
     # AIClient: noop para nao precisar do servico ai em testes
     from app.integrations import ai as ai_mod
@@ -320,6 +306,7 @@ def _isolate_external_io(monkeypatch):
     async def fake_ai_json(self, prompt: str, *, instruction=None, schema_description=None):
         # Retorna o html atual sem alteracoes para simular edicao via IA
         import re
+
         match = re.search(r"HTML atual:\n(.+)", prompt, re.DOTALL)
         html = match.group(1).strip() if match else prompt
         return {"html": html + "\n<!-- edited by AI -->"}

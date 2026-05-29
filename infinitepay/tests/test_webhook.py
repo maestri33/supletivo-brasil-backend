@@ -1,3 +1,7 @@
+import hashlib
+import hmac
+import os
+
 import pytest
 from sqlalchemy import select
 
@@ -85,3 +89,156 @@ async def test_webhook_idempotent_when_already_paid(db, monkeypatch):
     r2 = await checkout_service.handle_infinitepay_webhook(db, EID, WEBHOOK_PAYLOAD)
     await db.commit()
     assert r2.get("duplicate") is True
+
+
+# ── COD-30: Webhook security tests ────────────────────────────────────────────
+
+
+async def test_webhook_hmac_valid_signature_accepted(db, monkeypatch, client):
+    """HMAC com assinatura valida deve aceitar o webhook."""
+    await _create(db, monkeypatch)
+
+    async def fake_check(**kw):
+        return {"success": True, "paid": True, "installments": 1, "capture_method": "credit_card"}
+
+    monkeypatch.setattr(checkout_service, "payment_check", fake_check)
+
+    secret = "test-secret-key-12345"
+    monkeypatch.setenv("INFINITEPAY_WEBHOOK_SECRET", secret)
+
+    import json
+
+    body = json.dumps(WEBHOOK_PAYLOAD).encode()
+    signature = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+
+    from app.utils.crypto import encrypt_external_id
+
+    encrypted = encrypt_external_id(EID)
+    r = await client.post(
+        f"/api/v1/webhook/?external_id={encrypted}",
+        content=body,
+        headers={
+            "Content-Type": "application/json",
+            "x-infinitepay-signature": signature,
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+
+
+async def test_webhook_hmac_invalid_signature_rejected(db, monkeypatch, client):
+    """HMAC com assinatura invalida deve rejeitar com 401."""
+    await _create(db, monkeypatch)
+
+    async def fake_check(**kw):
+        return {"success": True, "paid": True}
+
+    monkeypatch.setattr(checkout_service, "payment_check", fake_check)
+
+    monkeypatch.setenv("INFINITEPAY_WEBHOOK_SECRET", "test-secret-key-12345")
+
+    import json
+
+    body = json.dumps(WEBHOOK_PAYLOAD).encode()
+    bad_signature = "a" * 64  # assinatura obviamente invalida
+
+    from app.utils.crypto import encrypt_external_id
+
+    encrypted = encrypt_external_id(EID)
+    r = await client.post(
+        f"/api/v1/webhook/?external_id={encrypted}",
+        content=body,
+        headers={
+            "Content-Type": "application/json",
+            "x-infinitepay-signature": bad_signature,
+        },
+    )
+    assert r.status_code == 401
+
+
+async def test_webhook_ip_allowlist_allows_configured_ip(db, monkeypatch, client):
+    """IP dentro do CIDR permitido deve aceitar o webhook."""
+    await _create(db, monkeypatch)
+
+    async def fake_check(**kw):
+        return {"success": True, "paid": True, "installments": 1, "capture_method": "credit_card"}
+
+    monkeypatch.setattr(checkout_service, "payment_check", fake_check)
+
+    # Limpa HMAC secret de testes anteriores e configura apenas IP allow-list
+    os.environ.pop("INFINITEPAY_WEBHOOK_SECRET", None)
+    os.environ["INFINITEPAY_WEBHOOK_ALLOWED_CIDRS"] = "192.168.1.100/32"
+
+    from app.utils.crypto import encrypt_external_id
+
+    encrypted = encrypt_external_id(EID)
+    r = await client.post(
+        f"/api/v1/webhook/?external_id={encrypted}",
+        json=WEBHOOK_PAYLOAD,
+        headers={"X-Forwarded-For": "192.168.1.100"},
+    )
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+
+
+async def test_webhook_ip_allowlist_rejects_unknown_ip(db, monkeypatch, client):
+    """IP fora do CIDR permitido deve rejeitar com 403."""
+    await _create(db, monkeypatch)
+
+    async def fake_check(**kw):
+        return {"success": True, "paid": True}
+
+    monkeypatch.setattr(checkout_service, "payment_check", fake_check)
+
+    # Limpa HMAC secret de testes anteriores — testa apenas IP allow-list
+    os.environ.pop("INFINITEPAY_WEBHOOK_SECRET", None)
+    os.environ["INFINITEPAY_WEBHOOK_ALLOWED_CIDRS"] = "192.168.1.100/32"
+
+    from app.utils.crypto import encrypt_external_id
+
+    encrypted = encrypt_external_id(EID)
+    r = await client.post(
+        f"/api/v1/webhook/?external_id={encrypted}",
+        json=WEBHOOK_PAYLOAD,
+        headers={"X-Forwarded-For": "10.0.0.99"},
+    )
+    assert r.status_code == 403
+
+
+async def test_webhook_ip_allowlist_disabled_allows_all(db, monkeypatch, client):
+    """CIDRS="" explicitamente desabilita o IP allow-list (dev)."""
+    await _create(db, monkeypatch)
+
+    async def fake_check(**kw):
+        return {"success": True, "paid": True, "installments": 1, "capture_method": "credit_card"}
+
+    monkeypatch.setattr(checkout_service, "payment_check", fake_check)
+
+    # Limpa HMAC secret de testes anteriores — testa apenas IP allow-list desabilitado
+    os.environ.pop("INFINITEPAY_WEBHOOK_SECRET", None)
+    monkeypatch.setenv("INFINITEPAY_WEBHOOK_ALLOWED_CIDRS", "")
+
+    from app.utils.crypto import encrypt_external_id
+
+    encrypted = encrypt_external_id(EID)
+    r = await client.post(
+        f"/api/v1/webhook/?external_id={encrypted}",
+        json=WEBHOOK_PAYLOAD,
+        headers={"X-Forwarded-For": "10.0.0.99"},  # any IP works
+    )
+    assert r.status_code == 200
+    assert r.json()["ok"] is True
+
+
+async def test_health_reports_webhook_security_status(client, monkeypatch):
+    """Health check deve reportar status da configuracao de seguranca."""
+    monkeypatch.setenv("INFINITEPAY_WEBHOOK_SECRET", "configured")
+    monkeypatch.setenv("INFINITEPAY_WEBHOOK_ALLOWED_CIDRS", "192.168.1.0/24")
+
+    r = await client.get("/health")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["ok"] is True
+    assert data["webhook_security"]["webhook_hmac_configured"] is True
+    assert data["webhook_security"]["webhook_ip_allowlist_configured"] is True
+    assert data["webhook_security"]["webhook_ip_allowlist_custom"] is True

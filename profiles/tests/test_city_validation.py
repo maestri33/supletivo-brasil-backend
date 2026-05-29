@@ -10,12 +10,11 @@ async def _criar(client: AsyncClient, external_id: str) -> None:
 
 
 async def _patch(client: AsyncClient, external_id: str, value: str):
-    return await client.patch(
-        f"/api/v1/profiles/{external_id}", json={"city": value}
-    )
+    return await client.patch(f"/api/v1/profiles/{external_id}", json={"city": value})
 
 
 # ── Normalização ──────────────────────────────────────────────────────
+
 
 async def test_city_trim_capitalize(client: AsyncClient) -> None:
     await _criar(client, "ct1")
@@ -46,6 +45,7 @@ async def test_city_vazio(client: AsyncClient) -> None:
 
 
 # ── Validação ─────────────────────────────────────────────────────────
+
 
 async def test_city_bloqueia_numeros_only(client: AsyncClient) -> None:
     await _criar(client, "ct5")

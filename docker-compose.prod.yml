@@ -1,0 +1,937 @@
+# =============================================================================
+# docker-compose.prod.yml — Ambiente de produção Supletivo
+# =============================================================================
+# Uso:
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml ps
+#
+# DIFERENÇAS da versão dev:
+#   - Sem bind-mount (imagens construídas via Dockerfile)
+#   - Restart: always (auto-recuperação)
+#   - Secrets via variáveis de ambiente (.env ou Infisical)
+#   - Log json-file com rotação para Loki
+#   - Resource limits
+#   - Init script para schemas PostgreSQL
+#
+# Antes de usar:
+#   1. cp .env.example.prod .env && edite as senhas
+#   2. docker compose -f docker-compose.prod.yml build
+#   3. docker compose -f docker-compose.prod.yml up -d
+# =============================================================================
+
+name: supletivo-prod
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init-dbs.sh:/docker-entrypoint-initdb.d/init-dbs.sh:ro
+    environment:
+      POSTGRES_DB: supletivo
+      POSTGRES_USER: supletivo
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?PG_PASSWORD required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supletivo -d supletivo"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    deploy:
+      resources: { limits: { memory: 2G }, reservations: { memory: 1G } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "50m", max-file: "3" }
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources: { limits: { memory: 512M }, reservations: { memory: 256M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "50m", max-file: "3" }
+
+  # -- API Gateway (Traefik) --
+  # Roteamento público em https://api.supletivo.net/<service>/...
+  # TLS automático via Let's Encrypt (TLS-ALPN-01 — requer portas 80/443 abertas).
+  # Dashboard NÃO exposto publicamente; use SSH tunnel + `docker exec` se precisar.
+  # Requer: ACME_EMAIL no .env.
+
+  traefik:
+    image: traefik:v2.11
+    restart: always
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.le.acme.tlschallenge=true"
+      - "--certificatesresolvers.le.acme.email=${ACME_EMAIL:?ACME_EMAIL required}"
+      - "--certificatesresolvers.le.acme.storage=/acme/acme.json"
+      - "--accesslog=true"
+      - "--log.level=INFO"
+      - "--ping=true"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - acme_data:/acme
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  # Template YAML para serviços (expandido via script de build)
+  # Cada serviço: image: supletivo/<nome>:${TAG:-latest}
+  # Portas: apenas serviços com API externa expõem porta
+  # Variáveis comuns injetadas via env_file compartilhado
+
+  address:
+    image: supletivo/address:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: address
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.address.rule=Host(`api.supletivo.net`) && PathPrefix(`/address`)"
+      - "traefik.http.routers.address.entrypoints=websecure"
+      - "traefik.http.routers.address.tls=true"
+      - "traefik.http.routers.address.tls.certresolver=le"
+      - "traefik.http.services.address.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.address-strip.stripprefix.prefixes=/address"
+      - "traefik.http.routers.address.middlewares=address-strip"
+
+  ai:
+    image: supletivo/ai:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: ai
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 512M }, reservations: { memory: 256M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai.rule=Host(`api.supletivo.net`) && PathPrefix(`/ai`)"
+      - "traefik.http.routers.ai.entrypoints=websecure"
+      - "traefik.http.routers.ai.tls=true"
+      - "traefik.http.routers.ai.tls.certresolver=le"
+      - "traefik.http.services.ai.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.ai-strip.stripprefix.prefixes=/ai"
+      - "traefik.http.routers.ai.middlewares=ai-strip"
+
+  asaas:
+    image: supletivo/asaas:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: asaas
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.asaas.rule=Host(`api.supletivo.net`) && PathPrefix(`/asaas`)"
+      - "traefik.http.routers.asaas.entrypoints=websecure"
+      - "traefik.http.routers.asaas.tls=true"
+      - "traefik.http.routers.asaas.tls.certresolver=le"
+      - "traefik.http.services.asaas.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.asaas-strip.stripprefix.prefixes=/asaas"
+      - "traefik.http.routers.asaas.middlewares=asaas-strip"
+      # Router externo (api.m33.live/asaas/*) — gateways de pagamento entram aqui.
+      # Reusa o mesmo middleware asaas-strip e o mesmo service asaas:8000.
+      # Padrão genérico: cada gateway = /<nome>/* em api.m33.live.
+      - "traefik.http.routers.asaas-m33.rule=Host(`api.m33.live`) && PathPrefix(`/asaas`)"
+      - "traefik.http.routers.asaas-m33.entrypoints=websecure"
+      - "traefik.http.routers.asaas-m33.tls=true"
+      - "traefik.http.routers.asaas-m33.tls.certresolver=le"
+      - "traefik.http.routers.asaas-m33.service=asaas"
+      - "traefik.http.routers.asaas-m33.middlewares=asaas-strip"
+
+  auth:
+    image: supletivo/auth:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: auth
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=Host(`api.supletivo.net`) && PathPrefix(`/auth`)"
+      - "traefik.http.routers.auth.entrypoints=websecure"
+      - "traefik.http.routers.auth.tls=true"
+      - "traefik.http.routers.auth.tls.certresolver=le"
+      - "traefik.http.services.auth.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.auth-strip.stripprefix.prefixes=/auth"
+      - "traefik.http.routers.auth.middlewares=auth-strip"
+
+  candidate:
+    image: supletivo/candidate:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: candidate
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.candidate.rule=Host(`api.supletivo.net`) && PathPrefix(`/candidate`)"
+      - "traefik.http.routers.candidate.entrypoints=websecure"
+      - "traefik.http.routers.candidate.tls=true"
+      - "traefik.http.routers.candidate.tls.certresolver=le"
+      - "traefik.http.services.candidate.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.candidate-strip.stripprefix.prefixes=/candidate"
+      - "traefik.http.routers.candidate.middlewares=candidate-strip"
+
+  commissions:
+    image: supletivo/commissions:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: commissions
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.commissions.rule=Host(`api.supletivo.net`) && PathPrefix(`/commissions`)"
+      - "traefik.http.routers.commissions.entrypoints=websecure"
+      - "traefik.http.routers.commissions.tls=true"
+      - "traefik.http.routers.commissions.tls.certresolver=le"
+      - "traefik.http.services.commissions.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.commissions-strip.stripprefix.prefixes=/commissions"
+      - "traefik.http.routers.commissions.middlewares=commissions-strip"
+
+  coordinator:
+    image: supletivo/coordinator:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: coordinator
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.coordinator.rule=Host(`api.supletivo.net`) && PathPrefix(`/coordinator`)"
+      - "traefik.http.routers.coordinator.entrypoints=websecure"
+      - "traefik.http.routers.coordinator.tls=true"
+      - "traefik.http.routers.coordinator.tls.certresolver=le"
+      - "traefik.http.services.coordinator.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.coordinator-strip.stripprefix.prefixes=/coordinator"
+      - "traefik.http.routers.coordinator.middlewares=coordinator-strip"
+
+  documents:
+    image: supletivo/documents:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: documents
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.documents.rule=Host(`api.supletivo.net`) && PathPrefix(`/documents`)"
+      - "traefik.http.routers.documents.entrypoints=websecure"
+      - "traefik.http.routers.documents.tls=true"
+      - "traefik.http.routers.documents.tls.certresolver=le"
+      - "traefik.http.services.documents.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.documents-strip.stripprefix.prefixes=/documents"
+      - "traefik.http.routers.documents.middlewares=documents-strip"
+
+  enrollment:
+    image: supletivo/enrollment:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: enrollment
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.enrollment.rule=Host(`api.supletivo.net`) && PathPrefix(`/enrollment`)"
+      - "traefik.http.routers.enrollment.entrypoints=websecure"
+      - "traefik.http.routers.enrollment.tls=true"
+      - "traefik.http.routers.enrollment.tls.certresolver=le"
+      - "traefik.http.services.enrollment.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.enrollment-strip.stripprefix.prefixes=/enrollment"
+      - "traefik.http.routers.enrollment.middlewares=enrollment-strip"
+
+  fees:
+    image: supletivo/fees:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: fees
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fees.rule=Host(`api.supletivo.net`) && PathPrefix(`/fees`)"
+      - "traefik.http.routers.fees.entrypoints=websecure"
+      - "traefik.http.routers.fees.tls=true"
+      - "traefik.http.routers.fees.tls.certresolver=le"
+      - "traefik.http.services.fees.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.fees-strip.stripprefix.prefixes=/fees"
+      - "traefik.http.routers.fees.middlewares=fees-strip"
+
+  hub:
+    image: supletivo/hub:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: hub
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hub.rule=Host(`api.supletivo.net`) && PathPrefix(`/hub`)"
+      - "traefik.http.routers.hub.entrypoints=websecure"
+      - "traefik.http.routers.hub.tls=true"
+      - "traefik.http.routers.hub.tls.certresolver=le"
+      - "traefik.http.services.hub.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.hub-strip.stripprefix.prefixes=/hub"
+      - "traefik.http.routers.hub.middlewares=hub-strip"
+
+  infinitepay:
+    image: supletivo/infinitepay:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: infinitepay
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.infinitepay.rule=Host(`api.supletivo.net`) && PathPrefix(`/infinitepay`)"
+      - "traefik.http.routers.infinitepay.entrypoints=websecure"
+      - "traefik.http.routers.infinitepay.tls=true"
+      - "traefik.http.routers.infinitepay.tls.certresolver=le"
+      - "traefik.http.services.infinitepay.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.infinitepay-strip.stripprefix.prefixes=/infinitepay"
+      - "traefik.http.routers.infinitepay.middlewares=infinitepay-strip"
+
+  jwt:
+    image: supletivo/jwt:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: jwt
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jwt.rule=Host(`api.supletivo.net`) && PathPrefix(`/jwt`)"
+      - "traefik.http.routers.jwt.entrypoints=websecure"
+      - "traefik.http.routers.jwt.tls=true"
+      - "traefik.http.routers.jwt.tls.certresolver=le"
+      - "traefik.http.services.jwt.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.jwt-strip.stripprefix.prefixes=/jwt"
+      - "traefik.http.routers.jwt.middlewares=jwt-strip"
+
+  lead:
+    image: supletivo/lead:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: lead
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lead.rule=Host(`api.supletivo.net`) && PathPrefix(`/lead`)"
+      - "traefik.http.routers.lead.entrypoints=websecure"
+      - "traefik.http.routers.lead.tls=true"
+      - "traefik.http.routers.lead.tls.certresolver=le"
+      - "traefik.http.services.lead.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.lead-strip.stripprefix.prefixes=/lead"
+      - "traefik.http.routers.lead.middlewares=lead-strip"
+
+  notify:
+    image: supletivo/notify:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: notify
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.notify.rule=Host(`api.supletivo.net`) && PathPrefix(`/notify`)"
+      - "traefik.http.routers.notify.entrypoints=websecure"
+      - "traefik.http.routers.notify.tls=true"
+      - "traefik.http.routers.notify.tls.certresolver=le"
+      - "traefik.http.services.notify.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.notify-strip.stripprefix.prefixes=/notify"
+      - "traefik.http.routers.notify.middlewares=notify-strip"
+
+  otp:
+    image: supletivo/otp:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: otp
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.otp.rule=Host(`api.supletivo.net`) && PathPrefix(`/otp`)"
+      - "traefik.http.routers.otp.entrypoints=websecure"
+      - "traefik.http.routers.otp.tls=true"
+      - "traefik.http.routers.otp.tls.certresolver=le"
+      - "traefik.http.services.otp.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.otp-strip.stripprefix.prefixes=/otp"
+      - "traefik.http.routers.otp.middlewares=otp-strip"
+
+  profiles:
+    image: supletivo/profiles:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: profiles
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.profiles.rule=Host(`api.supletivo.net`) && PathPrefix(`/profiles`)"
+      - "traefik.http.routers.profiles.entrypoints=websecure"
+      - "traefik.http.routers.profiles.tls=true"
+      - "traefik.http.routers.profiles.tls.certresolver=le"
+      - "traefik.http.services.profiles.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.profiles-strip.stripprefix.prefixes=/profiles"
+      - "traefik.http.routers.profiles.middlewares=profiles-strip"
+
+  promoter:
+    image: supletivo/promoter:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: promoter
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.promoter.rule=Host(`api.supletivo.net`) && PathPrefix(`/promoter`)"
+      - "traefik.http.routers.promoter.entrypoints=websecure"
+      - "traefik.http.routers.promoter.tls=true"
+      - "traefik.http.routers.promoter.tls.certresolver=le"
+      - "traefik.http.services.promoter.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.promoter-strip.stripprefix.prefixes=/promoter"
+      - "traefik.http.routers.promoter.middlewares=promoter-strip"
+
+  roles:
+    image: supletivo/roles:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: roles
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.roles.rule=Host(`api.supletivo.net`) && PathPrefix(`/roles`)"
+      - "traefik.http.routers.roles.entrypoints=websecure"
+      - "traefik.http.routers.roles.tls=true"
+      - "traefik.http.routers.roles.tls.certresolver=le"
+      - "traefik.http.services.roles.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.roles-strip.stripprefix.prefixes=/roles"
+      - "traefik.http.routers.roles.middlewares=roles-strip"
+
+  staff:
+    image: supletivo/staff:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: staff
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.staff.rule=Host(`api.supletivo.net`) && PathPrefix(`/staff`)"
+      - "traefik.http.routers.staff.entrypoints=websecure"
+      - "traefik.http.routers.staff.tls=true"
+      - "traefik.http.routers.staff.tls.certresolver=le"
+      - "traefik.http.services.staff.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.staff-strip.stripprefix.prefixes=/staff"
+      - "traefik.http.routers.staff.middlewares=staff-strip"
+
+  student:
+    image: supletivo/student:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: student
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.student.rule=Host(`api.supletivo.net`) && PathPrefix(`/student`)"
+      - "traefik.http.routers.student.entrypoints=websecure"
+      - "traefik.http.routers.student.tls=true"
+      - "traefik.http.routers.student.tls.certresolver=le"
+      - "traefik.http.services.student.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.student-strip.stripprefix.prefixes=/student"
+      - "traefik.http.routers.student.middlewares=student-strip"
+
+  training:
+    image: supletivo/training:${TAG:-latest}
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_SCHEMA: training
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    deploy:
+      resources: { limits: { memory: 256M }, reservations: { memory: 128M } }
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.training.rule=Host(`api.supletivo.net`) && PathPrefix(`/training`)"
+      - "traefik.http.routers.training.entrypoints=websecure"
+      - "traefik.http.routers.training.tls=true"
+      - "traefik.http.routers.training.tls.certresolver=le"
+      - "traefik.http.services.training.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.training-strip.stripprefix.prefixes=/training"
+      - "traefik.http.routers.training.middlewares=training-strip"
+
+  # -- Observabilidade (Prometheus + Loki + Grafana) --
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:9090/-/healthy", "-O", "/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources: { limits: { memory: 1G }, reservations: { memory: 512M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  loki:
+    image: grafana/loki:3.0.0
+    restart: always
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+    command:
+      - "-config.file=/etc/loki/loki-config.yml"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:3100/ready", "-O", "/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources: { limits: { memory: 1G }, reservations: { memory: 512M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_INSTALL_PLUGINS: ""
+    depends_on:
+      prometheus: { condition: service_healthy }
+      loki: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:3000/api/health", "-O", "/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources: { limits: { memory: 512M }, reservations: { memory: 256M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  # -- Secret manager (Infisical) --
+  # Ativar com: --profile infisical
+
+  infisical-db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: infisical
+      POSTGRES_USER: infisical
+      POSTGRES_PASSWORD: ${INFISICAL_PG_PASSWORD:?INFISICAL_PG_PASSWORD required}
+    volumes:
+      - infisical_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infisical -d infisical"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles: ["infisical"]
+    deploy:
+      resources: { limits: { memory: 512M }, reservations: { memory: 256M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  infisical:
+    image: infisical/infisical:latest
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      DB_CONNECTION_URI: postgresql://infisical:***@infisical-db:5432/infisical
+      AUTH_SECRET: ${INFISICAL_AUTH_SECRET:?INFISICAL_AUTH_SECRET required}
+      ENCRYPTION_KEY: ${INFISICAL_ENCRYPTION_KEY:?INFISICAL_ENCRYPTION_KEY required}
+      SITE_URL: http://localhost:8080
+      TELEMETRY_ENABLED: false
+    depends_on:
+      infisical-db: { condition: service_healthy }
+    profiles: ["infisical"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:8080/api/status", "-O", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources: { limits: { memory: 1G }, reservations: { memory: 512M } }
+    logging:
+      driver: "json-file"
+      options: { max-size: "25m", max-file: "3" }
+
+  # -- Log shipping (Promtail → Loki) --
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    volumes:
+      - ./promtail:/promtail:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: ["-config.file=/promtail/promtail-config.yml"]
+    depends_on:
+      loki: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:9080/ready", "-O", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits: { memory: 128M }
+        reservations: { memory: 64M }
+    logging:
+      driver: "json-file"
+      options: { max-size: "10m", max-file: "2" }
+
+volumes:
+  acme_data:
+  pgdata:
+  prometheus_data:
+  loki_data:
+  grafana_data:
+  infisical_pgdata:

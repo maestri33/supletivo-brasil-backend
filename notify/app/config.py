@@ -29,31 +29,24 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://v7m:v7m@postgres:5432/v7m"
     database_schema: str = "notify"
 
-    # Redis (cache + pub/sub leve)
-    redis_url: str = ""
-
-    # RabbitMQ (mensageria entre microservices)
-    amqp_url: str = ""
-
-    # SMTP API externa (mail merge — DEPRECATED, mantido p/ compat)
-    smtp_api_base_url: str = "http://mail:8000"
-    smtp_host: str = "smtp.gmail.com"
-    smtp_port: int = 587
-    smtp_user: str = ""
-    smtp_pass: str = ""
-
-    # Mailcow direto (sem service intermediario `mail`).
-    # SMTP STARTTLS na porta 587. API admin REST opcional p/ gerenciar
-    # app-passwords e mailboxes.
-    mailcow_smtp_host: str = "mail.v7m.org"
+    # Envio de email: SMTP direto STARTTLS na porta 587 + API admin Mailcow
+    # opcional (gerenciar app-passwords/mailboxes). Sem default de host/url —
+    # dados de infra vêm do .env (§12 da convenção); ver .env.example.
+    mailcow_smtp_host: str = ""  # ex: mail.v7m.org
     mailcow_smtp_port: int = 587
-    mailcow_smtp_user: str = ""              # ex: noreply@v7m.org
-    mailcow_smtp_pass: str = ""              # app-password (Mailcow API admin)
-    mailcow_from_email: str = ""             # default: mailcow_smtp_user
-    mailcow_from_name: str = ""              # default: service_name
+    mailcow_smtp_user: str = ""  # ex: noreply@v7m.org
+    mailcow_smtp_pass: str = ""  # app-password (Mailcow API admin)
+    mailcow_from_email: str = ""  # default: mailcow_smtp_user
+    mailcow_from_name: str = ""  # default: service_name
     mailcow_timeout_s: int = 30
-    mailcow_api_url: str = "https://mail.v7m.org"
+    mailcow_api_url: str = ""  # ex: https://mail.v7m.org
     mailcow_api_key: str = ""
+
+    # Envio de email via SSH + sendmail no host do Mailcow (preserva DKIM/SPF/DMARC).
+    # Substitui o caminho SMTP direto (mailcow_smtp_*) quando mailcow_ssh_host preenchido.
+    mailcow_ssh_host: str = ""  # ex: root@10.1.30.150
+    mailcow_ssh_key: str = "/root/.ssh/id_ed25519"  # caminho da private key DENTRO do container
+    mailcow_postfix_container: str = "mailcowdockerized-postfix-mailcow-1"
 
     # WhatsApp API (Evolution GO / whatsmeow)
     whatsapp_api_base_url: str = "http://whats-api:8080"
@@ -65,36 +58,22 @@ class Settings(BaseSettings):
     whatsapp_max_retries: int = 3
     whatsapp_retry_backoff_base_s: float = 1.0
 
-    # DeepSeek AI (geracao de titulos, edicao de templates, mensagens)
-    deepseek_api_key: str = ""
-    deepseek_base_url: str = "https://api.deepseek.com"
-    deepseek_default_model: str = "deepseek-v4-pro"
-    deepseek_default_temperature: float = 0.3
-
-    # ElevenLabs TTS (text-to-speech)
-    elevenlabs_api_key: str = ""
-    elevenlabs_voice_id: str = "JBFqnCBsd6RMkjVDRZzb"
-    elevenlabs_model_id: str = "eleven_v3"
-    elevenlabs_output_format: str = "mp3_44100_128"
     # Vozes por genero — resolvidas via profiles.gender (M/F) antes de chamar AI /tts.
-    # Quando profile nao tem gender ou lookup falha, AI usa elevenlabs_voice_id default.
+    # Quando profile nao tem gender ou lookup falha, AI usa default do provider.
     elevenlabs_voice_male: str = "RGymW84CSmfVugnA5tvA"
     elevenlabs_voice_female: str = "Zk0wRqIFBWGMu2lIk7hw"
 
-    # Gemini (geracao de imagens)
-    gemini_api_key: str = ""
-    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta/models"
-    gemini_image_model: str = "gemini-3.1-flash-image-preview"
-    gemini_vision_model: str = "gemini-3-flash-preview"
-
-    # URL publica deste servico (p/ servir arquivos estaticos via /media)
-    public_base_url: str = "http://notify:8000"
-
-    # URL interna p/ Evolution baixar midias (mesma rede docker)
-    dmz_base_url: str = "http://notify:8000"
-
     # AI Service
     ai_base_url: str = "http://ai:8000"
+
+    # Mapeamento publica → LAN para URLs de midia.
+    # Email usa `ai_public_base` (Gmail/cliente externo acessa via Cloudflare/Traefik).
+    # WhatsApp usa `ai_lan_base` (Evolution acessa direto na sub-rede, sem TLS/DNS).
+    # Ao subir novo service que sirva midia, registrar par aqui.
+    ai_public_base: str = "https://api.m33.live/ai"
+    ai_lan_base: str = "http://10.1.20.30:8002"
+    notify_public_base: str = "https://api.m33.live/notify"
+    notify_lan_base: str = "http://10.1.20.30:8015"
 
     # Profiles service (lookup de gender pra escolha de voz TTS)
     profiles_base_url: str = "http://profiles:8000"

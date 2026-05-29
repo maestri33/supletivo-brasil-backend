@@ -25,10 +25,13 @@ async def notify_enrollment(external_id: str, promoter_external_id: str):
     url = f"{base.rstrip('/')}/{external_id}"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(url, json={
-                "promoter_external_id": promoter_external_id,
-                "event": "lead.completed",
-            })
+            resp = await client.post(
+                url,
+                json={
+                    "promoter_external_id": promoter_external_id,
+                    "event": "lead.completed",
+                },
+            )
             resp.raise_for_status()
             log.info("webhook_enrollment_sent", status=resp.status_code)
     except Exception as exc:
@@ -50,10 +53,13 @@ async def notify_promoter_completed(external_id: str, promoter_external_id: str)
     url = f"{base.rstrip('/')}/{promoter_external_id}"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(url, json={
-                "external_id": external_id,
-                "event": "lead.completed",
-            })
+            resp = await client.post(
+                url,
+                json={
+                    "external_id": external_id,
+                    "event": "lead.completed",
+                },
+            )
             resp.raise_for_status()
             log.info("webhook_promoter_sent", status=resp.status_code)
     except Exception as exc:

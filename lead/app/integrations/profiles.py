@@ -6,9 +6,7 @@ class ProfilesClient(BaseClient):
     PATCH /api/v1/profiles/{external_id} — atualiza campos (JSON body)"""
 
     async def get_one(self, external_id: str) -> dict:
-        resp = await request_with_retry(
-            self.client, "GET", f"/api/v1/profiles/{external_id}"
-        )
+        resp = await request_with_retry(self.client, "GET", f"/api/v1/profiles/{external_id}")
         return resp.json()
 
     async def first_name(self, external_id: str) -> dict:

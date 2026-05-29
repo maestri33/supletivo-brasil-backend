@@ -1,5 +1,5 @@
-Olá! Seu código de acesso é:
+Olá! Seu código de verificação é: *{{codigo}}*
 
-*{{codigo}}*
+Este código expira em *{{ttl_minutos}}* minutos.
 
-Válido por *{{ttl_minutos}} minutos*. Não compartilhe com ninguém.{{rodape}}
+Se você não solicitou este acesso, ignore esta mensagem.*{{rodape}}*
