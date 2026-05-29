@@ -41,7 +41,7 @@ Toda dependência deve sair desta lista. **Lib fora do padrão exige justificati
 | Build | hatchling (`packages = ["app"]`) | — |
 | Lint/format | ruff (`line-length = 100`, `target-version = py312`) | — |
 | Testes | pytest + pytest-asyncio (`asyncio_mode = "auto"`) | — |
-| Cache/efêmero | Redis (ex.: OTP, locks, rate-limit) | 7 |
+| Cache/efêmero | Redis — **hoje só no `auth`** (locks/rate-limit). NÃO o `otp` (esse é Postgres). | 7 |
 | Orquestração | docker-compose | — |
 
 **Proibido:** `requests` (use `httpx`) · `print()`/`logging` cru (use `structlog`) · `os.environ` espalhado (use `pydantic-settings`) · Pydantic v1 · SQLAlchemy estilo síncrono 1.x · Flask em serviço novo · `Base.metadata.create_all()` em produção.
