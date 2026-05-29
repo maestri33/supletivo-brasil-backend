@@ -2,8 +2,12 @@
 
 > **Fonte de verdade da padronização.** O Claude lê este arquivo em toda sessão e
 > **aplica o Checklist de Revisão (§21) a cada alteração**, sem precisar ser pedido.
-> Particularidades de cada serviço ficam no `CLAUDE.md` da pasta do serviço.
-> Em conflito, o `CLAUDE.md` do serviço só pode ser **mais restritivo** que este — nunca afrouxar.
+> Particularidades de cada serviço ficam no **`.claude` ÚNICO da raiz** (não há mais `CLAUDE.md` por-serviço).
+> Em conflito, a regra do serviço só pode ser **mais restritiva** que esta — nunca afrouxar.
+>
+> **Leis do dono (faxina 29/05) — vencem qualquer delírio:** docs/README/tests **só no FIM**
+> (depois de funcionar + aprovar); **1 `.claude`** na raiz; fotos/arquivos em **`media/`** do app;
+> **1 `.env`** central na raiz (o compose injeta em todos); **`.env.example` só na produção**; **wiki dropada**.
 
 ---
 
@@ -66,13 +70,12 @@ Toda dependência deve sair desta lista. **Lib fora do padrão exige justificati
 │   ├── utils/           # helpers (logging, etc.)
 │   └── validators/      # validações de domínio (opcional)
 ├── alembic/             # migrações  +  alembic.ini
-├── tests/
-├── pyproject.toml
-├── README.md            # o que faz, como rodar, variáveis de ambiente
-├── CLAUDE.md            # particularidades do serviço (mais restritivo que este)
-├── wiki/<servico>.md    # fonte de verdade funcional (criado só após aprovação)
-└── .env                 # NÃO versionar — `.env.example` espelha sem segredos
+├── media/               # fotos/arquivos DESTE serviço (lei: arquivo mora no media/ do app dono)
+└── pyproject.toml       # + uv.lock (lista de deps — necessário, NÃO é ruído)
 ```
+**Criados SÓ no fim** (app funcionando + aprovado), nunca antes: `tests/` · doc do app.
+**Não existem por-serviço:** `README.md`, `CLAUDE.md`, `wiki/`, `.env` — particularidades vão
+no `.claude` único da raiz; o `.env` é central na raiz (o compose injeta em todos).
 
 **Regras:**
 - Cada tipo de arquivo no seu diretório. Model em `models/`, schema em `schemas/`, regra de negócio em `services/`, rota em `api/`.
@@ -291,15 +294,16 @@ Quando o fluxo move dinheiro (cobrança, payout, comissão):
 
 ---
 
-## 19. Wiki — Fonte de Verdade Funcional
+## 19. Documentação — só no FIM (sem wiki)
 
-- **Nada de encher código de `.md`.**
-- Após o app **funcionar + ser aprovado + estar apto a produção**, criar **um único** arquivo `wiki/<servico>.md` no app. Esse arquivo:
+- **Nada de encher código de `.md`.** A pasta `wiki/` foi **dropada** (virava fábrica de delírio de IA).
+- Doc/README **só QUANDO o app funcionar + for aprovado + apto a produção** — nunca antes.
+- Aí sim: **um único** doc por app (ex.: `<servico>/<servico>.md`, no próprio app) que:
   - Explica o que o app faz (visão funcional)
   - Lista integrações (quem ele chama, quem chama ele)
   - Mostra funil de status (se houver)
-  - É a **fonte de verdade** consultada por humanos e pelo Claude antes de qualquer mudança
-- Antes da Wiki existir: o TODO original do dono fica como spec viva. Quando a Wiki nasce, o TODO sai.
+  - Vira a **fonte de verdade** consultada antes de qualquer mudança.
+- **Antes desse doc existir, a spec viva é o `TODO` do dono** (+ a Visão Consolidada). Quando o doc nasce, o TODO sai.
 
 ---
 
