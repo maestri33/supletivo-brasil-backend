@@ -8,10 +8,12 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
-from app.api.enrollments import router as enrollments_router
-from app.api.webhooks import router as webhooks_router
-from app.api.health import router as health_router
+from app.api.router import api_router
 from app.config import get_settings
 from app.db import async_session_maker, engine
 from app.exceptions import DomainError
@@ -30,10 +32,6 @@ def _cors_origins() -> list[str]:
         return [o.strip() for o in raw.split(",") if o.strip()]
     return []
 
-
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 settings = get_settings()
 _started_at = time.time()
@@ -67,7 +65,6 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 # ── SlowAPI middleware ──────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-from slowapi.middleware import SlowAPIMiddleware
 app.add_middleware(SlowAPIMiddleware)
 
 
@@ -78,9 +75,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(webhooks_router)
-app.include_router(enrollments_router)
-app.include_router(health_router)
+# Monta TODOS os routers via agregador: webhooks + enrollments + health
+# + o funil AUTENTICADO da matricula (profile/address/documents/education/selfie)
+# + release (coordenador libera a matricula). Antes so os 3 primeiros subiam.
+app.include_router(api_router)
 setup_metrics(app)
 
 
