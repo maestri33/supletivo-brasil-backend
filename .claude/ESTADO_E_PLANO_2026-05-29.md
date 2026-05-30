@@ -178,3 +178,33 @@ no código, pra não duplicar nem confiar em scaffold. Perguntas concretas a res
 *"lê `.claude/ESTADO_E_PLANO_2026-05-29.md` e `.claude/NEXT_SESSION_commissions_payout.md`,
 e faz a auditoria do payout — barato, grep, sem ler o repo todo"* →
 sai o mapa **pronto/stub/faltando/duplicado** → aí traçamos o plano A/B/C.
+
+---
+
+# ATUALIZAÇÃO — 2026-05-30 (sessão faxina autônoma, branch `faxina/limpeza-2026-05-29`)
+
+## Faxina executada (tudo commitado, tudo verificado)
+1. `fix(enrollment)` — **de-corrompe `pyproject.toml`** (markdown colado por sessão IA anterior) + **monta o funil no `api_router`** (o bug crítico do AUDITORIA §3.4: o router autenticado não subia → funil de matrícula inteiro inacessível). Agora `main.py` inclui o `api_router` único (webhooks+enrollments+health+profile/address/documents/education/selfie+release).
+2. `chore(gitignore)` — dedup **31060 → 62 linhas** (estava com `.env.example` repetido ~31 mil vezes).
+3. `faxina` — remove `CICD_STRATEGY.md` + `MIGRACAO_F3.md`.
+4. `style` — **ruff limpo nos 22 apps: 94 → 0 violations** (E501/E402/I001/F811/F401/UP007/N999/UP035). Imports slowapi subidos ao topo, imports duplicados removidos, `jwt` migration renomeada `2026-...` → `0001_`.
+5. `faxina` — remove **shadow `auth.users` morta de 7 apps** (ai, jwt, lead, coordinator, enrollment, roles, student) — `Table("users", schema="auth")` inerte (zero refs, sem FK real). AUDITORIA §3.1.
+6. `faxina` — remove ruído versionado: `asaas/coverage.json`, `asaas/requirements-dev.txt` (deps já no pyproject), `commissions/=24.1`.
+
+## Estado verificado (estático — Docker/DB não rodou nesta sessão)
+- **853 `.py` compilam, 0 erro de sintaxe.**
+- **ruff: 0 violations nos 22 apps.**
+- **0 imports internos `app.*` quebrados** (AST resolve em todos).
+- Working tree limpo, 6 commits atômicos.
+
+## ⚠️ AUDITORIA_APPS_2026-05-29 está PARCIALMENTE DESATUALIZADA
+Sessões anteriores já consertaram itens que o audit ainda lista como quebrados. **Confirmado nesta sessão:**
+- **documents §3.4 "BUG FATAL Tortoise sobre SQLAlchemy" — NÃO EXISTE MAIS.** `document_service.py` já é SQLAlchemy async (147 linhas, `AsyncSession`+`select()`, **0 resíduo Tortoise**). O app não é mais casca por esse motivo.
+- **enrollment §3.4 "router não sobe" — CORRIGIDO** nesta sessão (item 1).
+- **Lição:** re-verificar CADA item do audit contra o código atual **antes de agir** (a régua é a VISÃO + o código de hoje, não o snapshot do audit).
+
+## Próximos (re-verificar antes de cada um — audit pode estar stale)
+- **shadow real-FK + migração** (address, profiles, notify, commissions, otp) — precisa Alembic (deixei de fora da faxina de hoje; alguns são rewrite/delete).
+- **3 camadas API** §3.2 (public/authenticated/demilitarized) — refactor grande, muda rotas.
+- **os.getenv → pydantic-settings** §3.7 (asaas, infinitepay).
+- **Money-path** (commissions payout, coordinator pay_fee) — **DECISÕES do dono pendentes:** valores ref R$100/R$500/R$50 + threshold ≥5 (config `.env`); `otp` delete ou conectar-postgres?; `fees` sentido (charge vs payout)?
