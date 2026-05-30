@@ -12,19 +12,19 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 from app.api.router import api_router
 from app.api.status import router as status_router
 from app.config import get_settings
 from app.db import close_db
 from app.exceptions import DomainError, RateLimitExceeded
+from app.metrics import setup_metrics
 from app.services.cleanup import cleanup_loop
 from app.services.queue import queue_loop
 from app.utils.logging import configure_logging, get_logger
-from app.metrics import setup_metrics
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 
 def _cors_origins() -> list[str]:
@@ -94,7 +94,6 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 # ── SlowAPI middleware ──────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-from slowapi.middleware import SlowAPIMiddleware
 app.add_middleware(SlowAPIMiddleware)
 
 

@@ -87,15 +87,23 @@ def setup_metrics(app) -> None:
             elapsed = time.monotonic() - start
             if _http_request_duration_seconds is not None:
                 try:
-                    _http_request_duration_seconds.labels(method=request.method, path=request.url.path).observe(elapsed)
+                    _http_request_duration_seconds.labels(
+                        method=request.method, path=request.url.path
+                    ).observe(elapsed)
                 except Exception:
                     pass
             raise
         elapsed = time.monotonic() - start
         if _http_request_duration_seconds is not None and _http_requests_total is not None:
             try:
-                _http_request_duration_seconds.labels(method=request.method, path=request.url.path).observe(elapsed)
-                _http_requests_total.labels(method=request.method, path=request.url.path, status=str(response.status_code)).inc()
+                _http_request_duration_seconds.labels(
+                    method=request.method, path=request.url.path
+                ).observe(elapsed)
+                _http_requests_total.labels(
+                    method=request.method,
+                    path=request.url.path,
+                    status=str(response.status_code),
+                ).inc()
             except Exception:
                 pass
         return response

@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
+import sys
 from datetime import datetime, timezone
 from typing import Literal
+
+import structlog
 
 LOG_KEY = "logs:all"
 MAX_LOGS = 500
@@ -98,11 +102,6 @@ async def clear_logs(redis) -> None:
 
 
 # ── Structlog configuration (CONVENTION §2) ──────────────────────────
-
-import logging
-import sys
-
-import structlog
 
 
 def configure_logging(level: str = "INFO", json_logs: bool = True) -> None:

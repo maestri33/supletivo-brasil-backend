@@ -18,7 +18,9 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "sqlite+aiosqlite:///auth.db"
     # Aceita DATABASE_SCHEMA (padrao novo, todos os outros services) ou DB_SCHEMA (legacy).
-    DB_SCHEMA: str = Field(default="auth", validation_alias=AliasChoices("DATABASE_SCHEMA", "DB_SCHEMA"))
+    DB_SCHEMA: str = Field(
+        default="auth", validation_alias=AliasChoices("DATABASE_SCHEMA", "DB_SCHEMA")
+    )
     REDIS_URL: str = "redis://localhost:6379/0"
     ENVIRONMENT: Environment = Environment.DEVELOPMENT
     APP_VERSION: str = "0.3.0"

@@ -7,9 +7,9 @@ from fastapi.responses import JSONResponse
 from app.api.router import api_router
 from app.config import get_settings
 from app.exceptions import DomainError
+from app.metrics import setup_metrics
 from app.stats import get_stats
 from app.utils.logging import RequestLoggingMiddleware, configure_logging, get_logger
-from app.metrics import setup_metrics
 
 
 def _cors_origins() -> list[str]:

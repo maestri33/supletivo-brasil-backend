@@ -7,12 +7,15 @@ Roda em: uvicorn app.main:app --host 0.0.0.0 --port 80
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-
 from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 from . import config_store as cfg
 from .api.router import api_router, root_router
@@ -24,9 +27,6 @@ from .services import payment as payment_service
 from .services.webhook_security import webhook_hmac_configured
 from .utils.logging import configure_logging, log_event, logger
 from .workers import outbound_queue
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 configure_logging()
 
@@ -228,7 +228,6 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 # ── SlowAPI middleware ──────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-from slowapi.middleware import SlowAPIMiddleware
 app.add_middleware(SlowAPIMiddleware)
 
 
@@ -253,6 +252,7 @@ setup_metrics(app)
 # devolvida em ChargePixData.qr_url funciona via Tailscale Funnel sem
 # regra extra de proxy.
 from .config import get_settings as _gs  # noqa: E402
+
 _media_dir = Path(_gs().media_dir)
 _media_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/api/v1/public/media", StaticFiles(directory=str(_media_dir)), name="public_media")

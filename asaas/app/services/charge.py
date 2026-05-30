@@ -28,10 +28,10 @@ from .. import config_store as cfg
 from ..config import get_settings
 from ..exceptions import PaymentError, ValidationError
 from ..integrations.asaas_client import AsaasClient, AsaasError
+from ..metrics import inc_payment
 from ..models import Payment
 from ..utils.logging import log_event
 from ..utils.qrcode import absolute_qr_url_for, save_pix_qr_png
-from ..metrics import inc_payment
 from . import customer as customer_service
 
 CHARGE_STATUSES = ("PENDING", "PAID", "EXPIRED", "CANCELLED", "REFUNDED")

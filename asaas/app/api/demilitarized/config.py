@@ -33,7 +33,9 @@ router = APIRouter(prefix="/config", tags=["config"])
     "/url",
     response_model=SetUrlResponse,
     summary="Registrar URL publica",
-    response_description="Nonce e URL de verificacao para provar que o dominio aponta para este app.",
+    response_description=(
+        "Nonce e URL de verificacao para provar que o dominio aponta para este app."
+    ),
 )
 async def set_external_url(body: SetUrlRequest, db: AsyncSession = Depends(get_session)):
     """Cria um nonce temporario para validar a URL publica base do asaas-app."""
@@ -65,7 +67,8 @@ async def verify_external_url(nonce: str, db: AsyncSession = Depends(get_session
         return HTMLResponse(html, status_code=200)
     except ValidationError as e:
         return HTMLResponse(
-            f"<!doctype html><body style='font-family:system-ui;padding:32px'><h1>Falhou</h1><p>{e}</p></body>",
+            f"<!doctype html><body style='font-family:system-ui;padding:32px'>"
+            f"<h1>Falhou</h1><p>{e}</p></body>",
             status_code=400,
         )
 
@@ -139,14 +142,16 @@ def _instructions_html(
     <h3>Configuracao do Mecanismo de Seguranca Asaas ({env_label})</h3>
     {env_warn}
     <ol>
-      <li>Entre no painel Asaas (<code>{panel_host}</code>) &rarr; Integracoes &rarr; Mecanismo de Seguranca.</li>
+      <li>Entre no painel Asaas (<code>{panel_host}</code>) &rarr; Integracoes
+      &rarr; Mecanismo de Seguranca.</li>
       <li>Cole este token: <code>{security_token}</code></li>
       <li>Cole esta URL validadora: <code>{validator_url}</code></li>
       <li>Habilite o mecanismo para autorizacao automatica de transferencias.</li>
     </ol>
     <p>Depois chame <code>POST /config/key/confirm</code>. O app registrara o webhook de eventos em
     <code>{webhook_endpoint}</code> com o mesmo authToken.</p>
-    <p>Nao cadastre webhook na raiz do dominio; a URL exclusiva do Asaas e <code>/webhook/</code>.</p>
+    <p>Nao cadastre webhook na raiz do dominio; a URL exclusiva do Asaas e
+    <code>/webhook/</code>.</p>
     """.strip()
 
 
@@ -157,7 +162,9 @@ def _instructions_html(
         "external_url_not_set", "production_key_required", "asaas_rejected_key"
     ),
     summary="Registrar API key Asaas",
-    response_description="Token de seguranca, URL validadora, endpoint de webhook e instrucoes para o painel Asaas.",
+    response_description=(
+        "Token de seguranca, URL validadora, endpoint de webhook e instrucoes para o painel Asaas."
+    ),
 )
 async def set_api_key(body: SetKeyRequest, db: AsyncSession = Depends(get_session)):
     """Valida uma API key de producao, salva segredo e gera instrucoes de configuracao manual."""
@@ -216,7 +223,9 @@ async def confirm_api_key(db: AsyncSession = Depends(get_session)):
     "/status",
     response_model=ConfigStatusResponse,
     summary="Consultar status de configuracao",
-    response_description="Conta, saldo, webhook registrado, configuracoes mascaradas e erros pendentes.",
+    response_description=(
+        "Conta, saldo, webhook registrado, configuracoes mascaradas e erros pendentes."
+    ),
 )
 async def get_status(db: AsyncSession = Depends(get_session)):
     """Health operacional agregado. `errors: []` indica configuracao pronta."""

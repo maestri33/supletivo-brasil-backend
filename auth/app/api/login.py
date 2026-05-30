@@ -21,7 +21,12 @@ async def login(data: LoginRequest) -> TokenResponse:
     # 1. Busca roles e verifica se a pedida esta entre elas
     user_roles = await _get_roles(data.external_id)
     if data.role not in user_roles:
-        logger.warning("login_role_denied", external_id=data.external_id, requested_role=data.role, available_roles=user_roles)
+        logger.warning(
+            "login_role_denied",
+            external_id=data.external_id,
+            requested_role=data.role,
+            available_roles=user_roles,
+        )
         raise ForbiddenError(
             f"Usuario nao possui a role '{data.role}'.",
             code="ROLE_NOT_HELD",
