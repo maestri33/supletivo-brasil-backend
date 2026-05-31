@@ -21,6 +21,7 @@ def _fmt_local(ts: float) -> str:
 def _memory_mb() -> float:
     try:
         import resource
+
         return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
     except Exception:
         return 0.0

@@ -11,7 +11,6 @@ from app.db import get_session
 from app.dependencies import require_checkout
 from app.models import Checkout, Lead
 from app.schemas import APIModel
-from app.tools.qrcode import absolute_qr_url
 
 router = APIRouter(prefix="/api/v1/authenticated", tags=["authenticated"])
 
@@ -67,7 +66,7 @@ async def get_checkout(
         pix_data = PixData(
             payment_id=checkout.provider_payment_id,
             payload=checkout.qrcode_payload,
-            qr_url=absolute_qr_url(checkout.qrcode_image) if checkout.qrcode_image else "",
+            qr_url=checkout.qrcode_image or "",
             due_date=checkout.due_date,
         )
 

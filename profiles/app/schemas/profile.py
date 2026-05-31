@@ -27,6 +27,7 @@ from app.validators.profile_fields import (
 
 # ── Educational ──────────────────────────────────────────────────
 
+
 class EducationalRead(BaseModel):
     """Escolaridade no retorno da API."""
 
@@ -42,10 +43,11 @@ class EducationalRead(BaseModel):
 
 # ── BirthInfo ────────────────────────────────────────────────────
 
+
 class BirthInfoRead(BaseModel):
     """Dados de nascimento no retorno da API."""
 
-    state: Optional[str] = None 
+    state: Optional[str] = None
     city: Optional[str] = None
     birth_date: Optional[date] = None
 
@@ -53,6 +55,7 @@ class BirthInfoRead(BaseModel):
 
 
 # ── Profile ──────────────────────────────────────────────────────
+
 
 class ProfileCreate(BaseModel):
     """Criação de perfil mínimo — apenas external_id e cpf são obrigatórios."""
@@ -89,11 +92,19 @@ class ProfilePatch(BaseModel):
 
     # Educational
     level: Optional[str] = Field(default=None, description="Nível educacional")
-    last_elementary_year: Optional[str] = Field(default=None, description="Última série do fundamental")
+    last_elementary_year: Optional[str] = Field(
+        default=None, description="Última série do fundamental"
+    )
     elementary_completed: Optional[bool] = Field(default=None, description="Fundamental completo?")
-    elementary_year: Optional[int] = Field(default=None, description="Ano de conclusão do fundamental")
-    last_high_school_year: Optional[str] = Field(default=None, description="Último ano do ensino médio")
-    high_school_completed: Optional[bool] = Field(default=None, description="Ensino médio completo?")
+    elementary_year: Optional[int] = Field(
+        default=None, description="Ano de conclusão do fundamental"
+    )
+    last_high_school_year: Optional[str] = Field(
+        default=None, description="Último ano do ensino médio"
+    )
+    high_school_completed: Optional[bool] = Field(
+        default=None, description="Ensino médio completo?"
+    )
 
     # BirthInfo
     state: Optional[str] = Field(default=None, description="UF (2 letras)")
@@ -170,9 +181,11 @@ class ProfilePatch(BaseModel):
         if isinstance(v, int):
             year = v
             from datetime import date
+
             current = date.today().year
             if year < 1900 or year > current:
                 from app.exceptions import ValidationError
+
                 raise ValidationError(f"Ano do fundamental deve estar entre 1900 e {current}")
             return year
         return validate_elementary_year(str(v))
@@ -260,6 +273,7 @@ class CPFCheckResponse(BaseModel):
 
 
 # ── Helper compartilhado entre services ─────────────────────────
+
 
 def build_profile_read(profile, educational=None, birth_info=None) -> ProfileRead:
     """Constrói ProfileRead a partir dos modelos ORM."""

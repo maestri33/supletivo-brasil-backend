@@ -1,0 +1,731 @@
+# =============================================================================
+# docker-compose.dev.yml — Ambiente de desenvolvimento completo
+# =============================================================================
+# Uso:
+#   docker compose -f docker-compose.dev.yml up -d           # tudo
+#   docker compose -f docker-compose.dev.yml up -d <servico> # um só
+#   docker compose -f docker-compose.dev.yml ps               # status
+#   docker compose -f docker-compose.dev.yml down             # derruba tudo
+#
+# Arquitetura de env (CONSOLIDADA — 2026-05-27):
+#   • SECRETS (API keys, passwords)        → /backend/.env  via `env_file: .env`
+#   • CONFIG estrutural (URLs, defaults)   → este compose, via YAML anchors
+#   • DATABASE_SCHEMA por serviço          → inline em cada bloco environment:
+#   • Cada .env per-módulo (lead/.env, ai/.env, …) é para E2E LOCAL fora do
+#     compose (testes pytest com Postgres dedicado em porta alta). Aqui dentro
+#     do compose NÃO são carregados — apenas .env (root) + environment: inline.
+#
+# Serviços: 22 microsserviços + postgres + redis + observabilidade
+# =============================================================================
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# YAML anchors — vars estruturais que múltiplos serviços compartilham (DRY)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Defaults universais — ambiente, log, redis, timeouts, CORS
+x-common-env: &common-env
+  ENV: dev                            # Lido por jwt/notify/hub/fees/otp/enrollment (Literal["dev","staging","prod"]).
+  ENVIRONMENT: development            # Alias usado por lead/staff/training/candidate/promoter (Environment enum).
+  LOG_LEVEL: INFO                     # DEBUG|INFO|WARNING|ERROR.
+  APP_VERSION: "0.3.0"                # Versão exposta em GET /health.
+  REDIS_URL: redis://redis:6379/0     # Redis central (sem senha em dev).
+  HTTP_TIMEOUT: "10"                  # Timeout default httpx (segundos) entre serviços.
+  CORS_ORIGINS: '["*"]'               # CORS dev = aberto. Em prod, lista JSON específica.
+
+# URL do Postgres central — formato async pra SQLAlchemy 2 / asyncpg
+x-postgres-url: &postgres-url
+  DATABASE_URL: postgresql+asyncpg://supletivo:supletivo_dev@postgres:5432/supletivo
+
+# URLs internas entre serviços (DNS do docker network).
+# Declaramos *_BASE_URL E *_SERVICE_URL porque alguns Settings usam um, outros o outro.
+x-service-urls: &service-urls
+  AUTH_BASE_URL: http://auth:8000
+  AUTH_SERVICE_URL: http://auth:8000
+  JWT_BASE_URL: http://jwt:8000
+  JWT_SERVICE_URL: http://jwt:8000
+  PROFILES_BASE_URL: http://profiles:8000
+  PROFILES_SERVICE_URL: http://profiles:8000
+  NOTIFY_BASE_URL: http://notify:8000
+  NOTIFY_SERVICE_URL: http://notify:8000
+  OTP_SERVICE_URL: http://otp:8000
+  ROLES_BASE_URL: http://roles:8000
+  ROLES_SERVICE_URL: http://roles:8000
+  ADDRESS_SERVICE_URL: http://address:8000
+  ADDRESSES_BASE_URL: http://address:8000
+  DOCUMENTS_BASE_URL: http://documents:8000
+  DOCUMENTS_SERVICE_URL: http://documents:8000
+  AI_BASE_URL: http://ai:8000
+  AI_SERVICE_URL: http://ai:8000
+  ASAAS_BASE_URL: http://asaas:8000
+  ASAAS_SERVICE_URL: http://asaas:8000
+  INFINITEPAY_BASE_URL: http://infinitepay:8000
+  INFINITEPAY_SERVICE_URL: http://infinitepay:8000
+  LEAD_BASE_URL: http://lead:8000
+  LEAD_SERVICE_URL: http://lead:8000
+  CANDIDATE_SERVICE_URL: http://candidate:8000
+  PROMOTER_SERVICE_URL: http://promoter:8000
+  STUDENT_SERVICE_URL: http://student:8000
+  TRAINING_SERVICE_URL: http://training:8000
+  COMMISSIONS_BASE_URL: http://commissions:8000
+  COMMISSIONS_SERVICE_URL: http://commissions:8000
+  COORDINATOR_SERVICE_URL: http://coordinator:8000
+  STAFF_SERVICE_URL: http://staff:8000
+  ENROLLMENT_SERVICE_URL: http://enrollment:8000
+  FEES_SERVICE_URL: http://fees:8000
+  HUB_BASE_URL: http://hub:8000
+  HUB_SERVICE_URL: http://hub:8000
+
+# Healthcheck padrão p/ microsserviço (porta interna 8000, /health)
+x-healthcheck: &healthcheck
+  test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+  interval: 15s
+  timeout: 5s
+  retries: 5
+  start_period: 30s
+
+# Dependência mínima — postgres + redis
+x-deps-pg-redis: &deps-pg-redis
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_started
+
+
+services:
+
+  # ── Infraestrutura compartilhada ───────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: supletivo
+      POSTGRES_USER: supletivo
+      POSTGRES_PASSWORD: supletivo_dev   # Dev only — em prod via Infisical.
+    ports:
+      - "5433:5432"                      # 5433 externo p/ evitar conflito com PG host.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U supletivo -d supletivo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: maestri33@local.dev
+      PGADMIN_DEFAULT_PASSWORD: "1993"
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "True"
+      PGADMIN_CONFIG_LOGIN_BANNER: "'VPN-only access - authorized users only'"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ./docker/pgadmin/pgpass:/pgadmin4/pgpass:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:80/misc/ping", "-O", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ── API Gateway (Traefik) ──────────────────────────────────────────────────
+  # http://localhost/<service>/...  |  Dashboard: http://localhost:8090/dashboard/
+  # Portas 8001-8022 dos serviços seguem expostas pra acesso direto (dev only).
+
+  traefik:
+    # v2.11: Docker SDK do Traefik v3 negocia API 1.24, rejeitado por daemon >=25 (min 1.40).
+    image: traefik:v2.11
+    command:
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      # Caddy LXC (10.1.30.10) é edge — confia em X-Forwarded-* só dele.
+      - "--entrypoints.web.forwardedHeaders.trustedIPs=10.1.30.10/32,127.0.0.1/32"
+      - "--accesslog=true"
+      - "--log.level=INFO"
+      - "--ping=true"
+    ports:
+      - "80:80"
+      - "8090:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Microsserviços (1 container por serviço, porta interna 8000)
+  # Padrão:
+  #   env_file: .env             ← injeta secrets do root .env
+  #   environment: <<: anchors    ← injeta config compartilhada (URLs, defaults)
+  #   environment.DATABASE_SCHEMA: <nome>  ← schema próprio no Postgres
+  # ─────────────────────────────────────────────────────────────────────────
+
+  address:
+    build:
+      context: ./address
+    ports:
+      - "8001:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url]
+      DATABASE_SCHEMA: address
+      VIACEP_BASE_URL: https://viacep.com.br
+      VIACEP_TIMEOUT_SECONDS: "5.0"
+      UPLOAD_DIR: /app/uploads
+    healthcheck: *healthcheck
+    depends_on:
+      <<: *deps-pg-redis
+      auth:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.address.rule=Host(`api.m33.live`) && PathPrefix(`/address`)"
+      - "traefik.http.routers.address.entrypoints=web"
+      - "traefik.http.services.address.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.address-strip.stripprefix.prefixes=/address"
+      - "traefik.http.routers.address.middlewares=address-strip"
+
+  ai:
+    build:
+      context: ./ai
+    ports:
+      - "8002:8000"
+    env_file: .env                       # ← DeepSeek/ElevenLabs/Gemini/GoogleVision keys
+    environment:
+      <<: [*common-env, *postgres-url]
+      DATABASE_SCHEMA: ai
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai.rule=Host(`api.m33.live`) && PathPrefix(`/ai`)"
+      - "traefik.http.routers.ai.entrypoints=web"
+      - "traefik.http.services.ai.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.ai-strip.stripprefix.prefixes=/ai"
+      - "traefik.http.routers.ai.middlewares=ai-strip"
+
+  asaas:
+    build:
+      context: ./asaas
+    ports:
+      - "8003:8000"
+    env_file: .env                       # ← ASAAS_API_KEY, ASAAS_WEBHOOK_SECRET, wallet, CIDRs
+    environment:
+      <<: [*common-env, *postgres-url]
+      DATABASE_SCHEMA: asaas
+      WEBHOOK_NAME: supletivo-asaas-dev
+      URL_VERIFY_NONCE_TTL: "300"
+      DEFAULT_SCHEDULED_HOUR: "9"
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.asaas.rule=Host(`api.m33.live`) && PathPrefix(`/asaas`)"
+      - "traefik.http.routers.asaas.entrypoints=web"
+      - "traefik.http.services.asaas.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.asaas-strip.stripprefix.prefixes=/asaas"
+      - "traefik.http.routers.asaas.middlewares=asaas-strip"
+
+  auth:
+    build:
+      context: ./auth
+    ports:
+      - "8004:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: auth              # Settings novo (alias adicionado).
+      DB_SCHEMA: auth                    # Settings legacy — leitor atual.
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=Host(`api.m33.live`) && PathPrefix(`/auth`)"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.services.auth.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.auth-strip.stripprefix.prefixes=/auth"
+      - "traefik.http.routers.auth.middlewares=auth-strip"
+
+  candidate:
+    build:
+      context: ./candidate
+    ports:
+      - "8005:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: candidate
+      HUB_DEFAULT: "00000000-0000-0000-0000-000000000000"
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.candidate.rule=Host(`api.m33.live`) && PathPrefix(`/candidate`)"
+      - "traefik.http.routers.candidate.entrypoints=web"
+      - "traefik.http.services.candidate.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.candidate-strip.stripprefix.prefixes=/candidate"
+      - "traefik.http.routers.candidate.middlewares=candidate-strip"
+
+  commissions:
+    build:
+      context: ./commissions
+    ports:
+      - "8006:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: commissions
+      PROMOTER_COMMISSION_CENTS: "500"
+      COORDINATOR_COMMISSION_CENTS: "50"
+      BONUS_THRESHOLD_COUNT: "10"
+      BONUS_COMISSION_CENTS: "1000"
+      PROCESSING_CRON_HOUR: "18"
+      PROCESSING_CRON_TIMEZONE: America/Sao_Paulo
+      COMMISSIONS_WEBHOOK_TOKEN: dev-token-change-in-prod
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.commissions.rule=Host(`api.m33.live`) && PathPrefix(`/commissions`)"
+      - "traefik.http.routers.commissions.entrypoints=web"
+      - "traefik.http.services.commissions.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.commissions-strip.stripprefix.prefixes=/commissions"
+      - "traefik.http.routers.commissions.middlewares=commissions-strip"
+
+  coordinator:
+    build:
+      context: ./coordinator
+    ports:
+      - "8007:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: coordinator
+      COORDINATOR_COMMISSION_CENTS: "50"
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.coordinator.rule=Host(`api.m33.live`) && PathPrefix(`/coordinator`)"
+      - "traefik.http.routers.coordinator.entrypoints=web"
+      - "traefik.http.services.coordinator.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.coordinator-strip.stripprefix.prefixes=/coordinator"
+      - "traefik.http.routers.coordinator.middlewares=coordinator-strip"
+
+  documents:
+    build:
+      context: ./documents
+    ports:
+      - "8008:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: documents
+      MEDIA_ROOT: /data/media
+      MAX_UPLOAD_MB: "10"
+      DEBUG: "false"
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.documents.rule=Host(`api.m33.live`) && PathPrefix(`/documents`)"
+      - "traefik.http.routers.documents.entrypoints=web"
+      - "traefik.http.services.documents.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.documents-strip.stripprefix.prefixes=/documents"
+      - "traefik.http.routers.documents.middlewares=documents-strip"
+
+  enrollment:
+    build:
+      context: ./enrollment
+    ports:
+      - "8009:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: enrollment
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.enrollment.rule=Host(`api.m33.live`) && PathPrefix(`/enrollment`)"
+      - "traefik.http.routers.enrollment.entrypoints=web"
+      - "traefik.http.services.enrollment.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.enrollment-strip.stripprefix.prefixes=/enrollment"
+      - "traefik.http.routers.enrollment.middlewares=enrollment-strip"
+
+  fees:
+    build:
+      context: ./fees
+    ports:
+      - "8010:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: fees
+      COORDINATOR_ROLE: coordinator
+      FEE_DESCRIPTION_DEFAULT: "Taxa de matrícula"
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fees.rule=Host(`api.m33.live`) && PathPrefix(`/fees`)"
+      - "traefik.http.routers.fees.entrypoints=web"
+      - "traefik.http.services.fees.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.fees-strip.stripprefix.prefixes=/fees"
+      - "traefik.http.routers.fees.middlewares=fees-strip"
+
+  hub:
+    build:
+      context: ./hub
+    ports:
+      - "8011:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: hub
+      STAFF_ROLES: '["admin","staff"]'
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hub.rule=Host(`api.m33.live`) && PathPrefix(`/hub`)"
+      - "traefik.http.routers.hub.entrypoints=web"
+      - "traefik.http.services.hub.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.hub-strip.stripprefix.prefixes=/hub"
+      - "traefik.http.routers.hub.middlewares=hub-strip"
+
+  infinitepay:
+    build:
+      context: ./infinitepay
+    ports:
+      - "8012:8000"
+    env_file: .env                       # ← INFINITEPAY_*, WEBHOOK_ENCRYPTION_KEY, INTERNAL_API_KEY
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: infinitepay
+      # O anchor *service-urls injeta INFINITEPAY_BASE_URL=http://infinitepay:8000
+      # (DNS interno) para outros serviços CLIENTES. Mas o próprio app infinitepay
+      # USA essa env para falar com a API externa da InfinitePay — sem override
+      # vira self-loop e POST /links cai aqui mesmo (404).
+      INFINITEPAY_BASE_URL: https://api.checkout.infinitepay.io
+      WORKER_POLL_SECONDS: "5"
+      RUN_INLINE_WORKER: "true"
+      AI_FEATURES_ENABLED: "true"
+      AI_MODEL: deepseek-v4-pro
+      AI_PRO_MODEL: deepseek-v4-pro
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.infinitepay.rule=Host(`api.m33.live`) && PathPrefix(`/infinitepay`)"
+      - "traefik.http.routers.infinitepay.entrypoints=web"
+      - "traefik.http.services.infinitepay.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.infinitepay-strip.stripprefix.prefixes=/infinitepay"
+      - "traefik.http.routers.infinitepay.middlewares=infinitepay-strip"
+
+  jwt:
+    build:
+      context: ./jwt
+    ports:
+      - "8013:8000"
+    env_file: .env                       # ← JWT_ALGORITHM, JWT_ISSUER, expirações
+    environment:
+      <<: [*common-env, *postgres-url]
+      DATABASE_SCHEMA: jwt
+      JWT_PRIVATE_KEY_FILE: private.pem
+      JWT_PUBLIC_KEY_FILE: public.pem
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jwt.rule=Host(`api.m33.live`) && PathPrefix(`/jwt`)"
+      - "traefik.http.routers.jwt.entrypoints=web"
+      - "traefik.http.services.jwt.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.jwt-strip.stripprefix.prefixes=/jwt"
+      - "traefik.http.routers.jwt.middlewares=jwt-strip"
+
+  lead:
+    build:
+      context: ./lead
+    ports:
+      - "8014:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: lead
+      PROMOTER_DEFAULT: "00000000-0000-0000-0000-000000000000"
+      LEAD_PUBLIC_BASE_URL: http://localhost:8014
+      PIX_DEFAULT_AMOUNT: "5.00"
+      PIX_DEFAULT_DESCRIPTION: "Material Didático - Curso Supletivo"
+      PIX_DEFAULT_DUE_DAYS: "3"
+      LEAD_CONTACT_POLL_TIMEOUT_S: "30"
+      LEAD_CONTACT_POLL_INTERVAL_S: "1"
+      MEDIA_DIR: /app/media
+      WEBHOOK_ENROLLMENT_URL: http://enrollment:8000/api/v1/webhook/new
+      WEBHOOK_PROMOTERS_URL: http://promoter:8000/api/v1/from-lead
+      NOTIFY_CALLBACK_URL: http://lead:8000/api/v1/webhook/notify
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lead.rule=Host(`api.m33.live`) && PathPrefix(`/lead`)"
+      - "traefik.http.routers.lead.entrypoints=web"
+      - "traefik.http.services.lead.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.lead-strip.stripprefix.prefixes=/lead"
+      - "traefik.http.routers.lead.middlewares=lead-strip"
+
+  notify:
+    build:
+      context: ./notify
+    ports:
+      - "8015:8000"
+    env_file: .env                       # ← Mailcow SSH/SMTP/API + WhatsApp key + ElevenLabs
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: notify
+      PROFILES_TIMEOUT_S: "5"
+    volumes:
+      # SSH key dedicada pra falar com Mailcow VM 150 (root@10.1.30.150).
+      # authorized_keys da VM restringe a key a 'docker exec ... sendmail' — read-only.
+      # Monta em /app/.ssh (home do appuser dentro do container) pra atravessar 700.
+      - /home/maestri33/.notify-ssh:/app/.ssh:ro
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.notify.rule=Host(`api.m33.live`) && PathPrefix(`/notify`)"
+      - "traefik.http.routers.notify.entrypoints=web"
+      - "traefik.http.services.notify.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.notify-strip.stripprefix.prefixes=/notify"
+      - "traefik.http.routers.notify.middlewares=notify-strip"
+
+  otp:
+    build:
+      context: ./otp
+    ports:
+      - "8016:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: otp
+      WEBHOOK_BASE_URL: http://otp:8000
+      OTP_FOOTER: "Supletivo Brasil"
+      OTP_TTL_S: "300"
+      OTP_NUM_DIGITS: "6"
+      OTP_MAX_ATTEMPTS: "3"
+      OTP_ACTIVE: "true"
+      OTP_RATELIMIT_WINDOW_S: "30"
+      OTP_RATELIMIT_HOURLY_MAX: "5"
+      OTP_CLEANUP_INTERVAL_S: "3600"
+      OTP_CLEANUP_RETENTION_DAYS: "30"
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.otp.rule=Host(`api.m33.live`) && PathPrefix(`/otp`)"
+      - "traefik.http.routers.otp.entrypoints=web"
+      - "traefik.http.services.otp.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.otp-strip.stripprefix.prefixes=/otp"
+      - "traefik.http.routers.otp.middlewares=otp-strip"
+
+  profiles:
+    build:
+      context: ./profiles
+    ports:
+      - "8017:8000"
+    env_file: .env                       # ← CPFHUB_API_KEY
+    environment:
+      <<: [*common-env, *postgres-url]
+      DATABASE_SCHEMA: profiles
+      INTEGRATIONS: '{}'
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.profiles.rule=Host(`api.m33.live`) && PathPrefix(`/profiles`)"
+      - "traefik.http.routers.profiles.entrypoints=web"
+      - "traefik.http.services.profiles.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.profiles-strip.stripprefix.prefixes=/profiles"
+      - "traefik.http.routers.profiles.middlewares=profiles-strip"
+
+  promoter:
+    build:
+      context: ./promoter
+    ports:
+      - "8018:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: promoter
+      HUB_DEFAULT: "00000000-0000-0000-0000-000000000000"
+      LANDING_BASE_URL: http://localhost:8014
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.promoter.rule=Host(`api.m33.live`) && PathPrefix(`/promoter`)"
+      - "traefik.http.routers.promoter.entrypoints=web"
+      - "traefik.http.services.promoter.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.promoter-strip.stripprefix.prefixes=/promoter"
+      - "traefik.http.routers.promoter.middlewares=promoter-strip"
+
+  roles:
+    build:
+      context: ./roles
+    ports:
+      - "8019:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url]
+      DATABASE_SCHEMA: roles
+      HOST: 0.0.0.0
+      PORT: "8000"
+      VALID_ROLES: '["lead","candidate","promoter","coordinator","student","staff","admin"]'
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.roles.rule=Host(`api.m33.live`) && PathPrefix(`/roles`)"
+      - "traefik.http.routers.roles.entrypoints=web"
+      - "traefik.http.services.roles.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.roles-strip.stripprefix.prefixes=/roles"
+      - "traefik.http.routers.roles.middlewares=roles-strip"
+
+  staff:
+    build:
+      context: ./staff
+    ports:
+      - "8020:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: staff
+      STAFF_ROLES: '["admin","staff"]'
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.staff.rule=Host(`api.m33.live`) && PathPrefix(`/staff`)"
+      - "traefik.http.routers.staff.entrypoints=web"
+      - "traefik.http.services.staff.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.staff-strip.stripprefix.prefixes=/staff"
+      - "traefik.http.routers.staff.middlewares=staff-strip"
+
+  student:
+    build:
+      context: ./student
+    ports:
+      - "8021:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: student
+      COORDINATOR_COMMISSION_CENTS: "50"
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.student.rule=Host(`api.m33.live`) && PathPrefix(`/student`)"
+      - "traefik.http.routers.student.entrypoints=web"
+      - "traefik.http.services.student.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.student-strip.stripprefix.prefixes=/student"
+      - "traefik.http.routers.student.middlewares=student-strip"
+
+  training:
+    build:
+      context: ./training
+    ports:
+      - "8022:8000"
+    env_file: .env
+    environment:
+      <<: [*common-env, *postgres-url, *service-urls]
+      DATABASE_SCHEMA: training
+      AI_TIMEOUT: "60"
+      MEDIA_DIR: /app/media
+      MAX_UPLOAD_MB: "200"
+      ROLE_TRAINEE: candidate
+      ROLE_COORDINATOR: coordinator
+      ROLE_PROMOTED_TARGET: promoter
+      GRADE_PASS_THRESHOLD: "6"            # Escala 0-10 (não 0-100).
+    healthcheck: *healthcheck
+    depends_on: *deps-pg-redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.training.rule=Host(`api.m33.live`) && PathPrefix(`/training`)"
+      - "traefik.http.routers.training.entrypoints=web"
+      - "traefik.http.services.training.loadbalancer.server.port=8000"
+      - "traefik.http.middlewares.training-strip.stripprefix.prefixes=/training"
+      - "traefik.http.routers.training.middlewares=training-strip"
+
+  # ── Secret manager (Infisical) ─────────────────────────────────────────────
+
+  infisical-db:
+    image: postgres:16-alpine
+    environment:
+      
+      POSTGRES_DB: infisical
+      POSTGRES_USER: infisical
+      POSTGRES_PASSWORD: infisical_dev
+    volumes:
+      - infisical_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U infisical -d infisical"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles: ["infisical"]
+
+  infisical:
+    image: infisical/infisical:latest
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      DB_CONNECTION_URI: "postgresql://infisical:infisical_dev@infisical-db:5432/infisical"
+      REDIS_URL: "redis://redis:6379"
+      AUTH_SECRET: "0c221110d28d98a1b60c70bba68be88c"
+      ENCRYPTION_KEY: "d077e552eccb5b0cd9ea20a5e5cc899b"
+      SITE_URL: "http://localhost:8080"
+      TELEMETRY_ENABLED: "false"
+    depends_on:
+      infisical-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    profiles: ["infisical"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "http://localhost:8080/api/status", "-O", "/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  pgdata:
+  pgadmin_data:
+  infisical_pgdata:

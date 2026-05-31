@@ -7,17 +7,26 @@ Roda em: uvicorn app.main:app --host 0.0.0.0 --port 80
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 from . import config_store as cfg
 from .api.router import api_router, root_router
 from .db import async_session_maker, close_db
 from .exceptions import DomainError
+from .metrics import set_hmac_configured, setup_metrics
 from .schemas import ERROR_CODES
 from .services import payment as payment_service
-from .utils.logging import configure_logging, log_event
+from .services.webhook_security import webhook_hmac_configured
+from .utils.logging import configure_logging, log_event, logger
+from .workers import outbound_queue
 
 configure_logging()
 
@@ -176,11 +185,31 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await session.rollback()
             log_event("config.seed_from_env.failed", error=str(exc))
 
+    # ── Startup security check: alerta se HMAC estiver desabilitado ──
+    async with async_session_maker() as session:
+        hmac_ok = await webhook_hmac_configured(session)
+    if not hmac_ok:
+        logger.critical(
+            "webhook_hmac_disabled_at_startup",
+            service="asaas",
+            msg=(
+                "ASAAS_WEBHOOK_SECRET nao configurado em producao! "
+                "Webhooks estao aceitando chamadas sem validar assinatura HMAC. "
+                "Configure a env ASAAS_WEBHOOK_SECRET ou cadastre o secret via "
+                "config store (K_ASAAS_WEBHOOK_SECRET)."
+            ),
+        )
+        log_event("webhook_hmac_disabled_at_startup", severity="CRITICAL")
+    set_hmac_configured(hmac_ok)
+
     worker = asyncio.create_task(payment_service.worker_loop(30.0))
+    outbound_worker = asyncio.create_task(outbound_queue.run_worker_loop())
+    log_event("outbound_worker_started")
     try:
         yield
     finally:
         worker.cancel()
+        outbound_worker.cancel()
         log_event("service.shutdown")
         await close_db()
 
@@ -192,6 +221,15 @@ app = FastAPI(
     openapi_tags=tags_metadata,
     lifespan=lifespan,
 )
+
+# ── Rate limiting (slowapi) ─────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+
+# ── SlowAPI middleware ──────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
 
 
 @app.exception_handler(DomainError)
@@ -205,6 +243,19 @@ async def _handle_domain_error(request: Request, exc: DomainError) -> JSONRespon
 
 app.include_router(api_router)
 app.include_router(root_router)
+setup_metrics(app)
+
+# ── Static media (QR PNGs) ──────────────────────────────────
+# Serve QRs gravados por utils/qrcode.save_pix_qr_png em
+# /api/v1/public/media/qrcodes/<payment_id>.png. Prefixo `/api/v1/public/*`
+# casa com o matcher do Caddy listener publico (:8081) — URL absoluta
+# devolvida em ChargePixData.qr_url funciona via Tailscale Funnel sem
+# regra extra de proxy.
+from .config import get_settings as _gs  # noqa: E402
+
+_media_dir = Path(_gs().media_dir)
+_media_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/api/v1/public/media", StaticFiles(directory=str(_media_dir)), name="public_media")
 
 
 @app.get("/healthz", include_in_schema=False)

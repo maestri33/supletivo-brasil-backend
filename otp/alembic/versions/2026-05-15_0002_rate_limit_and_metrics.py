@@ -10,7 +10,7 @@ Revises: 0001
 Create Date: 2026-05-15
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -18,9 +18,9 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "0002"
-down_revision: Union[str, None] = "0001"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = "0001"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 SCHEMA = "otp"
@@ -47,14 +47,18 @@ def upgrade() -> None:
         sa.Column("hourly_count", sa.Integer(), server_default="0", nullable=False),
         sa.Column("hourly_window_start", sa.DateTime(timezone=True), nullable=False),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.PrimaryKeyConstraint("external_id", name="rate_limit_pkey"),
         sa.ForeignKeyConstraint(
-            ["external_id"], ["auth.users.external_id"],
+            ["external_id"],
+            ["auth.users.external_id"],
             name="rate_limit_external_id_fkey",
-            onupdate="CASCADE", ondelete="CASCADE",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
         ),
         schema=SCHEMA,
     )

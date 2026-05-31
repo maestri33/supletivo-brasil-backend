@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-import logging
-
-import niquests
+import httpx
 
 from app.config import get_settings
+from app.utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+
+def _sanitize_log_body(body: dict | None, sensitive: set[str]) -> dict | None:
+    """Remove sensitive fields from log output."""
+    if not isinstance(body, dict):
+        return body
+    return {k: ("***" if k in sensitive else v) for k, v in body.items()}
 
 
 class NotifyClient:
@@ -19,17 +25,18 @@ class NotifyClient:
         self._timeout = timeout
 
     async def __aenter__(self) -> NotifyClient:
-        self._session = niquests.AsyncSession()
-        self._session.headers.update({"Accept": "application/json"})
+        self._session = httpx.AsyncClient(headers={"Accept": "application/json"})
         return self
 
     async def __aexit__(self, *args: object) -> None:
-        await self._session.close()
+        await self._session.aclose()
 
     # ── Contacts ───────────────────────────────────
 
     async def check_contact(
-        self, phone: str | None = None, email: str | None = None,
+        self,
+        phone: str | None = None,
+        email: str | None = None,
     ) -> dict:
         """GET /api/v1/contacts/check — verifica existencia e valida phone/email."""
         params: dict[str, str] = {}
@@ -46,7 +53,10 @@ class NotifyClient:
         return resp.json()
 
     async def create_contact(
-        self, external_id: str, phone: str | None = None, email: str | None = None,
+        self,
+        external_id: str,
+        phone: str | None = None,
+        email: str | None = None,
     ) -> dict:
         """POST /api/v1/contacts — cria contacto."""
         body: dict[str, str] = {"external_id": external_id}
@@ -60,13 +70,22 @@ class NotifyClient:
     # ── Internal ────────────────────────────────────
 
     async def _request(
-        self, method: str, path: str, *,
-        json: dict | None = None, params: dict | None = None,
-    ) -> niquests.Response:
+        self,
+        method: str,
+        path: str,
+        *,
+        json: dict | None = None,
+        params: dict | None = None,
+    ) -> httpx.Response:
         url = f"{self._base}{path}"
-        logger.debug(f"[notify] {method} {url}" + (f" body={json}" if json else ""))
+        safe = _sanitize_log_body(json, {"phone", "email"})
+        logger.debug(f"[notify] {method} {url}" + (f" body={safe}" if safe else ""))
         resp = await self._session.request(
-            method, url, json=json, params=params, timeout=self._timeout,
+            method,
+            url,
+            json=json,
+            params=params,
+            timeout=self._timeout,
         )
         logger.debug(f"[notify] ← {resp.status_code}")
         if resp.status_code >= 400:
@@ -74,7 +93,10 @@ class NotifyClient:
             try:
                 body = resp.json()
                 if isinstance(body, dict):
-                    detail = f"{body.get('code', '')}: {body.get('message', body.get('detail', str(body)))}"
+                    detail = (
+                        f"{body.get('code', '')}: "
+                        f"{body.get('message', body.get('detail', str(body)))}"
+                    )
             except Exception:
                 detail = resp.text or detail
             raise NotifyError(resp.status_code, detail)

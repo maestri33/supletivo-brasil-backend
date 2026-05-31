@@ -9,7 +9,7 @@ Revises:
 Create Date: 2026-05-15
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -17,9 +17,9 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "0001"
-down_revision: Union[str, None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 SCHEMA = "otp"
@@ -36,14 +36,18 @@ def upgrade() -> None:
         sa.Column("error_detail", sa.Text(), nullable=True),
         sa.Column("verified_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="otp_logs_pkey"),
         sa.ForeignKeyConstraint(
-            ["external_id"], ["auth.users.external_id"],
+            ["external_id"],
+            ["auth.users.external_id"],
             name="otp_logs_external_id_fkey",
-            onupdate="CASCADE", ondelete="RESTRICT",
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
         ),
         schema=SCHEMA,
     )
@@ -60,28 +64,39 @@ def upgrade() -> None:
         sa.Column("status", sa.String(length=20), server_default="pending", nullable=False),
         sa.Column("error_detail", sa.Text(), nullable=True),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.PrimaryKeyConstraint("id", name="pending_notify_pkey"),
         sa.ForeignKeyConstraint(
-            ["external_id"], ["auth.users.external_id"],
+            ["external_id"],
+            ["auth.users.external_id"],
             name="pending_notify_external_id_fkey",
-            onupdate="CASCADE", ondelete="RESTRICT",
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
         ),
         sa.ForeignKeyConstraint(
-            ["otp_log_id"], [f"{SCHEMA}.otp_logs.id"],
+            ["otp_log_id"],
+            [f"{SCHEMA}.otp_logs.id"],
             name="pending_notify_otp_log_id_fkey",
             ondelete="CASCADE",
         ),
         schema=SCHEMA,
     )
-    op.create_index("pending_notify_external_id_idx", "pending_notify", ["external_id"], schema=SCHEMA)
-    op.create_index("pending_notify_otp_log_id_idx", "pending_notify", ["otp_log_id"], schema=SCHEMA)
+    op.create_index(
+        "pending_notify_external_id_idx", "pending_notify", ["external_id"], schema=SCHEMA
+    )
+    op.create_index(
+        "pending_notify_otp_log_id_idx", "pending_notify", ["otp_log_id"], schema=SCHEMA
+    )
 
 
 def downgrade() -> None:

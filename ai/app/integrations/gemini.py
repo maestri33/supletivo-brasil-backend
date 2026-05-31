@@ -42,7 +42,9 @@ class GeminiClient:
 
         if reference_url:
             ref_bytes, ref_mime = await self._download_reference(reference_url)
-            parts.append(types.Part(inline_data=types.Blob(mime_type=ref_mime, data=ref_bytes)))
+            parts.append(
+                types.Part(inline_data=types.Blob(mime_type=ref_mime, data=ref_bytes))
+            )
 
         image_config = types.ImageConfig()
         if aspect_ratio:
@@ -50,7 +52,9 @@ class GeminiClient:
         if image_size:
             image_config.image_size = image_size
 
-        tools = [types.Tool(google_search=types.GoogleSearch())] if google_search else None
+        tools = (
+            [types.Tool(google_search=types.GoogleSearch())] if google_search else None
+        )
 
         config = types.GenerateContentConfig(
             response_modalities=["IMAGE"],
@@ -100,7 +104,9 @@ class GeminiClient:
             response = await self._genai.aio.models.generate_content(
                 model=self._vision_model,
                 contents=[
-                    types.Part.from_text(text="Descreva esta imagem em portugues brasileiro de forma clara e objetiva."),
+                    types.Part.from_text(
+                        text="Descreva esta imagem em portugues brasileiro de forma clara e objetiva."
+                    ),
                     types.Part.from_bytes(data=img_bytes, mime_type=img_mime),
                 ],
             )
@@ -108,7 +114,9 @@ class GeminiClient:
             raise IntegrationError(f"Gemini vision falhou: {exc}") from exc
 
         text = response.text or ""
-        log.info("gemini.vision_done", length=len(text), bytes=len(img_bytes), mime=img_mime)
+        log.info(
+            "gemini.vision_done", length=len(text), bytes=len(img_bytes), mime=img_mime
+        )
         return text.strip()
 
     def image_filename(self, mime_type: str) -> str:

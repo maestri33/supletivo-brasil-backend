@@ -1,5 +1,5 @@
 """Modelos ORM (SQLAlchemy). Importados centralmente para descoberta pelo Alembic."""
 
-from app.models.user import Base, User, UserRole
+from app.models.user import Base, User
 
-__all__ = ["Base", "User", "UserRole"]
+__all__ = ["Base", "User"]

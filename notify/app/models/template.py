@@ -16,18 +16,25 @@ class Template(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
     slug: Mapped[str] = mapped_column(
-        String(64), unique=True, index=True, nullable=False,
+        String(64),
+        unique=True,
+        index=True,
+        nullable=False,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     html: Mapped[str] = mapped_column(Text, nullable=False)
 
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     is_active: Mapped[bool] = mapped_column(
-        Boolean, default=True, nullable=False,
+        Boolean,
+        default=True,
+        nullable=False,
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False,
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

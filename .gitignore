@@ -12,13 +12,12 @@ dist/
 venv/
 env/
 ENV/
-
 # Caches de ferramentas
 .ruff_cache/
 .pytest_cache/
 .mypy_cache/
 .cache/
-
+.coverage
 # === Segredos e ambiente ===
 .env
 .env.*
@@ -27,7 +26,6 @@ ENV/
 *.key
 *.p12
 secrets/
-
 # === Bancos locais / dados de runtime ===
 *.db
 *.db-shm
@@ -39,12 +37,10 @@ uploads/
 media/
 logs/
 *.log
-
 # === Node / Frontend (staff) ===
 node_modules/
 .next/
 out/
-
 # === Backups e artefatos ===
 *.tar.gz
 *.tgz
@@ -52,17 +48,14 @@ out/
 *.bak
 *-backups/
 *.backup-*
-
 # === Binários compilados ===
 *.so
 bin/
-
 # === SO / editores ===
 .DS_Store
 Thumbs.db
 *.swp
 *.swo
-
 # === Tooling local ===
 .python-version
 .mcp.json

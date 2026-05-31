@@ -37,7 +37,11 @@ async def list_all(
     offset: int = Query(0, ge=0),
 ):
     return await list_addresses(
-        session, external_id=external_id, kind=kind, limit=limit, offset=offset,
+        session,
+        external_id=external_id,
+        kind=kind,
+        limit=limit,
+        offset=offset,
     )
 
 
@@ -51,7 +55,9 @@ async def by_external_id(external_id: UUID, session: AsyncSession = Depends(get_
     response_model=AddressRead,
 )
 async def current(
-    external_id: UUID, kind: str, session: AsyncSession = Depends(get_session),
+    external_id: UUID,
+    kind: str,
+    session: AsyncSession = Depends(get_session),
 ):
     return await current_by_kind(session, external_id, kind)
 
@@ -67,17 +73,19 @@ async def viacep_lookup(zipcode: str):
 
 
 @router.get("/{address_id}", response_model=AddressRead)
-async def get_one(address_id: int, session: AsyncSession = Depends(get_session)):
+async def get_one(address_id: UUID, session: AsyncSession = Depends(get_session)):
     return await get_address(session, address_id)
 
 
 @router.patch("/{address_id}", response_model=AddressRead)
 async def patch(
-    address_id: int, data: AddressPatch, session: AsyncSession = Depends(get_session),
+    address_id: UUID,
+    data: AddressPatch,
+    session: AsyncSession = Depends(get_session),
 ):
     return await patch_address(session, address_id, data)
 
 
 @router.delete("/{address_id}", status_code=204)
-async def delete_one(address_id: int, session: AsyncSession = Depends(get_session)):
+async def delete_one(address_id: UUID, session: AsyncSession = Depends(get_session)):
     await delete_address(session, address_id)

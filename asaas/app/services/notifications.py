@@ -8,16 +8,24 @@ Roteamento por categoria de evento (3 URLs configuraveis + fallback legado):
 
 Fallback: internal_url (legado catch-all) quando o destino especifico nao esta setado.
 Se nenhum estiver configurado, no-op silencioso (eventos ficam apenas no log).
+
+Entrega: ate 2026-05-28 era httpx.post direto (fire-and-forget; falha = log).
+Hoje enfileira em asaas.outbound_jobs e o worker faz retry com backoff (ver
+[[project-asaas-webhook-before-checkout-race]] e workers/outbound_queue.py).
+Usa sessao propria pra commit imediato do job — a maioria dos callsites ja
+commitou seu estado antes de chamar; manter sessao do caller perderia o job
+em rollback de transacao nova nao-commitada.
 """
 
 from __future__ import annotations
 
-import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import config_store as cfg
+from ..db import async_session_maker
 from ..models import Payment
 from ..utils.logging import log_event
+from ..workers.outbound_queue import enqueue
 
 _SCHEDULING_STATUSES = {"SCHEDULED", "QUEUED"}
 
@@ -43,7 +51,7 @@ def _external_id_field(payment: Payment) -> str | None:
 
 
 async def notify_internal(db: AsyncSession, payment: Payment) -> None:
-    """Dispara POST a internal URL apropriada. Falhas sao logadas mas nao propagadas."""
+    """Enfileira notify interno (asaas.outbound_jobs). Worker entrega com retry."""
     url = await internal_url_for(db, kind=payment.kind, status=payment.status)
     if not url:
         return
@@ -54,19 +62,25 @@ async def notify_internal(db: AsyncSession, payment: Payment) -> None:
         "status": payment.status,
     }
     try:
-        async with httpx.AsyncClient(timeout=5.0) as cli:
-            r = await cli.post(url, json=payload)
-            log_event(
-                "internal_notify",
-                payment_id=payment.payment_id,
-                status=payment.status,
-                kind=payment.kind,
-                status_code=r.status_code,
-                target=url,
+        async with async_session_maker() as enq_sess:
+            job_id = await enqueue(
+                enq_sess,
+                url=url,
+                payload=payload,
+                external_id=payment.payment_id,
             )
+            await enq_sess.commit()
+        log_event(
+            "internal_notify_enqueued",
+            payment_id=payment.payment_id,
+            status=payment.status,
+            kind=payment.kind,
+            target=url,
+            job_id=job_id,
+        )
     except Exception as e:
         log_event(
-            "internal_notify_failed",
+            "internal_notify_enqueue_failed",
             payment_id=payment.payment_id,
             status=payment.status,
             kind=payment.kind,

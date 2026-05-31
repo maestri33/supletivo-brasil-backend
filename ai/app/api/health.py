@@ -74,11 +74,13 @@ async def health():
 @router.get("/ready")
 async def ready():
     settings = get_settings()
-    integrations_ok = all([
-        bool(settings.deepseek_api_key),
-        bool(settings.gemini_api_key),
-        bool(settings.elevenlabs_api_key),
-    ])
+    integrations_ok = all(
+        [
+            bool(settings.deepseek_api_key),
+            bool(settings.gemini_api_key),
+            bool(settings.elevenlabs_api_key),
+        ]
+    )
     status = "ok" if integrations_ok else "degraded"
     return {"status": status, "integrations": _integration_status()}
 

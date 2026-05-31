@@ -31,6 +31,17 @@ class Settings(BaseSettings):
     # Fernet key p/ cifrar o external_id no webhook_url (rota publica)
     webhook_encryption_key: str = ""
 
+    # Internal admin API key — required for /health/integration (COD-91)
+    internal_api_key: str = Field(default="", validation_alias="INTERNAL_API_KEY")
+
+    # Seguranca de webhook — HMAC secret + IP allow-list
+    infinitepay_webhook_secret: str | None = Field(
+        default=None, validation_alias="INFINITEPAY_WEBHOOK_SECRET"
+    )
+    infinitepay_webhook_allowed_cidrs: str | None = Field(
+        default=None, validation_alias="INFINITEPAY_WEBHOOK_ALLOWED_CIDRS"
+    )
+
     # ── Config da loja (antes na tabela `config`; agora 100% via .env) ─────────
     # Defaults usados quando o body do POST /checkout nao informa o campo.
     handle: str | None = Field(default=None, validation_alias="INFINITEPAY_HANDLE")
@@ -41,9 +52,7 @@ class Settings(BaseSettings):
     backend_webhook: str | None = Field(
         default=None, validation_alias="INFINITEPAY_BACKEND_WEBHOOK"
     )
-    public_api_url: str | None = Field(
-        default=None, validation_alias="INFINITEPAY_PUBLIC_API_URL"
-    )
+    public_api_url: str | None = Field(default=None, validation_alias="INFINITEPAY_PUBLIC_API_URL")
 
     # ── Integracao com o app `ai` central (usado por receipt + monitor) ────────
     # receipt/monitor chamam o app `ai` em {ai_base_url}/api/v1/text/chat — nunca

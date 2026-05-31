@@ -3,8 +3,7 @@
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
-from sqlalchemy import Column, MetaData, Table
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -34,16 +33,6 @@ class Base(DeclarativeBase):
 def utcnow() -> datetime:
     """Timestamp aware em UTC — default das colunas timestamptz."""
     return datetime.now(UTC)
-
-
-# Shadow auth.users — necessario pro SQLAlchemy resolver FK cross-schema.
-# Read-only: nunca escrevemos aqui; o dono do schema `auth` e o app `auth`.
-auth_users = Table(
-    "users",
-    metadata,
-    Column("external_id", PG_UUID(as_uuid=False), primary_key=True),
-    schema="auth",
-)
 
 
 engine = create_async_engine(settings.database_url, pool_pre_ping=True)

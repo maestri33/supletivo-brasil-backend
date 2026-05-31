@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db import async_session_maker
 from app.integrations.ai import AIClient
-from app.integrations.mailcow import MailcowSMTPClient
+from app.integrations.smtp import SMTPClient
 from app.integrations.profiles import ProfilesClient
 from app.integrations.whatsapp import WhatsAppClient
 from app.models.log import Log
@@ -43,15 +43,23 @@ from app.schemas.message import MessageSend, TestEmailRequest, TestEmailResult
 from app.services import template_service
 from app.services.contact_service import get_contact_by_external_id
 from app.utils.logging import get_logger
+from app.utils.pii import mask_email as _mask_email
 
 log = get_logger(__name__)
 
 _MIME_MAP = {
-    "image/jpeg": "image", "image/jpg": "image", "image/png": "image",
-    "image/webp": "image", "image/gif": "image",
-    "video/mp4": "video", "video/quicktime": "video",
-    "audio/mpeg": "audio", "audio/mp3": "audio", "audio/ogg": "audio",
-    "audio/opus": "audio", "audio/wav": "audio",
+    "image/jpeg": "image",
+    "image/jpg": "image",
+    "image/png": "image",
+    "image/webp": "image",
+    "image/gif": "image",
+    "video/mp4": "video",
+    "video/quicktime": "video",
+    "audio/mpeg": "audio",
+    "audio/mp3": "audio",
+    "audio/ogg": "audio",
+    "audio/opus": "audio",
+    "audio/wav": "audio",
 }
 _IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 _VIDEO_EXT = {".mp4", ".mov", ".avi", ".mkv"}
@@ -75,26 +83,28 @@ def _detect_media(source: str) -> tuple[str, str | None]:
     return "document", mimetypes.types_map.get(ext)
 
 
-def _public_url(relative_path: str) -> str:
-    base = get_settings().public_base_url.rstrip("/")
-    return f"{base}/media/{relative_path}"
+def _to_lan(public_url: str) -> str:
+    """Troca host publico externo por LAN (WhatsApp/Evolution acessa direto).
+
+    Pra adicionar service novo, registre o par `<x>_public_base`/
+    `<x>_lan_base` em config e adicione um elif aqui.
+    """
+    s = get_settings()
+    if s.ai_public_base and public_url.startswith(s.ai_public_base):
+        return public_url.replace(s.ai_public_base, s.ai_lan_base, 1)
+    if s.notify_public_base and public_url.startswith(s.notify_public_base):
+        return public_url.replace(s.notify_public_base, s.notify_lan_base, 1)
+    return public_url
 
 
-def _dmz_url(relative_path: str) -> str:
-    base = get_settings().dmz_base_url.rstrip("/")
-    return f"{base}/media/{relative_path}"
-
-
-def _handle_base64_media(data_uri: str) -> tuple[str, str, str, str]:
-    """Decodifica data URI base64, salva em disco e devolve URLs + base64 puro.
+def _handle_base64_media(data_uri: str) -> tuple[str, str, str]:
+    """Decodifica data URI base64, salva em disco e devolve URL publica + b64.
 
     Returns:
-        (public_url, dmz_url, media_type, pure_b64)
+        (public_url, media_type, pure_b64)
 
-    O `pure_b64` (sem prefixo `data:`) e' o que devemos passar pra Evolution
-    API no campo `media`. Evolution rejeita URLs HTTP internas com
-    `"Owned media must be a url or base64"` (requer HTTPS ou base64 puro);
-    `public_url`/`dmz_url` ficam pra outros canais (email HTML).
+    `public_url` aponta pro Traefik externo (notify_public_base). Pra
+    WhatsApp/Evolution use `_to_lan(public_url)`.
     """
     import base64 as b64
     import uuid
@@ -108,11 +118,18 @@ def _handle_base64_media(data_uri: str) -> tuple[str, str, str, str]:
 
     media_type = _MIME_MAP.get(mime, "document")
     ext_map = {
-        "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png",
-        "image/webp": ".webp", "image/gif": ".gif",
-        "video/mp4": ".mp4", "video/quicktime": ".mov",
-        "audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/ogg": ".ogg",
-        "audio/opus": ".opus", "audio/wav": ".wav",
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+        "image/gif": ".gif",
+        "video/mp4": ".mp4",
+        "video/quicktime": ".mov",
+        "audio/mpeg": ".mp3",
+        "audio/mp3": ".mp3",
+        "audio/ogg": ".ogg",
+        "audio/opus": ".opus",
+        "audio/wav": ".wav",
         "application/pdf": ".pdf",
     }
     ext = ext_map.get(mime, mimetypes.guess_extension(mime) or ".bin")
@@ -121,12 +138,15 @@ def _handle_base64_media(data_uri: str) -> tuple[str, str, str, str]:
     out.mkdir(parents=True, exist_ok=True)
     (out / filename).write_bytes(raw)
     relative = f"imagem/{filename}"
-    public_url = _public_url(relative)
-    dmz_url = _dmz_url(relative)
+    base = get_settings().notify_public_base.rstrip("/")
+    public_url = f"{base}/media/{relative}"
     log.info(
-        "media.base64_decoded", mime=mime, relative=relative, bytes=len(raw),
+        "media.base64_decoded",
+        mime=mime,
+        relative=relative,
+        bytes=len(raw),
     )
-    return public_url, dmz_url, media_type, pure_b64
+    return public_url, media_type, pure_b64
 
 
 def _email_media_html(media_url: str, media_type: str, caption: str) -> str:
@@ -139,8 +159,8 @@ def _email_media_html(media_url: str, media_type: str, caption: str) -> str:
             f'<img src="{safe_url}" alt="{safe_caption}" '
             f'style="max-width:100%;height:auto;border-radius:4px">'
             f'<p style="margin:8px 0 0;color:#666;font-size:14px;font-family:Arial,sans-serif">'
-            f'{safe_caption}</p>'
-            f'</div>'
+            f"{safe_caption}</p>"
+            f"</div>"
         )
     if media_type == "video":
         return (
@@ -149,7 +169,7 @@ def _email_media_html(media_url: str, media_type: str, caption: str) -> str:
             f'<p style="margin:8px 0;font-family:Arial,sans-serif;font-size:15px;color:#333">{safe_caption}</p>'
             f'<a href="{safe_url}" target="_blank" '
             f'style="color:#1a73e8;font-family:Arial,sans-serif;font-size:14px">Assistir v&iacute;deo</a>'
-            f'</div>'
+            f"</div>"
         )
     if media_type == "audio":
         return (
@@ -158,7 +178,7 @@ def _email_media_html(media_url: str, media_type: str, caption: str) -> str:
             f'<p style="margin:8px 0;font-family:Arial,sans-serif;font-size:15px;color:#333">{safe_caption}</p>'
             f'<a href="{safe_url}" target="_blank" '
             f'style="color:#1a73e8;font-family:Arial,sans-serif;font-size:14px">Ouvir &aacute;udio</a>'
-            f'</div>'
+            f"</div>"
         )
     safe_name = _html.escape(media_url.rsplit("/", 1)[-1] if "/" in media_url else "arquivo")
     return (
@@ -168,7 +188,7 @@ def _email_media_html(media_url: str, media_type: str, caption: str) -> str:
         f'<p style="margin:8px 0;font-family:Arial,sans-serif;font-size:15px;color:#333">{safe_caption}</p>'
         f'<a href="{safe_url}" target="_blank" '
         f'style="color:#1a73e8;font-family:Arial,sans-serif;font-size:14px">Baixar arquivo</a>'
-        f'</div>'
+        f"</div>"
     )
 
 
@@ -259,9 +279,7 @@ def _render_html(
         # Escape primeiro (XSS-safe), depois aplica markdown bold sobre o
         # texto ja escapado. '**texto**' sobrevive ao escape e vira tag
         # <strong> de forma segura. Newlines em <br> mantem layout.
-        safe_content = _md_bold_to_html_after_escape(
-            _html.escape(content)
-        ).replace("\n", "<br>")
+        safe_content = _md_bold_to_html_after_escape(_html.escape(content)).replace("\n", "<br>")
     return (
         template.replace("{{title}}", safe_title)
         .replace("{{content}}", safe_content)
@@ -313,14 +331,19 @@ async def _retry(
             last_exc = exc
             if not _is_retryable(exc):
                 log.warning(
-                    f"{label}.non_retryable", attempt=attempt, error=str(exc)[:200],
+                    f"{label}.non_retryable",
+                    attempt=attempt,
+                    error=str(exc)[:200],
                 )
                 return None, attempt, str(exc)
             if attempt > max_retries:
                 break
             sleep_s = backoff_base_s * (3 ** (attempt - 1))
             log.info(
-                f"{label}.retry", attempt=attempt, sleep_s=sleep_s, error=str(exc)[:200],
+                f"{label}.retry",
+                attempt=attempt,
+                sleep_s=sleep_s,
+                error=str(exc)[:200],
             )
             await asyncio.sleep(sleep_s)
     return None, attempt, str(last_exc) if last_exc else "unknown"
@@ -405,40 +428,17 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
             media_url = payload.media_url
             whatsapp_media_url: str | None = None
             email_media_url: str | None = None
-            # Bytes da imagem p/ CID inline embed no email (vide MIME
-            # multipart/related em MailcowSMTPClient.send_email).
-            inline_email_images: dict[str, tuple[bytes, str]] = {}
 
             if payload.media_url:
                 if payload.media_url.startswith("data:"):
-                    # Para WhatsApp passamos o base64 PURO (sem prefixo data:);
-                    # a Evolution API rejeita URLs HTTP internas com
-                    # "Owned media must be a url or base64".
-                    media_url, _dmz_unused, media_type, _wa_b64 = _handle_base64_media(
-                        payload.media_url
-                    )
-                    whatsapp_media_url = _wa_b64
-                    # Pra email: tambem embute via CID se for imagem (QR PIX,
-                    # comprovantes, etc). Sem isso o email vira so texto +
-                    # caption, sem a imagem que o usuario espera.
-                    if media_type == "image":
-                        import base64 as _b64
-                        try:
-                            img_bytes = _b64.b64decode(_wa_b64, validate=True)
-                            # Detecta subtype do data URI header (default jpeg).
-                            mime_prefix = payload.media_url.split(",", 1)[0]
-                            subtype = "jpeg"
-                            if "/" in mime_prefix:
-                                m = re.search(r"image/(\w+)", mime_prefix)
-                                if m:
-                                    subtype = m.group(1)
-                            cid = "notify-img-1"
-                            inline_email_images[cid] = (img_bytes, subtype)
-                            email_media_url = f"cid:{cid}"
-                        except Exception as exc:
-                            log.warning("inline_email_img_decode_failed", error=str(exc))
+                    public_url, media_type, _ = _handle_base64_media(payload.media_url)
+                    media_url = public_url
+                    whatsapp_media_url = _to_lan(public_url)
+                    email_media_url = public_url
                 else:
                     media_type, _ = _detect_media(payload.media_url)
+                    whatsapp_media_url = _to_lan(payload.media_url)
+                    email_media_url = payload.media_url
 
             msg_type = "media" if media_type else "text"
             tts_enabled = payload.flags.tts and msg_type == "text"
@@ -460,40 +460,16 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
             if payload.flags.img:
                 img_used = True
                 try:
-                    import base64 as _b64
-
                     ref_url = media_url if media_type == "image" else None
                     prompt = f"{payload.instruction} | {text}" if payload.instruction else text
                     result = await ai.image(prompt=prompt, reference_url=ref_url)
-                    # WhatsApp: Evolution 2.3.7 rejeita URLs HTTP internas e
-                    # publicas tipo `ai.m33.live`. notify baixa via URL
-                    # interna docker e passa base64 puro pro Evolution.
-                    internal_url = (
-                        f"{settings.ai_base_url.rstrip('/')}"
-                        f"/media/image/{result['filename']}"
-                    )
-                    dl = await http.get(internal_url, timeout=30.0)
-                    dl.raise_for_status()
-                    whatsapp_media_url = _b64.b64encode(dl.content).decode("ascii")
-
-                    # Email: CID inline embed em vez de URL publica
-                    # `ai.m33.live` (NXDOMAIN em DNS publico — Gmail
-                    # renderiza icone de imagem quebrada). Reusa os bytes
-                    # ja baixados.
-                    mime = result.get("mime_type") or "image/jpeg"
-                    subtype = mime.split("/", 1)[-1] if "/" in mime else "jpeg"
-                    cid = "notify-img-1"
-                    inline_email_images[cid] = (dl.content, subtype)
-                    email_media_url = f"cid:{cid}"
-
+                    public_url = result["url"]
+                    whatsapp_media_url = _to_lan(public_url)
+                    email_media_url = public_url
                     media_type = "image"
                     msg_type = "media"
                     tts_enabled = False
-                    log.info(
-                        "img.generated",
-                        bytes=len(dl.content), mime=mime,
-                        public_url=result["url"],
-                    )
+                    log.info("img.generated", mime=result.get("mime_type"), public_url=public_url)
                 except Exception as exc:  # noqa: BLE001
                     log.error("img.generation_failed", error=str(exc)[:200])
 
@@ -514,17 +490,18 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
             body = _md_bold_to_whatsapp(stripped)
 
             template = await template_service.get_active_or_default(
-                session, payload.template_slug,
+                session,
+                payload.template_slug,
             )
             _email_url = email_media_url if img_used or email_media_url else media_url
             has_media_html = bool(media_type and _email_url)
             email_body = (
-                _email_media_html(_email_url, media_type, stripped)
-                if has_media_html
-                else stripped
+                _email_media_html(_email_url, media_type, stripped) if has_media_html else stripped
             )
             html = _render_html(
-                template.html, title, email_body,
+                template.html,
+                title,
+                email_body,
                 content_is_html=has_media_html,
             )
 
@@ -534,7 +511,11 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
             whatsapp_error: str | None = None
             tts_failed = False
             tts_fallback_reason: str | None = None
-            if contact.phone:
+            # `channels` opcional restringe entrega. None = ambos (compat).
+            allowed_channels = payload.channels
+            whatsapp_allowed = allowed_channels is None or "whatsapp" in allowed_channels
+            email_allowed = allowed_channels is None or "email" in allowed_channels
+            if contact.phone and whatsapp_allowed:
                 # Resolve a variante BR (com/sem nono digito) que esta
                 # efetivamente registrada no WhatsApp. Sem isso, Evolution
                 # 2.3.7 normaliza errado (perde o 9°) e entrega silenciosa.
@@ -550,7 +531,10 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                         _, whatsapp_attempts, whatsapp_error = await _retry(
                             "whatsapp.send_media",
                             lambda: whatsapp.send_media(
-                                wa_number, _wa_url, media_type, caption=body,
+                                wa_number,
+                                _wa_url,
+                                media_type,
+                                caption=body,
                             ),
                             max_retries=settings.whatsapp_max_retries,
                             backoff_base_s=settings.whatsapp_retry_backoff_base_s,
@@ -569,7 +553,8 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                     if whatsapp_error:
                         log.error(
                             "whatsapp.send_failed",
-                            attempts=whatsapp_attempts, error=whatsapp_error[:200],
+                            attempts=whatsapp_attempts,
+                            error=whatsapp_error[:200],
                         )
 
                 if tts_enabled:
@@ -586,9 +571,7 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                     # (profile 404, gender None, profiles down) -> voice_id
                     # = None -> AI usa elevenlabs_voice_id default.
                     profiles_client = ProfilesClient(http)
-                    gender = await profiles_client.get_gender(
-                        str(payload.external_id)
-                    )
+                    gender = await profiles_client.get_gender(str(payload.external_id))
                     tts_voice_id: str | None = None
                     if gender == "M":
                         tts_voice_id = settings.elevenlabs_voice_male
@@ -615,17 +598,15 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                         tts_text = f"{title.rstrip('.!? ')}. {clean_body}"
                         result = await ai.tts(tts_text, voice_id=tts_voice_id)
                         filename = result["filename"]
-                        internal_url = (
-                            f"{settings.ai_base_url.rstrip('/')}"
-                            f"/media/audio/{filename}"
-                        )
+                        internal_url = f"{settings.ai_base_url.rstrip('/')}/media/audio/{filename}"
                         dl = await http.get(internal_url, timeout=30.0)
                         dl.raise_for_status()
                         wa_audio_b64 = _b64.b64encode(dl.content).decode("ascii")
                         message.tts_audio_url = result["url"]  # publica p/ audit
                         log.info(
                             "tts.audio_ready",
-                            filename=filename, bytes=len(dl.content),
+                            filename=filename,
+                            bytes=len(dl.content),
                         )
                     except Exception as exc:  # noqa: BLE001
                         log.error("tts.generation_failed", error=str(exc)[:200])
@@ -636,7 +617,8 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                         _, whatsapp_attempts, whatsapp_error = await _retry(
                             "whatsapp.send_audio",
                             lambda: whatsapp.send_whatsapp_audio(
-                                wa_number, wa_audio_b64,
+                                wa_number,
+                                wa_audio_b64,
                             ),
                             max_retries=settings.whatsapp_max_retries,
                             backoff_base_s=settings.whatsapp_retry_backoff_base_s,
@@ -655,9 +637,7 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                                 error=whatsapp_error[:200],
                             )
                             tts_failed = True
-                            tts_fallback_reason = (
-                                f"send_audio: {whatsapp_error[:80]}"
-                            )
+                            tts_fallback_reason = f"send_audio: {whatsapp_error[:80]}"
 
                     if tts_failed:
                         # Fallback: envia texto normal no WhatsApp.
@@ -674,9 +654,7 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                             backoff_base_s=settings.whatsapp_retry_backoff_base_s,
                         )
                         message.whatsapp_status = (
-                            STATUS_SENT
-                            if whatsapp_error is None
-                            else STATUS_FAILED
+                            STATUS_SENT if whatsapp_error is None else STATUS_FAILED
                         )
                         if whatsapp_error:
                             log.error(
@@ -686,19 +664,24 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                             )
             else:
                 message.whatsapp_status = STATUS_SKIPPED
+                if contact.phone and not whatsapp_allowed:
+                    log.info(
+                        "whatsapp.skipped_by_channels",
+                        external_id=str(payload.external_id),
+                        channels=allowed_channels,
+                    )
 
-            if contact.email:
+            if contact.email and email_allowed:
                 # Envio direto via Mailcow SMTP (STARTTLS 587). Substitui
                 # o service `mail` Docker (que conflitava credenciais via
                 # configure_smtp e mascarava 535 como ReadTimeout).
                 try:
-                    mc = MailcowSMTPClient()
+                    mc = SMTPClient()
                     await mc.send_email(
                         to_email=contact.email,
                         subject=title,
                         html_body=html,
                         plain_body=text,
-                        inline_images=inline_email_images or None,
                     )
                     message.email_status = STATUS_SENT
                 except Exception as exc:  # noqa: BLE001
@@ -709,6 +692,12 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                     message.email_status = STATUS_FAILED
             else:
                 message.email_status = STATUS_SKIPPED
+                if contact.email and not email_allowed:
+                    log.info(
+                        "email.skipped_by_channels",
+                        external_id=str(payload.external_id),
+                        channels=allowed_channels,
+                    )
 
         message.email_subject = title
 
@@ -719,9 +708,13 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
                 action="message.sent",
                 details={
                     "contact_external_id": str(payload.external_id),
-                    "type": msg_type, "media": media_type,
-                    "whatsapp": message.whatsapp_status, "email": message.email_status,
-                    "tts": tts_enabled, "ai": ai_used, "img": img_used,
+                    "type": msg_type,
+                    "media": media_type,
+                    "whatsapp": message.whatsapp_status,
+                    "email": message.email_status,
+                    "tts": tts_enabled,
+                    "ai": ai_used,
+                    "img": img_used,
                     "template_slug": template.slug,
                     "template_version": template.version,
                     "whatsapp_attempts": whatsapp_attempts or None,
@@ -733,25 +726,32 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
         )
         await session.commit()
         log.info(
-            "message.processed", id=message.id, type=msg_type,
-            whatsapp=message.whatsapp_status, email=message.email_status,
+            "message.processed",
+            id=message.id,
+            type=msg_type,
+            whatsapp=message.whatsapp_status,
+            email=message.email_status,
         )
 
     if payload.webhook_url:
         wh_url = f"{payload.webhook_url.rstrip('/')}/{message_id}"
         try:
             async with httpx.AsyncClient() as http:
-                wh_resp = await http.post(wh_url, json={
-                    "event": "message.processed",
-                    "message_id": message_id,
-                    "contact_id": contact.id,
-                    "external_id": str(payload.external_id),
-                    "type": msg_type,
-                    "whatsapp_status": message.whatsapp_status,
-                    "email_status": message.email_status,
-                    "email_subject": title,
-                    "tts_audio_url": message.tts_audio_url,
-                }, timeout=10.0)
+                wh_resp = await http.post(
+                    wh_url,
+                    json={
+                        "event": "message.processed",
+                        "message_id": message_id,
+                        "contact_id": contact.id,
+                        "external_id": str(payload.external_id),
+                        "type": msg_type,
+                        "whatsapp_status": message.whatsapp_status,
+                        "email_status": message.email_status,
+                        "email_subject": title,
+                        "tts_audio_url": message.tts_audio_url,
+                    },
+                    timeout=10.0,
+                )
                 log.info("webhook.sent", url=wh_url, status=wh_resp.status_code)
         except Exception as exc:
             log.error("webhook.failed", url=wh_url, error=str(exc))
@@ -761,7 +761,8 @@ async def process_message(payload: MessageSend, message_id: int) -> None:
 
 
 async def send_test_email(
-    session: AsyncSession, payload: TestEmailRequest,
+    session: AsyncSession,
+    payload: TestEmailRequest,
 ) -> TestEmailResult:
     """Dispara um email de diagnostico sem criar Contact/Message.
 
@@ -774,7 +775,7 @@ async def send_test_email(
     smtp_response: dict | None = None
     error: str | None = None
     try:
-        mc = MailcowSMTPClient()
+        mc = SMTPClient()
         smtp_response = await mc.send_email(
             to_email=payload.to_email,
             subject=payload.title,
@@ -791,7 +792,7 @@ async def send_test_email(
     except Exception as exc:  # noqa: BLE001
         sent = False
         error = f"{type(exc).__name__}: {exc!r}"
-        log.error("email.test_failed", to=payload.to_email, error=error[:300])
+        log.error("email.test_failed", to=_mask_email(payload.to_email), error=error[:300])
 
     session.add(
         Log(

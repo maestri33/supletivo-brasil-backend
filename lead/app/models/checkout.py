@@ -3,7 +3,7 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import BigInteger, Boolean, Date, ForeignKey, SmallInteger, String, Text
+from sqlalchemy import BigInteger, Boolean, Date, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,15 +18,10 @@ class Checkout(Base, TimestampMixin):
 
     external_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
-        ForeignKey(
-            "auth.users.external_id",
-            ondelete="RESTRICT",
-            onupdate="CASCADE",
-            name="checkouts_external_id_fkey",
-        ),
         unique=True,
         index=True,
         nullable=False,
+        comment="UUID opaco do usuário (referência lógica, sem FK §4)",
     )
 
     # Cartao (infinitepay)
@@ -40,9 +35,7 @@ class Checkout(Base, TimestampMixin):
     # Multi-provider (migration 0002)
     payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
     provider: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    provider_payment_id: Mapped[str | None] = mapped_column(
-        String(255), nullable=True, index=True
-    )
+    provider_payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
 
     # PIX (asaas)
     qrcode_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -50,7 +43,10 @@ class Checkout(Base, TimestampMixin):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     is_paid: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False, index=True,
+        Boolean,
+        default=False,
+        nullable=False,
+        index=True,
     )
 
     def __repr__(self) -> str:

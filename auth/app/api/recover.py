@@ -2,9 +2,10 @@
 
 Diferente de /check, este endpoint tem semantica explicita de recovery:
 - Aceita apenas cpf ou phone (nunca external_id — voce esta recuperando ele)
-- Resposta otimizada para o caso de uso (`otp_sent` explicito quando dispatch ocorre)
+- Resposta sempre uniforme para evitar enumeracao de usuarios (COD-32).
 - OTP eh sempre disparado no canal conhecido (phone via notify), independente
   do campo usado para localizar o usuario.
+- External_id NUNCA eh retornado na resposta — o usuario recebe OTP no phone.
 """
 
 from __future__ import annotations
@@ -12,9 +13,18 @@ from __future__ import annotations
 from fastapi import APIRouter, BackgroundTasks, Request
 from pydantic import BaseModel
 
-from app.api.check import dispatch_otp, lookup_cpf, lookup_phone, try_acquire_otp_slot
+from app.api.check import (
+    _obfuscate_timing,
+    dispatch_otp,
+    lookup_cpf,
+    lookup_phone,
+    try_acquire_otp_slot,
+)
 from app.exceptions import ValidationError
+from app.utils.logging import get_logger
 from app.utils.validation import validate_cpf, validate_phone
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/recover", tags=["recover"])
 
@@ -48,13 +58,30 @@ async def recover(data: RecoverRequest, bg: BackgroundTasks, request: Request) -
             raise ValidationError(str(exc), code="PHONE_INVALID")
         result = await lookup_phone(data.phone)
 
-    if not result.get("found"):
-        return {"found": False}
+    if result.get("found"):
+        external_id = result["external_id"]
+    else:
+        # Usuario nao encontrado — usa IP como chave de rate limit
+        # para evitar que atacante bypass o rate limit trocando de CPF.
+        # Resposta uniforme: mesmo shape de quando encontrado (COD-32).
+        external_id = _dummy_key(request)
+        await _obfuscate_timing()
 
-    external_id = result["external_id"]
     wait = await try_acquire_otp_slot(redis, external_id)
     if wait is not None:
-        return {"found": True, "external_id": external_id, "otp_wait": wait}
+        return {"found": True, "otp_wait": wait}
 
+    # Sempre agenda dispatch — quando usuario nao existe, dispatch_otp
+    # falha silenciosamente (sem efeito externo perceptivel).
     bg.add_task(dispatch_otp, external_id)
-    return {"found": True, "external_id": external_id, "otp_sent": True}
+    return {"found": True, "otp_sent": True}
+
+
+def _dummy_key(request: Request) -> str:
+    """Chave de rate-limit para usuario nao encontrado (baseada em IP).
+
+    Usa IP do cliente como chave para que um atacante nao consiga
+    bypassar o rate limit simplesmente alternando CPFs invalidos.
+    """
+    ip = request.client.host if request.client else "unknown"
+    return f"anon:{ip}"

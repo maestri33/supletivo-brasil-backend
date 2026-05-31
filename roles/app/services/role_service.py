@@ -1,4 +1,8 @@
-"""Lógica de negócio: CRUD de regras, atribuição e promoção de roles (SQLAlchemy 2)."""
+"""Lógica de negócio: atribuição e promoção de roles.
+
+Regras de transição vêm do catálogo lido do `.env` (`services.rule_catalog`).
+A tabela `roles.user_roles` guarda só quem tem qual role agora + histórico.
+"""
 
 from datetime import datetime, timezone
 from uuid import UUID
@@ -8,30 +12,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import NotFound, ValidationError
-from app.models.role_rule import RoleRule
 from app.models.user_role import UserRole
-
-
-# ── Helpers ────────────────────────────────────────────────────────────────
-
-
-async def _get_rule(
-    session: AsyncSession,
-    to_role: str,
-    from_role: str | None = None,
-) -> RoleRule | None:
-    stmt = select(RoleRule).where(RoleRule.to_role == to_role)
-    if from_role is not None:
-        stmt = stmt.where(RoleRule.from_role == from_role)
-    else:
-        stmt = stmt.where(RoleRule.from_role.is_(None))
-    return await session.scalar(stmt.limit(1))
-
-
-async def _get_promotion_rule(session: AsyncSession, to_role: str) -> RoleRule | None:
-    return await session.scalar(
-        select(RoleRule).where(RoleRule.to_role == to_role, RoleRule.mode == "replace").limit(1)
-    )
+from app.services import rule_catalog
+from app.services.rule_catalog import RuleSpec
 
 
 async def _get_active(session: AsyncSession, external_id: UUID) -> list[str]:
@@ -45,7 +28,6 @@ async def _get_active(session: AsyncSession, external_id: UUID) -> list[str]:
 
 
 async def _commit_assignment(session: AsyncSession, external_id: UUID) -> None:
-    """Commita a atribuição; traduz violação de FK (external_id ausente em auth.users)."""
     try:
         await session.commit()
     except IntegrityError as exc:
@@ -56,59 +38,22 @@ async def _commit_assignment(session: AsyncSession, external_id: UUID) -> None:
         ) from exc
 
 
-# ── Role Rules CRUD ────────────────────────────────────────────────────────
+def list_rules() -> list[RuleSpec]:
+    return list(rule_catalog.all_rules())
 
 
-async def list_rules(session: AsyncSession) -> list[RoleRule]:
-    result = await session.scalars(select(RoleRule).order_by(RoleRule.to_role))
-    return list(result.all())
-
-
-async def get_rule_by_id(session: AsyncSession, rule_id: UUID) -> RoleRule:
-    rule = await session.scalar(select(RoleRule).where(RoleRule.id == rule_id))
+def get_rule_by_id(rule_id: UUID) -> RuleSpec:
+    rule = rule_catalog.get_rule_by_id(rule_id)
     if not rule:
         raise NotFound(f"Regra {rule_id} não encontrada", code="ROLE_NOT_FOUND")
     return rule
 
 
-async def create_rule(session: AsyncSession, data) -> RoleRule:
-    rule = RoleRule(
-        from_role=data.from_role,
-        to_role=data.to_role,
-        mode=data.mode,
-        requires_role=data.requires_role,
-        forbids_role=data.forbids_role,
-        blocking=data.blocking,
-    )
-    session.add(rule)
-    await session.commit()
-    await session.refresh(rule)
-    return rule
-
-
-async def update_rule(session: AsyncSession, rule_id: UUID, data) -> RoleRule:
-    rule = await get_rule_by_id(session, rule_id)
-    for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(rule, field, value)
-    await session.commit()
-    await session.refresh(rule)
-    return rule
-
-
-async def delete_rule(session: AsyncSession, rule_id: UUID) -> None:
-    rule = await get_rule_by_id(session, rule_id)
-    await session.delete(rule)
-    await session.commit()
-
-
-# ── Atribuição ─────────────────────────────────────────────────────────────
-
-
 async def assign_role(session: AsyncSession, external_id: UUID, role: str) -> list[str]:
-    rule = await _get_rule(session, to_role=role, from_role=None)
+    rule = rule_catalog.find_rule(to_role=role, from_role=None)
 
     if not rule:
-        any_rule = await session.scalar(select(RoleRule).where(RoleRule.to_role == role).limit(1))
+        any_rule = rule_catalog.find_any_rule(role)
         if any_rule and any_rule.mode == "replace":
             raise ValidationError(
                 f"Role '{role}' não pode ser atribuída diretamente — "
@@ -151,11 +96,8 @@ async def assign_role(session: AsyncSession, external_id: UUID, role: str) -> li
     return await _get_active(session, external_id)
 
 
-# ── Promoção ───────────────────────────────────────────────────────────────
-
-
 async def promote(session: AsyncSession, external_id: UUID, to_role: str) -> list[str]:
-    rule = await _get_promotion_rule(session, to_role)
+    rule = rule_catalog.find_promotion_rule(to_role)
     if not rule:
         raise ValidationError(
             f"Promoção para '{to_role}' não existe",
@@ -205,9 +147,6 @@ async def promote(session: AsyncSession, external_id: UUID, to_role: str) -> lis
     return await _get_active(session, external_id)
 
 
-# ── Leitura ────────────────────────────────────────────────────────────────
-
-
 async def get_roles(session: AsyncSession, external_id: UUID) -> dict:
     roles = await _get_active(session, external_id)
     return {"external_id": str(external_id), "roles": roles}
@@ -231,7 +170,5 @@ async def is_blocked(session: AsyncSession, external_id: UUID) -> bool:
     active = await _get_active(session, external_id)
     if not active:
         return False
-    blocking_rule = await session.scalar(
-        select(RoleRule).where(RoleRule.to_role.in_(active), RoleRule.blocking.is_(True)).limit(1)
-    )
-    return blocking_rule is not None
+    blocking = rule_catalog.blocking_roles()
+    return any(r in blocking for r in active)

@@ -2,7 +2,7 @@
 Reusable FastAPI dependencies.
 """
 
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from app.integrations.http_client import get_http_client
 

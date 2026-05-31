@@ -21,15 +21,11 @@ class AddressClient(BaseClient):
     # ------------------------------------------------------------------
 
     async def create_address(self, **fields) -> dict:
-        resp = await request_with_retry(
-            self.client, "POST", "/api/v1/addresses", json=fields
-        )
+        resp = await request_with_retry(self.client, "POST", "/api/v1/addresses", json=fields)
         return resp.json()
 
     async def get_address(self, address_id: int) -> dict:
-        resp = await request_with_retry(
-            self.client, "GET", f"/api/v1/addresses/{address_id}"
-        )
+        resp = await request_with_retry(self.client, "GET", f"/api/v1/addresses/{address_id}")
         return resp.json()
 
     async def update_address(self, address_id: int, **fields) -> dict:
@@ -39,18 +35,14 @@ class AddressClient(BaseClient):
         return resp.json()
 
     async def delete_address(self, address_id: int) -> None:
-        await request_with_retry(
-            self.client, "DELETE", f"/api/v1/addresses/{address_id}"
-        )
+        await request_with_retry(self.client, "DELETE", f"/api/v1/addresses/{address_id}")
 
     # ------------------------------------------------------------------
     # CEP
     # ------------------------------------------------------------------
 
     async def check_cep(self, cep: str) -> dict:
-        resp = await request_with_retry(
-            self.client, "GET", f"/api/v1/addresses/cep/{cep}"
-        )
+        resp = await request_with_retry(self.client, "GET", f"/api/v1/addresses/cep/{cep}")
         return resp.json()
 
     # ------------------------------------------------------------------
@@ -65,9 +57,7 @@ class AddressClient(BaseClient):
         )
         return resp.json()
 
-    async def update_entity_cep(
-        self, entity_type: str, external_id: str, cep: str
-    ) -> dict:
+    async def update_entity_cep(self, entity_type: str, external_id: str, cep: str) -> dict:
         resp = await request_with_retry(
             self.client,
             "POST",

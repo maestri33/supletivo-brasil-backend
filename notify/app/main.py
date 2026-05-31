@@ -17,6 +17,23 @@ from app.db import async_session_maker, close_db
 from app.exceptions import DomainError
 from app.services import metrics_service, template_service
 from app.utils.logging import configure_logging, get_logger
+from app.metrics import setup_metrics
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
+
+
+def _cors_origins() -> list[str]:
+    """CORS origins: dev/staging permite *, prod exige CORS_ORIGINS (COD-18 P0.2)."""
+    env = os.getenv("ENV", os.getenv("ENVIRONMENT", "development"))
+    if env in ("development", "dev", "staging"):
+        return ["*"]
+    raw = os.getenv("CORS_ORIGINS", "")
+    if raw:
+        return [o.strip() for o in raw.split(",") if o.strip()]
+    return []
+
 
 settings = get_settings()
 configure_logging(settings.log_level, json_mode=settings.env != "dev")
@@ -45,13 +62,34 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── Rate limiting (slowapi) ─────────────────────────────────
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+
+# ── SlowAPI middleware ──────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+
+_origins = _cors_origins()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_origins,
+    allow_credentials=bool(_origins and _origins != ["*"]),
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Security headers (OWASP A05 — COD-18) ────────────────────
+@app.middleware("http")
+async def security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.exception_handler(DomainError)
@@ -101,6 +139,8 @@ async def status() -> dict:
 
 
 app.include_router(api_router, prefix="/api/v1")
+setup_metrics(app)
+
 
 os.makedirs("media", exist_ok=True)
 app.mount("/media", StaticFiles(directory="media"), name="media")

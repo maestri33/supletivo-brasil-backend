@@ -2,8 +2,7 @@
 
 from collections.abc import AsyncIterator
 
-from sqlalchemy import Column, MetaData, Table
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -30,14 +29,6 @@ metadata = MetaData(
 class Base(DeclarativeBase):
     metadata = metadata
 
-
-# Shadow auth.users — necessário pro SQLAlchemy resolver FK cross-schema.
-auth_users = Table(
-    "users",
-    metadata,
-    Column("external_id", PG_UUID(as_uuid=True), primary_key=True),
-    schema="auth",
-)
 
 
 engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)

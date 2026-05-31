@@ -55,7 +55,8 @@ class TemplateUpdate(BaseModel):
         description="Instrucao para a IA editar o HTML atual.",
     )
     is_active: bool | None = Field(
-        default=None, description="Liga/desliga template sem deletar.",
+        default=None,
+        description="Liga/desliga template sem deletar.",
     )
 
 

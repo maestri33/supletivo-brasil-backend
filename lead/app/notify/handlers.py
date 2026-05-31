@@ -74,7 +74,9 @@ async def notify_lead_captured(external_id: str):
         )
         # Persiste audit trail: lead capturado mas mensagem skipped por contact ausente.
         await notify_and_track(
-            external_id, content, event="lead_captured_timeout",
+            external_id,
+            content,
+            event="lead_captured_timeout",
         )
         return
 
@@ -82,7 +84,10 @@ async def notify_lead_captured(external_id: str):
     # perfil) e enviar como voice note no WhatsApp. Fallback automatico pra
     # texto se TTS falhar. Email recebe a versao texto sempre.
     await notify_and_track(
-        external_id, content, flags={"tts": True}, event="lead_captured",
+        external_id,
+        content,
+        flags={"tts": True},
+        event="lead_captured",
     )
 
 
@@ -172,8 +177,7 @@ async def notify_lead_completed(
     installments_line = f" em {inst}x" if (not is_pix and inst > 1) else ""
 
     content_receipt = (
-        tpl_receipt
-        .replace("{{amount}}", amount_str)
+        tpl_receipt.replace("{{amount}}", amount_str)
         .replace("{{installments_line}}", installments_line)
         .replace("{{receipt_url}}", receipt_url or "")
     )

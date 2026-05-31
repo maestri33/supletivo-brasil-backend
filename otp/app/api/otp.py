@@ -21,26 +21,31 @@ router = APIRouter(prefix="/api/v1/otp", tags=["otp"])
 )
 async def create_otp(
     payload: OTPCreate,
-    http=Depends(http_client_dep),
-    session: AsyncSession = Depends(get_session),
+    http=Depends(http_client_dep),  # noqa: B008
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> OTPRead:
     otp_log = await otp_service.generate_and_send(
-        session, http, external_id=payload.external_id,
+        session,
+        http,
+        external_id=payload.external_id,
     )
     return OTPRead.model_validate(otp_log)
 
 
 @router.get("", response_model=list[OTPRead], summary="Listar OTPs")
 async def list_otps(
-    external_id: UUID | None = Query(default=None),
-    status_filter: str | None = Query(default=None, alias="status"),
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
-    session: AsyncSession = Depends(get_session),
+    external_id: UUID | None = Query(default=None),  # noqa: B008
+    status_filter: str | None = Query(default=None, alias="status"),  # noqa: B008
+    limit: int = Query(default=50, ge=1, le=200),  # noqa: B008
+    offset: int = Query(default=0, ge=0),  # noqa: B008
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> list[OTPRead]:
     logs = await otp_service.list_logs(
-        session, external_id=external_id, status=status_filter,
-        limit=limit, offset=offset,
+        session,
+        external_id=external_id,
+        status=status_filter,
+        limit=limit,
+        offset=offset,
     )
     return [OTPRead.model_validate(log) for log in logs]
 
@@ -48,25 +53,31 @@ async def list_otps(
 @router.post("/check", response_model=OTPCheckResponse, summary="Validar OTP")
 async def verify_otp(
     payload: OTPCheck,
-    http=Depends(http_client_dep),
-    session: AsyncSession = Depends(get_session),
+    http=Depends(http_client_dep),  # noqa: B008
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> OTPCheckResponse:
     result = await otp_service.verify_code(
-        session, http, external_id=payload.external_id, code=payload.code,
+        session,
+        http,
+        external_id=payload.external_id,
+        code=payload.code,
     )
     return OTPCheckResponse(**result)
 
 
 @router.get("/logs", response_model=list[OTPRead], summary="Listar logs de OTP")
 async def list_otp_logs(
-    external_id: UUID | None = Query(default=None),
-    status_filter: str | None = Query(default=None, alias="status"),
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
-    session: AsyncSession = Depends(get_session),
+    external_id: UUID | None = Query(default=None),  # noqa: B008
+    status_filter: str | None = Query(default=None, alias="status"),  # noqa: B008
+    limit: int = Query(default=50, ge=1, le=200),  # noqa: B008
+    offset: int = Query(default=0, ge=0),  # noqa: B008
+    session: AsyncSession = Depends(get_session),  # noqa: B008
 ) -> list[OTPRead]:
     logs = await otp_service.list_logs(
-        session, external_id=external_id, status=status_filter,
-        limit=limit, offset=offset,
+        session,
+        external_id=external_id,
+        status=status_filter,
+        limit=limit,
+        offset=offset,
     )
     return [OTPRead.model_validate(log) for log in logs]

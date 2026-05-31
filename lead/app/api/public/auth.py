@@ -4,6 +4,7 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
 from pydantic import Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,10 +27,11 @@ class CheckRequest(APIModel):
 
 
 class CheckResponse(APIModel):
-    found: bool
-    external_id: UUID | None = None
-    valid: bool | None = None
+    otp_sent: bool | None = None
     otp_wait: int | None = None
+    found: bool | None = None
+    external_id: UUID | None = None
+    whatsapp_valid: bool | None = None
 
 
 class LoginRequest(APIModel):
@@ -91,12 +93,11 @@ async def check(payload: CheckRequest):
                 external_id=str(payload.external_id) if payload.external_id else None,
             )
         except httpx.HTTPStatusError as exc:
-            detail = exc.response.text
             try:
-                detail = exc.response.json()
+                body = exc.response.json()
             except Exception:
-                pass
-            raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
+                body = {"detail": exc.response.text}
+            return JSONResponse(status_code=exc.response.status_code, content=body)
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -125,12 +126,11 @@ async def register(
         try:
             result = await AuthClient(client).register(phone=payload.phone, cpf=payload.cpf)
         except httpx.HTTPStatusError as exc:
-            detail = exc.response.text
             try:
-                detail = exc.response.json()
+                body = exc.response.json()
             except Exception:
-                pass
-            raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
+                body = {"detail": exc.response.text}
+            return JSONResponse(status_code=exc.response.status_code, content=body)
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -177,12 +177,11 @@ async def login(payload: LoginRequest, session: AsyncSession = Depends(get_sessi
                 external_id=str(payload.external_id), otp=payload.otp
             )
         except httpx.HTTPStatusError as exc:
-            detail = exc.response.text
             try:
-                detail = exc.response.json()
+                body = exc.response.json()
             except Exception:
-                pass
-            raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
+                body = {"detail": exc.response.text}
+            return JSONResponse(status_code=exc.response.status_code, content=body)
 
     lead = await session.scalar(select(Lead).where(Lead.external_id == payload.external_id))
 
@@ -202,11 +201,10 @@ async def refresh(payload: RefreshRequest):
         try:
             tokens = await JwtClient(client).refresh_token(payload.refresh_token)
         except httpx.HTTPStatusError as exc:
-            detail = exc.response.text
             try:
-                detail = exc.response.json()
+                body = exc.response.json()
             except Exception:
-                pass
-            raise HTTPException(status_code=exc.response.status_code, detail=detail) from exc
+                body = {"detail": exc.response.text}
+            return JSONResponse(status_code=exc.response.status_code, content=body)
 
     return RefreshResponse(**tokens)
